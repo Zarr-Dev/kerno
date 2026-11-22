@@ -628,6 +628,7 @@ SECTIONS
 
   function renderTree() {
     const host = $("#fileTree");
+    if (!host) return;
     host.innerHTML = "";
     const tree = buildTreeData();
     renderTreeChildren(host, tree);
@@ -657,6 +658,7 @@ SECTIONS
     ensureModel(nextPath);
     setActiveFile(state.activeFile);
     updateSplitSelect();
+    if (state.splitEditor) state.splitEditor.setModel(ensureModel(state.splitFile));
     saveWorkspace(true);
     toast("File renamed", oldPath + " → " + nextPath);
   }
@@ -678,6 +680,7 @@ SECTIONS
     if (!state.openTabs.length) state.openTabs.push(state.activeFile);
     setActiveFile(state.activeFile);
     updateSplitSelect();
+    if (state.splitEditor) state.splitEditor.setModel(ensureModel(state.splitFile));
     saveWorkspace(true);
     toast("File removed", path);
   }
@@ -847,7 +850,7 @@ SECTIONS
   function setProjectName(name) {
     state.projectName = String(name || "Untitled OS").trim().slice(0, 48) || "Untitled OS";
     $("#projectNameLabel").textContent = state.projectName;
-    $("#sideProjectName").textContent = state.projectName;
+    if ($("#sideProjectName")) $("#sideProjectName").textContent = state.projectName;
   }
 
   function applyTheme() {
@@ -1004,12 +1007,13 @@ SECTIONS
   function showFallbackEditor() {
     $("#fallbackEditor").style.display = "block";
     $("#fallbackEditor").value = state.files[state.activeFile]?.content || "";
-    $("#fallbackEditor").addEventListener("input", () => {
+    $("#fallbackEditor").oninput = () => {
+      if (!state.files[state.activeFile]) return;
       state.files[state.activeFile].content = $("#fallbackEditor").value;
       markDirty(state.activeFile);
-    });
-    $("#fallbackEditor").addEventListener("keyup", updateCursorFromFallback);
-    $("#fallbackEditor").addEventListener("click", updateCursorFromFallback);
+    };
+    $("#fallbackEditor").onkeyup = updateCursorFromFallback;
+    $("#fallbackEditor").onclick = updateCursorFromFallback;
   }
 
   function updateCursorFromFallback() {
@@ -1379,8 +1383,8 @@ void framebuffer_initialize(const Framebuffer& framebuffer) {
   }
 
   function wireEvents() {
+    $("#newProjectButton").addEventListener("click", () => $("#newProjectModal").classList.remove("hidden"));
     $("#importButton").addEventListener("click", () => $("#importInput").click());
-    $("#importFolderButton").addEventListener("click", () => $("#folderInput").click());
     $("#importInput").addEventListener("change", event => { importFiles(event.target.files); event.target.value = ""; });
     $("#folderInput").addEventListener("change", event => { importFiles(event.target.files); event.target.value = ""; });
     $("#exportFileButton").addEventListener("click", exportActiveFile);
