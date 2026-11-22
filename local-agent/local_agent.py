@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("KERNO_LOCAL_PORT", "8765"))
 MAX_REQUEST = 24 * 1024 * 1024
