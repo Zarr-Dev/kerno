@@ -1,0 +1,16 @@
+const fs=require("node:fs");
+const html=fs.readFileSync("index.html","utf8");
+const script=fs.readFileSync("script.js","utf8");
+const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+const duplicates=ids.filter((id,index)=>ids.indexOf(id)!==index);
+if(duplicates.length)throw new Error("Duplicate HTML IDs: "+[...new Set(duplicates)].join(", "));
+const stages=[...html.matchAll(/data-tutorial-step="(\d+)"/g)].map(m=>Number(m[1]));
+if(stages.length!==9||stages.some((stage,index)=>stage!==index))throw new Error("Academy must contain nine ordered stages (0–8).");
+const match=script.match(/const UI_COPY = ([\s\S]*?);\n\nconst state=/);
+if(!match)throw new Error("UI_COPY dictionary is missing.");
+const copy=Function("return ("+match[1]+")")();
+const required=[...html.matchAll(/data-i18n="((?:landing|academy|wizard|settings|workspace|machine|build)\.[^"]+)"/g)].map(m=>m[1]);
+for(const locale of ["en","id"])for(const key of required)if(typeof copy[locale]?.[key]!=="string"||!copy[locale][key].trim())throw new Error("Missing "+locale+" translation: "+key);
+for(const id of ["welcomeScreen","tutorialScreen","newProjectScreen","settingsScreen","appScreen","buildHealthChecks"])if(!ids.includes(id))throw new Error("Missing UI element: "+id);
+if(!html.includes("x86_64 · BIOS · GRUB · Multiboot2"))throw new Error("The supported native target must be stated.");
+console.log("UI audit passed: "+ids.length+" IDs, nine Academy stages and "+required.length+" bilingual interface strings.");
