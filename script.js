@@ -53,7 +53,7 @@ const LANGUAGES = {
   it:{settings:"Impostazioni",back:"Indietro",welcomeTitle:"Costruisci il tuo sistema operativo.",welcomeSubtitle:"Ambiente dedicato a kernel, macchina, memoria ed emulazione.",newProject:"Nuovo progetto",newProjectDesc:"Crea un workspace OS da un modello kernel.",loadProject:"Carica progetto",loadProjectDesc:"Apri un archivio Kerno o una cartella sorgente.",configureIDE:"Configura IDE",configureDesc:"Imposta lingua, aspetto e strumenti locali.",recentProjects:"Progetti recenti",noRecent:"Nessun progetto recente",noRecentDesc:"Crea o carica un progetto OS.",createWorkspace:"Crea workspace",projectName:"Nome progetto",starterTemplate:"Modello iniziale",architecture:"Architettura",firmware:"Firmware",kernelLanguage:"Linguaggio kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtuali",applySettings:"Applica impostazioni",general:"Generale",appearance:"Aspetto",language:"Lingua",editor:"Editor",osArchitecture:"OS e Architettura",memory:"Memoria",emulator:"QEMU ed emulatore",toolchain:"Toolchain",storage:"Archiviazione e dati",advanced:"Avanzate",source:"Sorgente",machine:"Macchina",build:"Build",importFiles:"Importa file",exportProject:"Esporta progetto",buildBoot:"Build & Boot",projectFiles:"File progetto",cancel:"Annulla",machineDisplay:"Display macchina",noMachineSession:"Nessuna sessione",connectQemuPrompt:"Connetti Kerno Local Service per avviare QEMU."}
 };
 
-const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
 function activeLocale(){if(state.settings.locale!=="auto")return state.settings.locale;const detected=String(navigator.language||"en").split("-")[0].toLowerCase();return LANGUAGES[detected]?detected:"en";}
 function tr(k){const locale=activeLocale();return (LANGUAGES[locale]&&LANGUAGES[locale][k])||LANGUAGES.en[k]||k;}
 function translate(){const locale=activeLocale();$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=locale;document.documentElement.dir=locale==="ar"?"rtl":"ltr";}
@@ -1419,6 +1419,57 @@ async function stopQemu(){
   }
 }
 function payload(){syncEditor();return {id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files};}
+function renderBuildHealth(checks,building=false){
+  const host=$("#buildHealthChecks");
+  if(!host)return;
+  host.innerHTML="";
+  if(building){
+    const note=document.createElement("p");note.className="build-health-note";
+    note.textContent="Build submitted to Kerno Local Service. Waiting for the native pipeline to return its phase-by-phase checks; no simulated progress is shown.";
+    host.append(note);
+    return;
+  }
+  const entries=Array.isArray(checks)?checks:[];
+  if(!entries.length){
+    const empty=document.createElement("p");empty.className="build-health-note";
+    empty.textContent="The Local Agent did not return build health checks. This result cannot be treated as an ISO validation report.";
+    host.append(empty);return;
+  }
+  const heading=document.createElement("div");heading.className="build-health-heading";
+  const title=document.createElement("strong");title.textContent="BUILD HEALTH REPORT";
+  const count=document.createElement("span");
+  const failed=entries.filter(item=>item.status==="failed").length;
+  const passed=entries.filter(item=>item.status==="passed").length;
+  const warnings=entries.filter(item=>item.status==="warning").length;
+  count.textContent=passed+" passed · "+warnings+" warning · "+failed+" failed";
+  heading.append(title,count);host.append(heading);
+  entries.forEach(item=>{
+    const row=document.createElement("div");row.className="build-health-row "+(item.status||"pending");
+    const mark=document.createElement("span");mark.className="build-health-mark";
+    mark.textContent=item.status==="passed"?"✓":item.status==="failed"?"!":item.status==="warning"?"△":"·";
+    const copy=document.createElement("div");copy.className="build-health-copy";
+    const name=document.createElement("strong");name.textContent=item.stage||"Unnamed check";
+    const detail=document.createElement("small");detail.textContent=item.detail||item.status||"No detail";
+    copy.append(name,detail);row.append(mark,copy);host.append(row);
+  });
+}
+function buildHealthIsComplete(checks){
+  if(!Array.isArray(checks)||checks.some(item=>item.status==="failed"))return false;
+  const passed=new Set(checks.filter(item=>item.status==="passed").map(item=>item.stage));
+  return [
+    "Project manifest and target","Native toolchain health","Assembly",
+    "Freestanding C/C++ compilation","ELF64 x86_64 linking and entry validation",
+    "Multiboot2 header validation","ISO9660 filesystem","El Torito BIOS boot catalog",
+    "ISO boot-file layout","Artifact integrity"
+  ].every(stage=>passed.has(stage));
+}
+function verifyBootMarker(serial){
+  if(!state.kernelEntryConfirmed&&/KERNO:\s*kernel entry reached\./i.test(String(serial||""))){
+    state.kernelEntryConfirmed=true;
+    $("#buildStateLabel").textContent="KERNEL ENTRY CONFIRMED";
+    notify("Kernel entry confirmed","The guest emitted the expected COM1 startup marker.");
+  }
+}
 function renderArtifactDownload(artifact){
   const host=$("#artifactDownloads");
   if(!host)return;
@@ -1434,6 +1485,11 @@ function renderArtifactDownload(artifact){
     try{
       KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
       const blob=await KernoLocalService.downloadArtifact(artifact.id);
+      if(artifact.sha256&&window.crypto&&crypto.subtle){
+        const digest=await crypto.subtle.digest("SHA-256",await blob.arrayBuffer());
+        const actual=Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,"0")).join("");
+        if(actual.toLowerCase()!==String(artifact.sha256).toLowerCase())throw Error("Downloaded ISO checksum does not match the verified build artifact.");
+      }
       download(blob,artifact.name||"kerno-kernel.iso");
       button.textContent="ISO downloaded · "+(artifact.name||"kernel.iso");
       notify("ISO artifact downloaded",artifact.name||"Kernel image");
@@ -1450,21 +1506,32 @@ async function nativeBuild(bootAfter){
   if(!state.localConnected&&!await testService())return;
   $("#runBuildButton").disabled=true;
   $("#buildProjectButton").disabled=true;
-  $("#buildStateLabel").textContent="SUBMITTED";
-  $("#buildLog").textContent="Submitting native build request…\\n";
+  $("#buildStateLabel").textContent="BUILDING · HEALTH CHECKS";
+  $("#buildHealthChecks").classList.add("is-building");
+  renderBuildHealth([],true);
+  $("#buildLog").textContent="Submitting native build request to Kerno Local Service…\\n";
   try{
     const result=await KernoLocalService.build(payload(),state.settings);
     const status=String(result.status||"").toLowerCase();
+    renderBuildHealth(result.healthChecks||[],false);
     if(!["success","failed","cancelled"].includes(status))throw Error("Build service returned an unknown terminal status.");
     $("#buildStateLabel").textContent=status.toUpperCase();
     $("#buildLog").textContent=(result.log||result.message||"Build "+status)+"\\n";
     if(status!=="success"){
-      notify("Native build "+status,result.message||"Review the build output.");
+      notify("Native build "+status,result.message||"Review the build health report.","error");
       return;
     }
     if(!result.artifact){
       $("#buildStateLabel").textContent="ARTIFACT MISSING";
       throw Error("The service reported success but did not return a verified artifact.");
+    }
+    if(!buildHealthIsComplete(result.healthChecks)){
+      $("#buildStateLabel").textContent="HEALTH CHECK INCOMPLETE";
+      throw Error("The Local Agent reported success without every required kernel and ISO health check passing.");
+    }
+    if(!/^[a-f0-9]{64}$/i.test(String(result.artifact.sha256||""))){
+      $("#buildStateLabel").textContent="CHECKSUM MISSING";
+      throw Error("The Local Agent did not return a valid SHA-256 checksum for the ISO.");
     }
     notify("Native build completed",result.artifact.name||"Artifact returned by Kerno Local Service.");
     $("#buildLog").textContent+="Verified artifact: "+(result.artifact.name||"unnamed")+" ("+Number(result.artifact.sizeBytes||0)+" bytes)\\n";
@@ -1476,14 +1543,17 @@ async function nativeBuild(bootAfter){
       setServiceStatus(true,"QEMU running");
       if(boot.displayUrl)showDisplay(boot.displayUrl);
       state.lastSerialOutput=String(boot.serialOutput||"");
+      state.kernelEntryConfirmed=false;
+      verifyBootMarker(state.lastSerialOutput);
       $("#serialOutput").textContent=state.lastSerialOutput||"Waiting for serial output…";
       $("#startQemuButton").disabled=true;
       $("#stopQemuButton").disabled=false;
+      if(Array.isArray(boot.healthChecks))renderBuildHealth((result.healthChecks||[]).concat(boot.healthChecks),false);
       startQemuPolling();
-      $("#buildLog").textContent+="QEMU session confirmed by local service.\\n";
-      $("#buildStateLabel").textContent="BUILD + BOOT READY";
+      $("#buildLog").textContent+="QEMU process is running. Waiting for the kernel COM1 entry marker.\\n";
+      if(!state.kernelEntryConfirmed)$("#buildStateLabel").textContent="QEMU RUNNING · AWAITING KERNEL ENTRY";
       switchWorkspace("machine");
-      notify("Build & Boot completed","The local service confirmed the QEMU session.");
+      notify("QEMU session started","Process confirmed. Kernel entry will be verified from serial output.");
     }
   }catch(error){
     $("#buildStateLabel").textContent="OPERATION ERROR";
