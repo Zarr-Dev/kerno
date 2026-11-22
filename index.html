@@ -30,15 +30,50 @@
 
   <main class="screen welcome-screen" id="welcomeScreen">
     <header class="welcome-top">
-      <div class="brand-lockup"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small>OS DEVELOPMENT ENVIRONMENT</small></span></div>
-      <div class="welcome-top-actions"><nav class="landing-nav" aria-label="Main navigation"><button class="landing-nav-link" id="landingFeaturesButton" type="button">Platform</button><button class="landing-nav-link" id="landingWorkflowButton" type="button">Workflow</button><button class="landing-nav-link" id="landingTutorialButton" type="button">Tutorial</button></nav><span class="local-status"><i></i> LOCAL WORKSPACE</span><button class="quiet-button" id="welcomeLoadFolder">Open folder</button><button class="quiet-button" id="themeToggleWelcome" title="Cycle color theme" aria-label="Cycle color theme">◐ Theme</button><button class="quiet-button" id="welcomeSettingsButton" data-i18n="settings">Settings</button></div>
-    </header>
-    <section class="welcome-content">
-      <div class="welcome-intro">
-        <span class="section-kicker">KERNEL ENGINEERING WORKSPACE</span>
-        <h1 data-i18n="welcomeTitle">Build your operating system.</h1>
-        <p data-i18n="welcomeSubtitle">A focused environment for kernel source, machine configuration, memory planning and emulator workflows.</p><div class="hero-proof"><span><b>01</b> Kernel workspace</span><span><b>02</b> Native toolchain</span><span><b>03</b> QEMU machine lab</span></div><div class="hero-cta-row"><button class="primary-button hero-primary-cta" id="heroStartButton" type="button">Start building <span aria-hidden="true">↗</span></button><button class="hero-secondary-cta" id="heroTutorialButton" type="button">Explore the learning path <span aria-hidden="true">→</span></button></div>
+      <div class="brand-lockup" aria-label="Kerno OS Development Environment"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small>OS DEVELOPMENT ENVIRONMENT</small></span></div>
+      <nav class="landing-nav" aria-label="Explore Kerno">
+        <button class="landing-nav-link" id="landingFeaturesButton" type="button">Platform</button>
+        <button class="landing-nav-link" id="landingWorkflowButton" type="button">Workflow</button>
+        <button class="landing-nav-link" id="landingTutorialButton" type="button">Academy</button>
+      </nav>
+      <div class="welcome-top-actions">
+        <button class="quiet-button header-open-button" id="welcomeLoadFolder" type="button">Open folder</button>
+        <button class="quiet-button" id="themeToggleWelcome" title="Cycle color theme" aria-label="Cycle color theme">◐ Theme</button>
+        <button class="quiet-button header-settings-button" id="welcomeSettingsButton" data-i18n="settings" type="button">Settings</button>
       </div>
+    </header>der>
+    <section class="welcome-content">
+      <section class="hero-banner" id="heroBanner" aria-labelledby="heroTitle">
+        <div class="hero-layout">
+          <div class="welcome-intro">
+            <span class="section-kicker">KERNEL ENGINEERING · BROWSER IDE</span>
+            <h1 id="heroTitle" data-i18n="welcomeTitle">Build an OS from the first instruction.</h1>
+            <p data-i18n="welcomeSubtitle">Kerno is a focused IDE for writing C, C++, Assembly and Python, shaping a kernel project, validating a native build, and testing a bootable image in QEMU.</p>
+            <div class="hero-proof" aria-label="Core capabilities">
+              <span><b>C</b> C / C++ kernel source</span><span><b>ASM</b> Assembly boot code</span><span><b>ISO</b> Build, verify and boot</span>
+            </div>
+            <div class="hero-cta-row">
+              <button class="primary-button hero-primary-cta" id="heroStartButton" type="button">Create an OS project <span aria-hidden="true">↗</span></button>
+              <button class="hero-secondary-cta" id="heroTutorialButton" type="button">Explore the learning path <span aria-hidden="true">→</span></button>
+            </div>
+          </div>
+          <aside class="hero-visual" aria-label="Preview of the Kerno kernel source editor">
+            <div class="hero-visual-top"><div class="hero-file-tab"><span class="hero-file-dot"></span><strong>kernel.cpp</strong></div><span class="hero-target">X86_64 · C++</span></div>
+            <div class="hero-code" aria-hidden="true">
+              <div><span class="hero-line-number">01</span><code><i>extern</i> <b>"C"</b> <i>void</i> <strong>kernel_main</strong>() {</code></div>
+              <div><span class="hero-line-number">02</span><code>&nbsp;&nbsp;<em>serial_write</em>(<b>"Kerno ready"</b>);</code></div>
+              <div><span class="hero-line-number">03</span><code>&nbsp;&nbsp;<i>for</i> (;;) { <em>__asm__</em>(<b>"hlt"</b>); }</code></div>
+              <div><span class="hero-line-number">04</span><code>}</code></div>
+            </div>
+            <div class="hero-visual-bottom"><span><i class="hero-status-dot"></i> Syntax-colored source</span><span>BUILD <b>→</b> ISO <b>→</b> QEMU</span></div>
+          </aside>
+        </div>
+        <div class="hero-footnote">
+          <span><strong>Browser IDE</strong> for editing and project setup</span>
+          <span><strong>Local Agent</strong> for native compiler, ISO tools and QEMU</span>
+          <span class="hero-target-note">Current native build target: x86_64 · BIOS · GRUB · Multiboot2</span>
+        </div>
+      </section>
       <div class="welcome-actions">
         <button class="welcome-card primary-card" id="welcomeNewProject">
           <span class="action-icon">＋</span><strong data-i18n="newProject">New project</strong><span data-i18n="newProjectDesc">Create a structured OS workspace from a kernel template.</span><b data-i18n="startArrow">Start a project →</b>
@@ -344,7 +379,7 @@ kerno.project.json</div>
         <div class="editor-toolbar"><div class="editor-breadcrumb" id="editorBreadcrumb">Select a source file</div><div class="editor-toolbar-actions"><button class="editor-tool" id="splitEditorButton">Split editor</button><button class="editor-tool" id="saveFileButton">Save file</button><button class="editor-tool" id="exportFileButton">Export file</button></div></div>
         <div class="source-tabs" id="sourceTabs"></div>
         <div class="editor-container" id="editorContainer"><div class="monaco-pane" id="monacoPane"></div><textarea id="plainEditor" spellcheck="false" aria-label="Kernel source editor"></textarea><div class="editor-empty hidden" id="editorEmpty"><span>⌘</span><strong>No source file selected</strong><p>Choose a file from the project tree or create a new source module.</p><button class="quiet-button" id="emptyNewFileButton">Create source file</button></div><div class="split-editor-pane hidden" id="splitPane"><div class="split-pane-heading"><span>SECOND SOURCE</span><select id="splitFileSelect"></select><button class="mini-button" id="closeSplitButton">×</button></div><div id="splitMonacoPane"></div></div></div>
-        <footer class="editor-status"><span id="editorStatus">Workspace ready</span><span id="cursorPosition">Ln 1, Col 1</span><span id="languageMode">Plain Text</span><span id="encodingStatus">UTF-8 · LF</span></footer>
+        <footer class="editor-status"><span id="editorStatus">Workspace ready</span><span id="diagnosticSummary" class="diagnostic-summary">Quick check ready</span><span id="cursorPosition">Ln 1, Col 1</span><span id="languageMode">Plain Text</span><span id="encodingStatus">UTF-8 · LF</span></footer>
       </section>
     </section>
 
