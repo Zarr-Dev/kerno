@@ -1420,6 +1420,62 @@ async function checkToolchain(){
     host.append(details);
   }catch(error){host.textContent="Unavailable · "+error.message;}
 }
+
+async function scanHostPc(){
+  const host=$("#hostDiagnosticsResult"),status=$("#hostDiagnosticsStatus");
+  if(!host||!status)return;
+  host.textContent="Scanning host hardware, runtime and PATH…";status.textContent="Scanning…";
+  try{
+    KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+    const data=await KernoLocalService.hostDiagnostics(state.settings),memory=data.memory||{};
+    const items=[
+      ["Operating system",data.platform||data.system||"Unknown"],
+      ["CPU architecture",data.machine||"Unknown"],
+      ["Processor",String(data.processor||"Not reported")+" · "+String(data.logicalCpus||"—")+" logical CPUs"],
+      ["Physical memory",memory.totalMiB==null?"Not reported":formatBytes(memory.totalMiB*1048576)+" total · "+formatBytes((memory.availableMiB||0)*1048576)+" available"],
+      ["Python runtime",data.pythonVersion||"Unknown"],
+      ["Command environment",data.commandPrompt||"Unknown"]
+    ];
+    host.innerHTML="";
+    const grid=document.createElement("div");grid.className="host-summary-grid";
+    items.forEach(([label,value])=>{const card=document.createElement("div");card.className="host-summary-card";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;card.append(small,strong);grid.append(card);});
+    host.append(grid);
+    const heading=document.createElement("h4");heading.className="host-tools-heading";heading.textContent="Detected native tools";host.append(heading);
+    const tools=document.createElement("div");tools.className="host-tool-chips";
+    Object.entries(data.toolchain||{}).forEach(([name,tool])=>{const chip=document.createElement("span");chip.className="host-tool-chip "+(tool&&tool.available?"available":"missing");chip.textContent=name+(tool&&tool.available?" · ready":" · missing");chip.title=tool&&tool.path?tool.path:(tool&&tool.command)||name;tools.append(chip);});
+    host.append(tools);status.textContent="Host scan completed";
+    notify("PC diagnostics completed",String(data.system||"Host")+" · "+String(data.logicalCpus||"")+" logical CPUs");
+  }catch(error){host.textContent="Host scan unavailable · "+error.message;status.textContent="Service unavailable";notify("PC diagnostics unavailable",error.message,"error");}
+}
+async function copyCommandPromptChecks(){
+  const commands=["@echo off","echo Kerno host and toolchain diagnostics","echo ===================================","where python 2>nul && python --version","where nasm 2>nul && nasm --version","where x86_64-elf-gcc 2>nul && x86_64-elf-gcc --version","where x86_64-elf-g++ 2>nul && x86_64-elf-g++ --version","where x86_64-elf-ld 2>nul","where grub-mkrescue 2>nul && grub-mkrescue --version","where xorriso 2>nul && xorriso --version","where qemu-system-x86_64 2>nul && qemu-system-x86_64 --version","echo.","echo Install missing tools from their official sources and ensure their bin folders are on PATH.","pause"].join("\r\n");
+  try{
+    if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(commands);
+    else{const temp=document.createElement("textarea");temp.value=commands;temp.style.position="fixed";temp.style.opacity="0";document.body.append(temp);temp.select();const copied=document.execCommand("copy");temp.remove();if(!copied)throw Error("Clipboard access unavailable.");}
+    notify("CMD diagnostics copied","Paste into Command Prompt. The checks are read-only.");
+  }catch(error){notify("Could not copy CMD checks",error.message,"error");}
+}
+async function quickOpenFile(){
+  if(!state.project)return;
+  const hint=await promptInApp("Type part or all of a relative source path. Example: src/kernel.cpp",state.activeFile||"","Quick open file");
+  if(!hint)return;
+  const query=hint.toLowerCase(),paths=Object.keys(state.project.files).sort();
+  const exact=paths.find(path=>path.toLowerCase()===query);
+  const matches=paths.filter(path=>path.toLowerCase().includes(query));
+  if(exact){openFile(exact);return;}
+  if(matches.length===1){openFile(matches[0]);return;}
+  if(matches.length>1){
+    const selected=await promptInApp("Matching files:\n"+matches.slice(0,12).join("\n")+"\n\nEnter the exact relative path to open.",matches[0],"Choose source file");
+    if(selected&&state.project.files[selected]!==undefined)openFile(selected);else notify("File not found","Use an exact path from the Project Explorer.","error");
+    return;
+  }
+  notify("No matching source file",hint,"error");
+}
+function cycleEditorTab(direction){
+  if(!state.tabs.length)return;
+  const index=Math.max(0,state.tabs.indexOf(state.activeFile));
+  openFile(state.tabs[(index+direction+state.tabs.length)%state.tabs.length]);
+}
 async function loadArchive(file){const p={id:makeId(),name:file.name.replace(/\.(zip|kerno|json)$/i,""),config:configFor("Imported OS"),files:{},createdAt:Date.now(),updatedAt:Date.now()};state.project=p;if(file.name.toLowerCase().endsWith(".json")){const m=JSON.parse(await file.text());if(m.format!=="kerno-project"||!m.files)throw Error("Not a Kerno project manifest.");p.name=m.name||p.name;p.config=Object.assign(p.config,m.config||{});p.files=m.files;}else{const r=await importZip(file);if(!r.n)throw Error("No supported text source files found.");}p.files=cleanFiles(p.files);if(!Object.keys(p.files).length)throw Error("Project archive contains no supported source files.");await saveProject(true);await openProject();notify("Project loaded",p.name);}
 function cleanFiles(files){const out={};let total=0;Object.entries(files).forEach(([raw,text])=>{const path=normalizePath(raw);if(!path||binaryPath(path)||typeof text!=="string")return;const size=new Blob([text]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT)return;total+=size;out[path]=text;});return out;}
 function openSettings(from){
