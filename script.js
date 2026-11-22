@@ -459,6 +459,7 @@ SECTIONS
   $("#themeButton").addEventListener("click", toggleTheme);
   $("#layoutButton").addEventListener("click", togglePanel);
   $("#buildButton").addEventListener("click", runBuildDemo);
+  $("#newProjectButton").addEventListener("click", () => $("#projectModal").classList.remove("hidden"));
   $("#closePanel").addEventListener("click", togglePanel);
   $("#maximizePanel").addEventListener("click", () => {
     state.panelMaximized = !state.panelMaximized;
