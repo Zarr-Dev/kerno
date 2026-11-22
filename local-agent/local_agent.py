@@ -294,6 +294,9 @@ def build_project(payload: dict) -> dict:
     if not BUILD_LOCK.acquire(blocking=False):
         return {"status": "failed", "message": "Another Kerno build is already running. Wait for it to finish.", "log": "Build lock is occupied."}
     logs: list[str] = []
+    workspace: Path | None = None
+    keep_build_logs = True
+    build_log_path = LOGS / ("build-" + uuid.uuid4().hex + ".log")
     try:
         project = read_project(payload)
         config = project["config"]
@@ -313,6 +316,11 @@ def build_project(payload: dict) -> dict:
             raise RuntimeError("The x86_64 entry source is not the Kerno Multiboot2 long-mode scaffold. Regenerate or update boot/entry.asm first.")
 
         settings = payload.get("settings") or {}
+        diagnostics = config.get("diagnostics") or {}
+        keep_build_logs = bool(diagnostics.get("retainBuildLogs", settings.get("retainBuildLogs", True)))
+        log_level = {"quiet": 0, "error": 1, "warn": 2, "info": 3, "debug": 4}.get(
+            str(diagnostics.get("logLevel", settings.get("kernelLogLevel", "info"))), 3
+        )
         nasm = executable(settings.get("assembler"), "nasm")
         cpp_compiler = executable(settings.get("crossCompiler"), "x86_64-elf-g++")
         c_compiler = executable(settings.get("cCompiler"), "x86_64-elf-gcc")
@@ -334,7 +342,6 @@ def build_project(payload: dict) -> dict:
         iso_root = workspace / "iso-root"
         output.mkdir(parents=True, exist_ok=True)
         write_project(project, workspace)
-        log_file = workspace / "build.log"
         logs.append("Kerno native build · " + project["name"])
         logs.append("Target: x86_64 / BIOS / GRUB Multiboot2")
         logs.append("Source size: " + str(project["total_bytes"]) + " bytes")
@@ -344,7 +351,11 @@ def build_project(payload: dict) -> dict:
         for relative in asm_files:
             source = workspace.joinpath(*PurePosixPath(relative).parts)
             object_path = output / (safe_name(source.stem) + ".asm.o")
-            run_command([nasm, "-f", "elf64", "-g", "-F", "dwarf", str(source), "-o", str(object_path)], workspace, logs)
+            nasm_args = [nasm, "-f", "elf64"]
+            if bool(diagnostics.get("debugSymbols", settings.get("debugSymbols", True))):
+                nasm_args.extend(["-g", "-F", "dwarf"])
+            nasm_args.extend([str(source), "-o", str(object_path)])
+            run_command(nasm_args, workspace, logs)
             object_files.append(str(object_path))
 
         source_files = sorted(
@@ -356,11 +367,10 @@ def build_project(payload: dict) -> dict:
         for relative in source_files:
             source = workspace.joinpath(*PurePosixPath(relative).parts)
             object_path = output / (hashlib.sha1(relative.encode("utf-8")).hexdigest()[:12] + ".o")
-            diagnostics = config.get("diagnostics") or {}
             is_c_source = source.suffix == ".c"
             selected_compiler = c_compiler if is_c_source else cpp_compiler
             args = [
-                selected_compiler, "-m64", "-mcmodel=kernel", "-mno-red-zone", "-ffreestanding",
+                selected_compiler, "-DKERNO_KERNEL_LOG_LEVEL=" + str(log_level), "-m64", "-mcmodel=kernel", "-mno-red-zone", "-ffreestanding",
                 "-fno-stack-protector", "-fno-pic", "-fno-pie", "-fno-builtin",
                 "-mno-mmx", "-mno-sse", "-mno-sse2", opt_flag,
                 "-Wall", "-Wextra", "-I", str(workspace / "include"), "-c", str(source), "-o", str(object_path)
@@ -412,7 +422,8 @@ def build_project(payload: dict) -> dict:
             PROJECT_ARTIFACTS[project["id"]] = artifact_id
         logs.append("Verified Multiboot2 header and 64-bit ELF output.")
         logs.append("ISO artifact: " + artifact_name + " (" + str(metadata["size_bytes"]) + " bytes)")
-        log_file.write_text("\n".join(logs) + "\n", encoding="utf-8")
+        if keep_build_logs:
+            build_log_path.write_text("\n".join(logs) + "\n", encoding="utf-8")
         return {
             "status": "success",
             "message": "Native build completed and the ISO artifact was verified.",
@@ -426,11 +437,23 @@ def build_project(payload: dict) -> dict:
         }
     except (ValueError, FileNotFoundError, RuntimeError, subprocess.TimeoutExpired) as error:
         logs.append("BUILD FAILED: " + str(error))
+        if keep_build_logs:
+            try:
+                build_log_path.write_text("\n".join(logs) + "\n", encoding="utf-8")
+            except OSError:
+                pass
         return {"status": "failed", "message": str(error), "log": "\n".join(logs)}
     except Exception as error:
         logs.append("UNEXPECTED BUILD ERROR: " + str(error))
+        if keep_build_logs:
+            try:
+                build_log_path.write_text("\n".join(logs) + "\n", encoding="utf-8")
+            except OSError:
+                pass
         return {"status": "failed", "message": "Unexpected local build service error: " + str(error), "log": "\n".join(logs)}
     finally:
+        if workspace is not None:
+            shutil.rmtree(workspace, ignore_errors=True)
         BUILD_LOCK.release()
 
 
