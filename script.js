@@ -53,7 +53,7 @@ const LANGUAGES = {
   it:{settings:"Impostazioni",back:"Indietro",welcomeTitle:"Costruisci il tuo sistema operativo.",welcomeSubtitle:"Ambiente dedicato a kernel, macchina, memoria ed emulazione.",newProject:"Nuovo progetto",newProjectDesc:"Crea un workspace OS da un modello kernel.",loadProject:"Carica progetto",loadProjectDesc:"Apri un archivio Kerno o una cartella sorgente.",configureIDE:"Configura IDE",configureDesc:"Imposta lingua, aspetto e strumenti locali.",recentProjects:"Progetti recenti",noRecent:"Nessun progetto recente",noRecentDesc:"Crea o carica un progetto OS.",createWorkspace:"Crea workspace",projectName:"Nome progetto",starterTemplate:"Modello iniziale",architecture:"Architettura",firmware:"Firmware",kernelLanguage:"Linguaggio kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtuali",applySettings:"Applica impostazioni",general:"Generale",appearance:"Aspetto",language:"Lingua",editor:"Editor",osArchitecture:"OS e Architettura",memory:"Memoria",emulator:"QEMU ed emulatore",toolchain:"Toolchain",storage:"Archiviazione e dati",advanced:"Avanzate",source:"Sorgente",machine:"Macchina",build:"Build",importFiles:"Importa file",exportProject:"Esporta progetto",buildBoot:"Build & Boot",projectFiles:"File progetto",cancel:"Annulla",machineDisplay:"Display macchina",noMachineSession:"Nessuna sessione",connectQemuPrompt:"Connetti Kerno Local Service per avviare QEMU."}
 };
 
-const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",newProjectReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
 function activeLocale(){if(state.settings.locale!=="auto")return state.settings.locale;const detected=String(navigator.language||"en").split("-")[0].toLowerCase();return LANGUAGES[detected]?detected:"en";}
 function tr(k){const locale=activeLocale();return (LANGUAGES[locale]&&LANGUAGES[locale][k])||LANGUAGES.en[k]||k;}
 function translate(){const locale=activeLocale();$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=locale;document.documentElement.dir=locale==="ar"?"rtl":"ltr";}
@@ -249,7 +249,7 @@ async function handleTutorialAction(action){
     state.category="toolchain";openSettings("tutorial");return;
   }
   if(action==="new-project"){
-    syncWizardDefaults();show("newProject");return;
+    state.newProjectReturn="tutorial";syncWizardDefaults();show("newProject");return;
   }
   if(action==="build"){
     if(!state.project){notify("Create a project first","The Build workspace needs a kernel project.");syncWizardDefaults();show("newProject");return;}
@@ -1694,15 +1694,15 @@ function openSettings(from){
 }
 function applyStartup(){applyTheme();applyAccent();applyDensity();translate();if(state.settings.startScreen==="lastProject"){all("projects").then(list=>{list.sort((a,b)=>b.updatedAt-a.updatedAt);if(list[0]){state.project=list[0];openProject();}else show("welcome");}).catch(()=>show("welcome"));}else show("welcome");}
 function bindEvents(){
-$("#welcomeNewProject").onclick=()=>{syncWizardDefaults();show("newProject");};$("#landingFeaturesButton").onclick=()=>scrollLandingTo("platformSection");
+$("#welcomeNewProject").onclick=()=>{state.newProjectReturn="welcome";syncWizardDefaults();show("newProject");};$("#landingFeaturesButton").onclick=()=>scrollLandingTo("platformSection");
 $("#landingWorkflowButton").onclick=()=>scrollLandingTo("workflowSection");
 $("#landingTutorialButton").onclick=openTutorial;
-$("#heroStartButton").onclick=()=>{syncWizardDefaults();show("newProject");};
+$("#heroStartButton").onclick=()=>{state.newProjectReturn="welcome";syncWizardDefaults();show("newProject");};
 $("#heroTutorialButton").onclick=openTutorial;
 $("#workflowTutorialButton").onclick=openTutorial;
-$("#isoTutorialButton").onclick=()=>{openTutorial();requestAnimationFrame(()=>$("#tutorial-stage-7").scrollIntoView({behavior:"smooth",block:"start"}));};
+$("#isoTutorialButton").onclick=()=>{openTutorial();requestAnimationFrame(()=>$("#tutorial-stage-7").scrollIntoView({behavior:"smooth",block:"start"}));};$("#footerTutorialButton").onclick=openTutorial;
 $("#backFromTutorial").onclick=()=>show("welcome");
-$("#tutorialFinishButton").onclick=()=>{syncWizardDefaults();show("newProject");};
+$("#tutorialFinishButton").onclick=()=>{state.newProjectReturn="tutorial";syncWizardDefaults();show("newProject");};
 $("#tutorialBackTopButton").onclick=()=>$("#tutorialScreen").scrollTo({top:0,behavior:state.settings.reduceMotion?"auto":"smooth"});
 $("#resetTutorialButton").onclick=async()=>{if(!state.tutorialCompleted.length){notify("No tutorial progress to reset");return;}if(!await confirmInApp("This clears the completion markers for all nine tutorial stages. The tutorial text remains available.","Reset tutorial progress?"))return;state.tutorialCompleted=[];await saveTutorialProgress();notify("Tutorial progress reset");};
 $("#tutorialChapters").addEventListener("click",async event=>{
@@ -1719,7 +1719,7 @@ $("#tutorialContents").addEventListener("click",event=>{
   if(target)target.scrollIntoView({behavior:state.settings.reduceMotion?"auto":"smooth",block:"start"});
 });
 $("#themeToggleWelcome").onclick=cycleTheme;$("#themeToggleApp").onclick=cycleTheme;$("#welcomeLoadProject").onclick=()=>$("#loadProjectInput").click();$("#welcomeLoadFolder").onclick=()=>$("#projectFolderInput").click();$("#welcomeConfigure").onclick=()=>openSettings("welcome");$("#welcomeSettingsButton").onclick=()=>openSettings("welcome");
-$("#backFromNewProject").onclick=()=>show("welcome");$("#cancelNewProject").onclick=()=>show("welcome");$("#createProjectButton").onclick=createProject;
+$("#backFromNewProject").onclick=()=>show(state.newProjectReturn||"welcome");$("#cancelNewProject").onclick=()=>show(state.newProjectReturn||"welcome");$("#createProjectButton").onclick=createProject;
 $("#backFromSettings").onclick=()=>show(state.settingsReturn);$("#saveSettingsButton").onclick=applySettings;
 $("#clearRecentButton").onclick=async()=>{if(state.settings.confirmDestructive&&!await confirmInApp("Saved projects will remain available in browser storage.","Clear recent project list?"))return;await put("meta",{key:"hiddenRecent",value:state.recent.map(p=>p.id)});await refreshRecent();};
 $("#loadProjectInput").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{await loadArchive(f);}catch(err){state.project=null;show("welcome");notify("Project load failed",err.message);}};
