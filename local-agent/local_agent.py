@@ -456,10 +456,24 @@ def build_project(payload: dict) -> dict:
     if not BUILD_LOCK.acquire(blocking=False):
         return {"status": "failed", "message": "Another Kerno build is already running. Wait for it to finish.", "log": "Build lock is occupied."}
     logs: list[str] = []
+    health_checks: list[dict] = []
+    current_stage = "Project validation"
     workspace: Path | None = None
+    artifact_path: Path | None = None
     keep_build_logs = True
     build_log_path = LOGS / ("build-" + uuid.uuid4().hex + ".log")
+
+    def stage(name: str) -> None:
+        nonlocal current_stage
+        current_stage = name
+        logs.append("\n[STAGE] " + name)
+
+    def health(name: str, detail: str) -> None:
+        health_checks.append({"stage": name, "status": "passed", "detail": detail})
+        logs.append("[HEALTH: PASS] " + name + " — " + detail)
+
     try:
+        stage("Project manifest and target")
         project = read_project(payload)
         config = project["config"]
         architecture = str(config.get("architecture", ""))
@@ -478,7 +492,28 @@ def build_project(payload: dict) -> dict:
             raise RuntimeError("The x86_64 entry source is not the Kerno Multiboot2 long-mode scaffold. Regenerate or update boot/entry.asm first.")
 
         settings = payload.get("settings") or {}
+        if not isinstance(settings, dict):
+            raise ValueError("Build settings must be an object.")
         diagnostics = config.get("diagnostics") or {}
+        if not isinstance(diagnostics, dict):
+            raise ValueError("Project diagnostics configuration must be an object.")
+        memory_config = config.get("memory") or {}
+        if not isinstance(memory_config, dict):
+            raise ValueError("Project memory configuration must be an object.")
+        guest_ram = int(memory_config.get("guestMiB", 512))
+        heap_reserve = int(memory_config.get("heapReserveMiB", 16))
+        stack_reserve = int(memory_config.get("stackReserveKiB", 512))
+        kernel_base = int(str(memory_config.get("kernelBase", "0x00100000")), 16)
+        if not 64 <= guest_ram <= 32768 or not 1 <= heap_reserve <= 8192 or not 64 <= stack_reserve <= 1048576:
+            raise ValueError("Guest RAM, heap or stack planning values are outside supported limits.")
+        if heap_reserve + stack_reserve / 1024 + 1 >= guest_ram:
+            raise ValueError("Kernel heap and stack reservations must remain below guest RAM.")
+        if kernel_base < 0x100000 or kernel_base >= 0x40000000 or kernel_base % 4096:
+            raise ValueError("Kernel link base must be page-aligned and inside the first 1 GiB identity-mapped region.")
+        boot_config = project["files"]["boot/grub.cfg"]
+        if "menuentry" not in boot_config or "multiboot2 /boot/kernel.elf" not in boot_config or "\n    boot" not in boot_config:
+            raise RuntimeError("GRUB menu must load /boot/kernel.elf with multiboot2 and execute the boot command.")
+        health("Project manifest and target", "Relative paths, source limits, x86_64/BIOS/GRUB target and kernel reservations validated.")
         keep_build_logs = bool(diagnostics.get("retainBuildLogs", settings.get("retainBuildLogs", True)))
         log_level = {"quiet": 0, "error": 1, "warn": 2, "info": 3, "debug": 4}.get(
             str(diagnostics.get("logLevel", settings.get("kernelLogLevel", "info"))), 3
@@ -491,12 +526,14 @@ def build_project(payload: dict) -> dict:
         xorriso = shutil.which("xorriso")
         if not xorriso:
             raise RuntimeError("xorriso was not found. grub-mkrescue requires xorriso to package the ISO.")
-        compiler_machine = subprocess.run([cpp_compiler, "-dumpmachine"], capture_output=True, text=True, timeout=5, check=False).stdout.strip()
-        c_compiler_machine = subprocess.run([c_compiler, "-dumpmachine"], capture_output=True, text=True, timeout=5, check=False).stdout.strip()
+        stage("Native toolchain health")
+        compiler_machine = run_capture([cpp_compiler, "-dumpmachine"], BUILDS, logs, timeout=8).splitlines()[0].strip()
+        c_compiler_machine = run_capture([c_compiler, "-dumpmachine"], BUILDS, logs, timeout=8).splitlines()[0].strip()
         if not compiler_machine.startswith("x86_64-"):
             raise RuntimeError("Configured C++ cross compiler must target x86_64; reported target: " + (compiler_machine or "unknown"))
         if not c_compiler_machine.startswith("x86_64-"):
             raise RuntimeError("Configured C cross compiler must target x86_64; reported target: " + (c_compiler_machine or "unknown"))
+        health("Native toolchain health", "NASM, C/C++ compilers, linker, GRUB and xorriso resolved; both compiler targets are x86_64.")
 
         build_id = uuid.uuid4().hex
         workspace = BUILDS / (project["id"] + "-" + build_id[:10])
@@ -508,6 +545,7 @@ def build_project(payload: dict) -> dict:
         logs.append("Target: x86_64 / BIOS / GRUB Multiboot2")
         logs.append("Source size: " + str(project["total_bytes"]) + " bytes")
 
+        stage("Assembly")
         asm_files = sorted(path for path in project["files"] if path.startswith("boot/") and path.endswith(".asm"))
         object_files: list[str] = []
         for relative in asm_files:
@@ -518,8 +556,12 @@ def build_project(payload: dict) -> dict:
                 nasm_args.extend(["-g", "-F", "dwarf"])
             nasm_args.extend([str(source), "-o", str(object_path)])
             run_command(nasm_args, workspace, logs)
+            if not object_path.is_file() or object_path.stat().st_size == 0:
+                raise RuntimeError("NASM did not produce a non-empty object file: " + relative)
             object_files.append(str(object_path))
+        health("Assembly", str(len(asm_files)) + " NASM source file(s) assembled into ELF64 objects.")
 
+        stage("Freestanding C/C++ compilation")
         source_files = sorted(
             path for path in project["files"]
             if path.startswith("src/") and path.endswith((".cpp", ".cc", ".cxx", ".c"))
@@ -546,30 +588,57 @@ def build_project(payload: dict) -> dict:
             if bool(diagnostics.get("warningsAsErrors", settings.get("warningsAsErrors", False))):
                 args.append("-Werror")
             run_command(args, workspace, logs, timeout=90)
+            if not object_path.is_file() or object_path.stat().st_size == 0:
+                raise RuntimeError("Compiler did not produce a non-empty object file: " + relative)
             object_files.append(str(object_path))
+        health("Freestanding C/C++ compilation", str(len(source_files)) + " source file(s) compiled with freestanding kernel flags.")
 
         if not object_files:
             raise RuntimeError("No assembly or C/C++ object files were generated.")
+        stage("ELF64 x86_64 linking and entry validation")
         kernel = output / "kernel.elf"
         linker_script = workspace / "linker.ld"
         run_command([linker, "-nostdlib", "-static", "-z", "max-page-size=0x1000", "-T", str(linker_script), "-o", str(kernel)] + object_files, workspace, logs, timeout=60)
         if not kernel.exists() or kernel.stat().st_size < 64:
             raise RuntimeError("Linker did not produce a valid kernel ELF.")
-        header = kernel.read_bytes()[:5]
-        if header[:4] != b"\x7fELF" or header[4] != 2:
-            raise RuntimeError("Kernel output is not a 64-bit ELF image.")
+        elf_report = verify_elf64_x86_64(kernel)
+        health("ELF64 x86_64 linking and entry validation", "ET_EXEC x86_64; executable entry point " + elf_report["entryPoint"] + " lies in a PT_LOAD segment.")
+
+        stage("Multiboot2 header validation")
         verify_multiboot2_header(kernel)
+        health("Multiboot2 header validation", "Header magic, 8-byte alignment, architecture, length, checksum and end tag are valid.")
 
         grub_dir = iso_root / "boot" / "grub"
         grub_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(kernel, iso_root / "boot" / "kernel.elf")
         shutil.copy2(workspace / "boot" / "grub.cfg", grub_dir / "grub.cfg")
+        stage("Bootloader compatibility validation")
+        grub_file = shutil.which("grub-file")
+        if grub_file:
+            run_command([grub_file, "--is-x86-multiboot2", str(kernel)], workspace, logs, timeout=10)
+            health("GRUB Multiboot2 compatibility", "grub-file confirms an x86 Multiboot2 kernel.")
+        else:
+            logs.append("[HEALTH: INFO] grub-file is not installed; structural Multiboot2 validation remains authoritative.")
+
+        stage("GRUB ISO packaging")
         artifact_id = uuid.uuid4().hex
         artifact_name = safe_name(project["name"]) + "-" + artifact_id[:8] + ".iso"
         artifact_path = ARTIFACTS_DIR / artifact_name
-        run_command([grub, "-o", str(artifact_path), str(iso_root)], workspace, logs, timeout=120)
-        if not artifact_path.exists() or artifact_path.stat().st_size < 1024 * 128:
-            raise RuntimeError("ISO packager did not produce a plausible ISO artifact.")
+        run_command([grub, "-o", str(artifact_path), str(iso_root)], workspace, logs, timeout=150)
+        if not artifact_path.exists() or artifact_path.stat().st_size < 64 * 1024:
+            raise RuntimeError("ISO packager did not produce a plausible image.")
+
+        stage("ISO9660, El Torito and boot-file verification")
+        iso_report = verify_iso_image(artifact_path, xorriso, workspace, logs)
+        health("ISO9660 filesystem", iso_report["iso9660"])
+        health("El Torito BIOS boot catalog", iso_report["elTorito"])
+        health("ISO boot-file layout", "Both /boot/kernel.elf and /boot/grub/grub.cfg are present and readable.")
+
+        stage("Artifact integrity")
+        iso_sha256 = sha256_file(artifact_path)
+        if len(iso_sha256) != 64:
+            raise RuntimeError("Could not calculate an ISO SHA-256 integrity digest.")
+        health("Artifact integrity", "ISO size " + str(iso_report["sizeBytes"]) + " bytes; SHA-256 calculated.")
 
         metadata = {
             "id": artifact_id,
@@ -577,12 +646,17 @@ def build_project(payload: dict) -> dict:
             "name": artifact_name,
             "path": str(artifact_path),
             "size_bytes": artifact_path.stat().st_size,
+            "sha256": iso_sha256,
+            "kernel_sha256": sha256_file(kernel),
+            "kernel_entry": elf_report["entryPoint"],
+            "health_checks": health_checks.copy(),
             "created_at": time.time(),
         }
         with STATE_LOCK:
             ARTIFACTS[artifact_id] = metadata
             PROJECT_ARTIFACTS[project["id"]] = artifact_id
-        logs.append("Verified Multiboot2 header and 64-bit ELF output.")
+        logs.append("Verified ELF64 x86_64 entry point, Multiboot2 header and ISO9660/El Torito structure.")
+        logs.append("ISO SHA-256: " + iso_sha256)
         logs.append("ISO artifact: " + artifact_name + " (" + str(metadata["size_bytes"]) + " bytes)")
         if keep_build_logs:
             build_log_path.write_text("\n".join(logs) + "\n", encoding="utf-8")
@@ -590,32 +664,47 @@ def build_project(payload: dict) -> dict:
             "status": "success",
             "message": "Native build completed and the ISO artifact was verified.",
             "log": "\n".join(logs),
+            "healthChecks": health_checks,
             "artifact": {
                 "id": artifact_id,
                 "name": artifact_name,
                 "sizeBytes": metadata["size_bytes"],
+                "sha256": iso_sha256,
+                "kernelEntry": elf_report["entryPoint"],
+                "healthChecks": health_checks,
                 "downloadUrl": "/api/v1/artifacts/" + artifact_id,
             },
         }
     except (ValueError, FileNotFoundError, RuntimeError, subprocess.TimeoutExpired) as error:
+        if current_stage and not any(item.get("stage") == current_stage for item in health_checks):
+            health_checks.append({"stage": current_stage, "status": "failed", "detail": str(error)})
+        logs.append("[HEALTH: FAIL] " + current_stage + " — " + str(error))
         logs.append("BUILD FAILED: " + str(error))
         if keep_build_logs:
             try:
                 build_log_path.write_text("\n".join(logs) + "\n", encoding="utf-8")
             except OSError:
                 pass
-        return {"status": "failed", "message": str(error), "log": "\n".join(logs)}
+        return {"status": "failed", "message": str(error), "log": "\n".join(logs), "healthChecks": health_checks}
     except Exception as error:
+        if current_stage and not any(item.get("stage") == current_stage for item in health_checks):
+            health_checks.append({"stage": current_stage, "status": "failed", "detail": str(error)})
+        logs.append("[HEALTH: FAIL] " + current_stage + " — " + str(error))
         logs.append("UNEXPECTED BUILD ERROR: " + str(error))
         if keep_build_logs:
             try:
                 build_log_path.write_text("\n".join(logs) + "\n", encoding="utf-8")
             except OSError:
                 pass
-        return {"status": "failed", "message": "Unexpected local build service error: " + str(error), "log": "\n".join(logs)}
+        return {"status": "failed", "message": "Unexpected local build service error: " + str(error), "log": "\n".join(logs), "healthChecks": health_checks}
     finally:
         if workspace is not None:
             shutil.rmtree(workspace, ignore_errors=True)
+        if artifact_path is not None and artifact_path.exists() and artifact_path.stem not in {str(item.get("id")) for item in ARTIFACTS.values()}:
+            try:
+                artifact_path.unlink()
+            except OSError:
+                pass
         BUILD_LOCK.release()
 
 
