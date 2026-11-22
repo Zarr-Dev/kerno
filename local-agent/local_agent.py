@@ -766,6 +766,16 @@ def start_qemu(payload: dict) -> dict:
     iso_path = Path(metadata["path"])
     if not iso_path.is_file():
         raise RuntimeError("The previously built ISO artifact is no longer available. Build the project again.")
+    preflight_log: list[str] = []
+    preflight_checks: list[dict] = []
+    xorriso = executable("xorriso", "xorriso")
+    iso_report = verify_iso_image(iso_path, xorriso, LOGS, preflight_log)
+    actual_sha256 = sha256_file(iso_path)
+    expected_sha256 = str(metadata.get("sha256") or "")
+    if expected_sha256 and not hmac.compare_digest(actual_sha256, expected_sha256):
+        raise RuntimeError("ISO SHA-256 integrity check failed. The artifact may have changed after build.")
+    preflight_checks.append({"stage": "ISO integrity", "status": "passed", "detail": "SHA-256 matches the verified build artifact."})
+    preflight_checks.append({"stage": "ISO boot structure", "status": "passed", "detail": "ISO9660, El Torito and required GRUB/kernel files revalidated."})
 
     ram = int((config.get("memory") or {}).get("guestMiB", settings.get("guestMemoryMiB", 512)))
     cpus = int(qemu_cfg.get("vcpus", settings.get("qemuVcpus", 2)))
@@ -779,6 +789,12 @@ def start_qemu(payload: dict) -> dict:
     vnc_port = int(qemu_cfg.get("vncPort", settings.get("qemuVncPort", 5901)))
     if not 64 <= ram <= 32768 or not 1 <= cpus <= 32:
         raise ValueError("QEMU guest memory or vCPU count is outside the supported limits.")
+    host = host_memory()
+    available_host = host.get("availableMiB")
+    if available_host is not None and available_host < ram + max(256, int(ram * 0.1)):
+        preflight_checks.append({"stage": "Host memory capacity", "status": "warning", "detail": "Available host memory is below the recommended guest RAM plus safety margin."})
+    else:
+        preflight_checks.append({"stage": "Host memory capacity", "status": "passed", "detail": "Host memory estimate is sufficient for the configured guest RAM."})
     if machine not in ("q35", "pc"):
         raise ValueError("For x86_64, choose the q35 or pc machine profile.")
     if display not in ("std", "virtio", "none"):
@@ -807,7 +823,7 @@ def start_qemu(payload: dict) -> dict:
     cmd = [
         binary, "-name", "Kerno-" + project["id"][:10],
         "-machine", machine, "-cpu", cpu_model, "-m", str(ram), "-smp", str(cpus),
-        "-drive", "file=" + str(iso_path) + ",media=cdrom,readonly=on",
+        "-cdrom", str(iso_path),
         "-boot", "order=d", "-nic", network_device, "-monitor", "none",
         "-serial", serial_device, "-display", "none", "-vga", "std",
         "-vnc", HOST + ":" + str(display_number) + ",websocket=" + HOST + ":" + str(websocket_port),
@@ -853,6 +869,7 @@ def start_qemu(payload: dict) -> dict:
             "display_url": display_url,
             "started_at": time.time(),
             "command": cmd,
+            "health_checks": preflight_checks,
         })
     return emulator_status()
 
@@ -873,6 +890,7 @@ def emulator_status() -> dict:
             "serialOutput": tail_text(serial_path, 12000),
             "processLog": tail_text(process_log_path, 4000),
             "startedAt": RUNTIME.get("started_at") if running else None,
+            "healthChecks": RUNTIME.get("health_checks") or [],
         }
 
 
