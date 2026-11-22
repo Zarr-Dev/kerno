@@ -904,7 +904,21 @@ async function refreshHostMemoryEstimate(){
 }
 async function exportAll(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
 async function clearAllProjects(){if(state.settings.confirmDestructive&&!confirm("Delete all locally stored projects? This cannot be undone."))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
-function renderMachine(){if(!state.project)return;const c=state.project.config;$("#machineArchitecture").textContent=c.architecture;$("#machineType").textContent=c.qemu.machine;$("#machineMemory").textContent=c.memory.guestMiB+" MiB";$("#machineCpus").textContent=c.qemu.vcpus;$("#machineDisplaySpec").textContent=c.qemu.display==="std"?"Standard VGA":c.qemu.display==="virtio"?"Virtio GPU":"Headless";}
+function renderMachine(){
+  if(!state.project)return;
+  const config=state.project.config;
+  const qemu=config.qemu||{};
+  const diagnostics=config.diagnostics||{};
+  $("#machineArchitecture").textContent=config.architecture||"unknown";
+  $("#machineType").textContent=qemu.machine||"q35";
+  $("#machineMemory").textContent=((config.memory||{}).guestMiB||512)+" MiB";
+  $("#machineCpus").textContent=qemu.vcpus||2;
+  $("#machineDisplaySpec").textContent=qemu.display==="std"?"Standard VGA":qemu.display==="virtio"?"Virtio GPU":"Headless";
+  $("#machineCpuModel").textContent=qemu.cpuModel||"max";
+  $("#machineAcceleration").textContent=({auto:"Automatic",kvm:"KVM",whpx:"WHPX",tcg:"Software TCG"})[qemu.acceleration||"auto"];
+  $("#machineNetwork").textContent=qemu.network==="user"?"User-mode NAT":"Disabled";
+  $("#machineSerialBackend").textContent=diagnostics.serialBackend==="null"?"Disabled":"File capture";
+}
 function renderBuild(){if(!state.project)return;$("#buildTarget").textContent=state.project.config.architecture;$("#buildBootloader").textContent=state.project.config.bootloader;$("#buildLanguage").textContent=state.project.config.kernelLanguage.toUpperCase();}
 function updateProjectHeader(){if(!state.project)return;$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();}
 function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
