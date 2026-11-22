@@ -1022,16 +1022,31 @@ async function stopQemu(){
 }
 function payload(){syncEditor();return {id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files};}
 function renderArtifactDownload(artifact){
-  const host=$("#artifactDownloads");if(!host)return;
+  const host=$("#artifactDownloads");
+  if(!host)return;
   host.innerHTML="";
-  if(!artifact||!artifact.downloadUrl||!artifact.id)return;
-  const link=document.createElement("a");
-  link.className="artifact-download-link";
-  link.href=KernoLocalService.getUrl()+artifact.downloadUrl;
-  link.textContent="Download verified ISO · "+(artifact.name||"kernel.iso");
-  link.target="_blank";link.rel="noopener";
-  host.append(link);
+  if(!artifact||!artifact.id)return;
+  const button=document.createElement("button");
+  button.type="button";
+  button.className="artifact-download-link";
+  button.textContent="Download verified ISO · "+(artifact.name||"kernel.iso");
+  button.addEventListener("click",async()=>{
+    button.disabled=true;
+    button.textContent="Preparing ISO download…";
+    try{
+      KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+      const blob=await KernoLocalService.downloadArtifact(artifact.id);
+      download(blob,artifact.name||"kerno-kernel.iso");
+      button.textContent="ISO downloaded · "+(artifact.name||"kernel.iso");
+      notify("ISO artifact downloaded",artifact.name||"Kernel image");
+    }catch(error){
+      button.textContent="Retry ISO download";
+      notify("ISO download failed",error.message);
+    }finally{button.disabled=false;}
+  });
+  host.append(button);
 }
+
 async function nativeBuild(bootAfter){
   if(!state.project)return;
   if(!state.localConnected&&!await testService())return;
