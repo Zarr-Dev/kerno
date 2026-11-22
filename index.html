@@ -30,15 +30,15 @@
 
   <main class="screen welcome-screen" id="welcomeScreen">
     <header class="welcome-top">
-      <div class="brand-lockup" aria-label="Kerno — Lingkungan Pengembangan Sistem Operasi"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small>LINGKUNGAN PENGEMBANGAN OS</small></span></div>
-      <nav class="landing-nav" aria-label="Explore Kerno">
-        <button class="landing-nav-link" id="landingFeaturesButton" type="button">Platform</button>
-        <button class="landing-nav-link" id="landingWorkflowButton" type="button">Workflow</button>
-        <button class="landing-nav-link" id="landingTutorialButton" type="button">Academy</button>
+      <div class="brand-lockup" data-i18n-aria="landing.brand.aria" aria-label="Kerno — Lingkungan Pengembangan Sistem Operasi"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small data-i18n="landing.brand.tagline">LINGKUNGAN PENGEMBANGAN OS</small></span></div>
+      <nav class="landing-nav" aria-label="Jelajahi Kerno" data-i18n-aria="landing.nav.aria">
+        <button class="landing-nav-link" id="landingFeaturesButton" type="button" data-i18n="landing.nav.platform">Fitur</button>
+        <button class="landing-nav-link" id="landingWorkflowButton" type="button" data-i18n="landing.nav.workflow">Alur kerja</button>
+        <button class="landing-nav-link" id="landingTutorialButton" type="button" data-i18n="landing.nav.academy">Akademi</button>
       </nav>
       <div class="welcome-top-actions">
-        <button class="quiet-button header-open-button" id="welcomeLoadFolder" type="button">Open folder</button>
-        <button class="quiet-button" id="themeToggleWelcome" title="Cycle color theme" aria-label="Cycle color theme">◐ Theme</button>
+        <button class="quiet-button header-open-button" id="welcomeLoadFolder" type="button" data-i18n="landing.nav.openFolder">Buka folder</button>
+        <button class="quiet-button" id="themeToggleWelcome" title="Ganti tema warna" aria-label="Ganti tema warna" data-i18n-title="landing.nav.themeTitle" data-i18n-aria="landing.nav.themeTitle">◐ <span data-i18n="landing.nav.theme">Tema</span></button>
         <button class="quiet-button header-settings-button" id="welcomeSettingsButton" data-i18n="settings" type="button">Pengaturan</button>
       </div>
     </header>
