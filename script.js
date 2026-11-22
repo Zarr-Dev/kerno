@@ -55,8 +55,20 @@ function safeName(n){return String(n||"kerno-project").trim().replace(/[^a-z0-9_
 function fileSize(p){return Object.values(p.files||{}).reduce((n,x)=>n+new Blob([x]).size,0);}
 function formatBytes(n){return n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(2)+" MB";}
 function download(blob,name){const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;a.style.display="none";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1400);}
-function langOf(path){const e=path.split(".").pop().toLowerCase();if(["asm","s","inc"].includes(e))return "kerno-asm";if(["c","h"].includes(e))return "c";if(["cpp","cc","cxx","hpp","hh","hxx"].includes(e))return "cpp";if(e==="ld")return "kerno-linker";if(e==="json")return "json";if(e==="md")return "markdown";if(["cfg","ini"].includes(e))return "ini";return "plaintext";}
-function langLabel(p){return ({"kerno-asm":"Assembly / NASM",cpp:"C++",c:"C","kerno-linker":"Linker Script",json:"JSON",markdown:"Markdown",ini:"GRUB Config",plaintext:"Text"})[langOf(p)]||"Text";}
+function langOf(path){
+  const leaf=path.split("/").pop();
+  const ext=leaf.split(".").pop().toLowerCase();
+  if(["asm","inc"].includes(ext))return "kerno-asm";
+  if(ext==="s")return "kerno-gas";
+  if(["c","h"].includes(ext))return "c";
+  if(["cpp","cc","cxx","hpp","hh","hxx"].includes(ext))return "cpp";
+  if(ext==="ld")return "kerno-linker";
+  if(ext==="json")return "json";
+  if(ext==="md")return "markdown";
+  if(["cfg","ini"].includes(ext))return "ini";
+  return "plaintext";
+}
+function langLabel(p){return ({"kerno-asm":"Assembly / NASM","kerno-gas":"Assembly / GNU AS",cpp:"C++",c:"C","kerno-linker":"Linker Script",json:"JSON",markdown:"Markdown",ini:"GRUB Config",plaintext:"Text"})[langOf(p)]||"Text";}
 function fileBadge(p){const x=langOf(p);return x==="kerno-asm"?["A","mark-asm"]:x==="cpp"||x==="c"?["C","mark-cpp"]:x==="json"?["{}","mark-json"]:x==="ini"?["≡","mark-config"]:x==="kerno-linker"?["L","mark-linker"]:["·","mark-doc"];}
 function show(name){state.screen=name;["welcome","newProject","settings","app"].forEach(x=>$("#"+x+"Screen").classList.toggle("hidden",x!==name));if(name==="welcome")refreshRecent();}
 function emptyRecent(){const d=document.createElement("div");d.className="recent-empty";d.innerHTML="<span>⌁</span><div><strong></strong><p></p></div>";$("strong",d).textContent=tr("noRecent");$("p",d).textContent=tr("noRecentDesc");return d;}
@@ -273,7 +285,7 @@ f["include/kernel/interrupts.h"]=[
 ].join("\n");
 f["src/kernel."+ext]=[
 "#include <stdint.h>","#include \"kernel/boot.h\"","#include \"kernel/serial.h\"",
-"#include \"kernel/pmm.h\"","#include \"kernel/interrupts.h\"",
+"#include \"kernel/console.h\"","#include \"kernel/pmm.h\"","#include \"kernel/interrupts.h\"",
 "#ifdef __cplusplus","extern \"C\"","#endif",
 "void kernel_main(uint32_t boot_magic, uintptr_t boot_info) {",
 "    kerno_serial_initialize();",
@@ -444,7 +456,36 @@ function renderEditor(){const empty=!state.activeFile||!(state.activeFile in sta
 function openFile(path){if(!(path in state.project.files))return;syncEditor();state.activeFile=path;if(!state.tabs.includes(path))state.tabs.push(path);renderTree();renderTabs();renderEditor();if(state.editor&&state.models[path])state.editor.setModel(state.models[path]);}
 function closeTab(path){state.tabs=state.tabs.filter(x=>x!==path);if(state.activeFile===path)state.activeFile=state.tabs[0]||Object.keys(state.project.files)[0]||null;renderTabs();renderEditor();}
 function disposeEditors(){Object.values(state.models).forEach(m=>{try{m.dispose();}catch(_){}});state.models={};if(state.editor){state.editor.dispose();state.editor=null;}if(state.splitEditor){state.splitEditor.dispose();state.splitEditor=null;}}
-function defineLanguages(m){m.languages.register({id:"kerno-asm",extensions:[".asm",".s",".inc"],aliases:["NASM","Assembly"]});m.languages.setMonarchTokensProvider("kerno-asm",{tokenizer:{root:[[/;.*$/,"comment"],[/\b(section|global|extern|align|times|bits|default|db|dw|dd|dq|resb|resw|resd|equ)\b/i,"keyword"],[/\b(mov|add|sub|mul|div|cmp|jmp|je|jne|call|ret|push|pop|cli|sti|hlt|xor|lea|int|and|or|in|out|test|shl|shr)\b/i,"keyword"],[/\b(rax|rbx|rcx|rdx|rsi|rdi|rsp|rbp|eax|ebx|ecx|edx|ax|bx|cx|dx|al|ah)\b/i,"variable"],[/0x[0-9a-f]+|\b\d+\b/i,"number"],[/\.[\w.]+/,"type"],[/\b[\w]+:/,"type"]]}});m.languages.register({id:"kerno-linker",extensions:[".ld"],aliases:["Linker Script"]});m.languages.setMonarchTokensProvider("kerno-linker",{tokenizer:{root:[[/\/\*.*?\*\//,"comment"],[/\/\/.*$/,"comment"],[/\b(ENTRY|SECTIONS|KEEP|ALIGN|PROVIDE|ASSERT|ORIGIN|LENGTH)\b/,"keyword"],[/\.[\w.]+/,"type"],[/0x[0-9a-f]+|\b\d+[kKmM]?\b/i,"number"]]}});}
+function defineLanguages(m){
+m.languages.register({id:"kerno-gas",extensions:[".s",".S"],aliases:["GNU Assembler","GAS"]});
+m.languages.setMonarchTokensProvider("kerno-gas",{tokenizer:{root:[
+[/#.*$/,"comment"],
+[/\.section|\.global|\.globl|\.align|\.type|\.size|\.word|\.quad|\.zero|\.space|\.text|\.data|\.bss/,"keyword"],
+[/\b(mov|add|sub|mul|div|cmp|jmp|call|ret|push|pop|wfi|wfe|mrs|msr|ldr|str|la|li|csrw|csrr)\b/i,"keyword"],
+[/\b(x[0-9]+|a[0-7]|s[0-9]+|t[0-6]|sp|ra|gp|tp|eax|rax|rsp|rbp)\b/i,"variable"],
+[/0x[0-9a-f]+|\b[0-9]+\b/i,"number"],
+[/[a-zA-Z_][\w]*:/,"type"],
+[/".*?"/,"string"]
+]}});
+m.languages.register({id:"kerno-asm",extensions:[".asm",".inc"],aliases:["NASM","Assembly"]});
+m.languages.setMonarchTokensProvider("kerno-asm",{tokenizer:{root:[
+[/;.*$/,"comment"],
+[/\b(section|global|extern|align|times|bits|default|db|dw|dd|dq|resb|resw|resd|equ)\b/i,"keyword"],
+[/\b(mov|add|sub|mul|div|cmp|jmp|je|jne|call|ret|push|pop|cli|sti|hlt|xor|lea|int|and|or|in|out|test|shl|shr)\b/i,"keyword"],
+[/\b(rax|rbx|rcx|rdx|rsi|rdi|rsp|rbp|eax|ebx|ecx|edx|ax|bx|cx|dx|al|ah)\b/i,"variable"],
+[/0x[0-9a-f]+|\b\d+\b/i,"number"],
+[/\.[\w.]+/,"type"],
+[/\b[\w]+:/,"type"]
+]}});
+m.languages.register({id:"kerno-linker",extensions:[".ld"],aliases:["Linker Script"]});
+m.languages.setMonarchTokensProvider("kerno-linker",{tokenizer:{root:[
+[/\/\*.*?\*\//,"comment"],
+[/\/\/.*$/,"comment"],
+[/\b(ENTRY|SECTIONS|KEEP|ALIGN|PROVIDE|ASSERT|ORIGIN|LENGTH)\b/,"keyword"],
+[/\.[\w.]+/,"type"],
+[/0x[0-9a-f]+|\b\d+[kKmM]?\b/i,"number"]
+]}});
+}
 function defineThemes(m){m.editor.defineTheme("kerno-dark",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"778B9B",fontStyle:"italic"},{token:"keyword",foreground:"C5A4DF"},{token:"string",foreground:"A8D3B3"},{token:"number",foreground:"DDB77B"},{token:"type",foreground:"8CB9ED"},{token:"variable",foreground:"8DC8B2"}],colors:{"editor.background":"#0E141B","editor.foreground":"#E1E9F0","editorLineNumber.foreground":"#526476","editorLineNumber.activeForeground":"#C7D2DC","editor.lineHighlightBackground":"#17212A","editor.selectionBackground":"#3A586F88","editorCursor.foreground":"#A4D4BE","editorIndentGuide.background1":"#263440","editorIndentGuide.activeBackground1":"#557C6B","editorWidget.background":"#1C2833"}});m.editor.defineTheme("kerno-light",{base:"vs",inherit:true,rules:[{token:"comment",foreground:"788A96",fontStyle:"italic"},{token:"keyword",foreground:"8C50A8"},{token:"string",foreground:"357A51"},{token:"number",foreground:"9B641B"},{token:"type",foreground:"2767A5"}],colors:{"editor.background":"#FFFFFF","editor.foreground":"#263540","editorLineNumber.foreground":"#9BA8B2","editorLineNumber.activeForeground":"#526372","editor.lineHighlightBackground":"#F1F6F5","editorCursor.foreground":"#26795E"}});}
 function monacoOptions(model){return {model,theme:state.settings.theme==="light"?"kerno-light":"kerno-dark",automaticLayout:true,fontFamily:"'DM Mono',Consolas,monospace",fontSize:Number(state.settings.editorFontSize),lineHeight:22,minimap:{enabled:!!state.settings.minimap},padding:{top:15,bottom:18},scrollBeyondLastLine:false,renderLineHighlight:"line",cursorBlinking:"smooth",smoothScrolling:true,tabSize:Number(state.settings.tabSize),wordWrap:state.settings.wordWrap,lineNumbers:state.settings.lineNumbers?"on":"off",glyphMargin:false,folding:true,bracketPairColorization:{enabled:true},guides:{indentation:true}};}
 async function initMonaco(){if(!state.project)return;try{if(!monacoLoad)monacoLoad=new Promise((resolve,reject)=>{if(!window.require){reject(Error("Monaco loader unavailable"));return;}window.require.config({paths:{vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"}});window.MonacoEnvironment={getWorkerUrl:()=> "data:text/javascript;charset=utf-8,"+encodeURIComponent("self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/'};importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/base/worker/workerMain.js');")};window.require(["vs/editor/editor.main"],()=>resolve(window.monaco),reject);});const m=await monacoLoad;defineLanguages(m);defineThemes(m);Object.keys(state.project.files).forEach(ensureModel);if(!state.editor){state.editor=m.editor.create($("#monacoPane"),monacoOptions(ensureModel(state.activeFile)));state.editor.onDidChangeCursorPosition(e=>$("#cursorPosition").textContent="Ln "+e.position.lineNumber+", Col "+e.position.column);}else if(state.activeFile)state.editor.setModel(ensureModel(state.activeFile));$("#plainEditor").style.display="none";if(!$("#splitPane").classList.contains("hidden"))openSplit();applyEditorSettings();}catch(e){$("#plainEditor").style.display=state.activeFile?"block":"none";if(state.activeFile)$("#plainEditor").value=state.project.files[state.activeFile];$("#editorStatus").textContent="Basic editor active · Monaco unavailable";}}
@@ -507,7 +548,32 @@ function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div
 function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
 async function testService(){try{KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);const h=await KernoLocalService.health();setServiceStatus(true,"Local service connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Connected · API "+(h.apiVersion||"unknown");notify("Local service connected");return true;}catch(e){setServiceStatus(false,"QEMU not connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Unavailable · "+e.message;notify("Local service unavailable",e.message);return false;}}
 async function connectService(){if(!await testService())return;try{const s=await KernoLocalService.emulatorStatus();if(s.status==="running"){setServiceStatus(true,"QEMU running");if(s.displayUrl)showDisplay(s.displayUrl);if(s.serialOutput)$("#serialOutput").textContent=String(s.serialOutput).slice(-12000);}else renderMachineEmpty("Local service connected; no guest is running.");}catch(_){}}
-function showDisplay(value){let u;try{u=new URL(value);}catch(_){notify("Invalid emulator display URL");return;}if(!["http:","https:"].includes(u.protocol)||!["localhost","127.0.0.1","::1"].includes(u.hostname.replace(/^\[|\]$/g,""))){notify("Display URL rejected","The QEMU display must be hosted locally.");return;}const v=$("#machineViewport");v.innerHTML="";const f=document.createElement("iframe");f.src=u.href;f.title="QEMU guest display";v.append(f);}
+function showDisplay(value){
+  let u;
+  try{u=new URL(value);}catch(_){notify("Invalid emulator display URL");return;}
+  const host=u.hostname.replace(/^\[|\]$/g,"");
+  if(!["localhost","127.0.0.1","::1"].includes(host)||!["ws:","wss:","http:","https:"].includes(u.protocol)){
+    notify("Display URL rejected","The QEMU display must use a loopback address.");return;
+  }
+  const v=$("#machineViewport");
+  v.innerHTML="";
+  if(u.protocol==="ws:"||u.protocol==="wss:"){
+    if(!window.KernoNoVNC){
+      const error=document.createElement("p");
+      error.className="viewport-error";
+      error.textContent="noVNC client is unavailable. Check the CDN connection and reload Kerno.";
+      v.append(error);return;
+    }
+    try{window.KernoNoVNC.connect(v,u.href,status=>{$("#qemuStatusText").textContent=status;});}
+    catch(error){notify("Could not attach QEMU display",error.message);}
+    return;
+  }
+  const frame=document.createElement("iframe");
+  frame.src=u.href;frame.title="QEMU guest display";
+  frame.setAttribute("sandbox","allow-scripts allow-same-origin");
+  v.append(frame);
+}
+
 async function startQemu(){if(!state.project)return;if(!state.localConnected&&!await testService())return;$("#startQemuButton").disabled=true;try{const r=await KernoLocalService.startEmulator(payload(),state.settings);if(r.status!=="running"&&!r.displayUrl)throw Error(r.message||"Service did not confirm a running QEMU session.");setServiceStatus(true,"QEMU running");if(r.displayUrl)showDisplay(r.displayUrl);if(r.serialOutput)$("#serialOutput").textContent=String(r.serialOutput).slice(-12000);notify("QEMU session started","Runtime service confirmed the guest session.");}catch(e){notify("QEMU could not start",e.message);}finally{$("#startQemuButton").disabled=false;}}
 async function stopQemu(){if(!state.localConnected){notify("Local service is not connected");return;}$("#stopQemuButton").disabled=true;try{const r=await KernoLocalService.stopEmulator();if(r.status&&r.status!=="stopped")throw Error(r.message||"Service did not confirm process termination.");renderMachineEmpty("QEMU stopped by local service.");setServiceStatus(true,"Service connected · machine stopped");notify("QEMU stopped");}catch(e){notify("Could not stop QEMU",e.message);}finally{$("#stopQemuButton").disabled=false;}}
 function payload(){syncEditor();return {id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files};}
