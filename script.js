@@ -193,7 +193,50 @@ function showDisplay(value){let u;try{u=new URL(value);}catch(_){notify("Invalid
 async function startQemu(){if(!state.project)return;if(!state.localConnected&&!await testService())return;$("#startQemuButton").disabled=true;try{const r=await KernoLocalService.startEmulator(payload(),state.settings);if(r.status!=="running"&&!r.displayUrl)throw Error(r.message||"Service did not confirm a running QEMU session.");setServiceStatus(true,"QEMU running");if(r.displayUrl)showDisplay(r.displayUrl);if(r.serialOutput)$("#serialOutput").textContent=String(r.serialOutput).slice(-12000);notify("QEMU session started","Runtime service confirmed the guest session.");}catch(e){notify("QEMU could not start",e.message);}finally{$("#startQemuButton").disabled=false;}}
 async function stopQemu(){if(!state.localConnected){notify("Local service is not connected");return;}$("#stopQemuButton").disabled=true;try{const r=await KernoLocalService.stopEmulator();if(r.status&&r.status!=="stopped")throw Error(r.message||"Service did not confirm process termination.");renderMachineEmpty("QEMU stopped by local service.");setServiceStatus(true,"Service connected · machine stopped");notify("QEMU stopped");}catch(e){notify("Could not stop QEMU",e.message);}finally{$("#stopQemuButton").disabled=false;}}
 function payload(){syncEditor();return {id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files};}
-async function nativeBuild(){if(!state.project)return;if(!state.localConnected&&!await testService())return;$("#runBuildButton").disabled=true;$("#buildProjectButton").disabled=true;$("#buildStateLabel").textContent="SUBMITTED";$("#buildLog").textContent="Submitting native build request…\n";try{const r=await KernoLocalService.build(payload(),state.settings);const status=String(r.status||"").toLowerCase();if(!["success","failed","cancelled"].includes(status))throw Error("Build service returned an unknown terminal status.");$("#buildStateLabel").textContent=status.toUpperCase();$("#buildLog").textContent=(r.log||r.message||"Build "+status)+"\n";if(status==="success"&&r.artifact)notify("Native build completed",r.artifact.name||"Artifact reported by service.");else notify("Native build "+status,r.message||"Review build output.");}catch(e){$("#buildStateLabel").textContent="SERVICE ERROR";$("#buildLog").textContent+="Build request failed: "+e.message;notify("Native build unavailable",e.message);}finally{$("#runBuildButton").disabled=false;$("#buildProjectButton").disabled=false;}}
+async function nativeBuild(bootAfter){
+  if(!state.project)return;
+  if(!state.localConnected&&!await testService())return;
+  $("#runBuildButton").disabled=true;
+  $("#buildProjectButton").disabled=true;
+  $("#buildStateLabel").textContent="SUBMITTED";
+  $("#buildLog").textContent="Submitting native build request…\\n";
+  try{
+    const result=await KernoLocalService.build(payload(),state.settings);
+    const status=String(result.status||"").toLowerCase();
+    if(!["success","failed","cancelled"].includes(status))throw Error("Build service returned an unknown terminal status.");
+    $("#buildStateLabel").textContent=status.toUpperCase();
+    $("#buildLog").textContent=(result.log||result.message||"Build "+status)+"\\n";
+    if(status!=="success"){
+      notify("Native build "+status,result.message||"Review the build output.");
+      return;
+    }
+    if(!result.artifact){
+      $("#buildStateLabel").textContent="ARTIFACT MISSING";
+      throw Error("The service reported success but did not return a verified artifact.");
+    }
+    notify("Native build completed",result.artifact.name||"Artifact returned by Kerno Local Service.");
+    $("#buildLog").textContent+="Verified artifact: "+(result.artifact.name||result.artifact.path||"unnamed") + "\\n";
+    if(bootAfter){
+      $("#buildLog").textContent+="Starting the configured QEMU machine…\\n";
+      const boot=await KernoLocalService.startEmulator(Object.assign(payload(),{buildArtifact:result.artifact}),state.settings);
+      if(boot.status!=="running"&&!boot.displayUrl)throw Error(boot.message||"Build succeeded, but QEMU did not confirm a running guest.");
+      setServiceStatus(true,"QEMU running");
+      if(boot.displayUrl)showDisplay(boot.displayUrl);
+      if(boot.serialOutput)$("#serialOutput").textContent=String(boot.serialOutput).slice(-12000);
+      $("#buildLog").textContent+="QEMU session confirmed by local service.\\n";
+      $("#buildStateLabel").textContent="BUILD + BOOT READY";
+      switchWorkspace("machine");
+      notify("Build & Boot completed","The local service confirmed the QEMU session.");
+    }
+  }catch(error){
+    $("#buildStateLabel").textContent="OPERATION ERROR";
+    $("#buildLog").textContent+="\\n"+error.message;
+    notify("Build / Boot operation failed",error.message);
+  }finally{
+    $("#runBuildButton").disabled=false;
+    $("#buildProjectButton").disabled=false;
+  }
+}
 async function checkToolchain(){try{KernoLocalService.configure(state.settings.localServiceUrl);const r=await KernoLocalService.toolchain();const names=Object.entries(r.tools||{}).filter(x=>x[1]&&x[1].available).map(x=>x[0]);$("#toolchainResult").textContent=names.length?names.join(", "):"No tools reported";}catch(e){$("#toolchainResult").textContent="Unavailable: "+e.message;}}
 async function loadArchive(file){const p={id:makeId(),name:file.name.replace(/\.(zip|kerno|json)$/i,""),config:configFor("Imported OS"),files:{},createdAt:Date.now(),updatedAt:Date.now()};state.project=p;if(file.name.toLowerCase().endsWith(".json")){const m=JSON.parse(await file.text());if(m.format!=="kerno-project"||!m.files)throw Error("Not a Kerno project manifest.");p.name=m.name||p.name;p.config=Object.assign(p.config,m.config||{});p.files=m.files;}else{const r=await importZip(file);if(!r.n)throw Error("No supported text source files found.");}p.files=cleanFiles(p.files);if(!Object.keys(p.files).length)throw Error("Project archive contains no supported source files.");await saveProject(true);await openProject();notify("Project loaded",p.name);}
 function cleanFiles(files){const out={};let total=0;Object.entries(files).forEach(([raw,text])=>{const path=normalizePath(raw);if(!path||binaryPath(path)||typeof text!=="string")return;const size=new Blob([text]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT)return;total+=size;out[path]=text;});return out;}
@@ -215,7 +258,7 @@ $("#plainEditor").oninput=()=>{if(state.activeFile){state.project.files[state.ac
 $("#plainEditor").onkeyup=plainCursor;$("#plainEditor").onclick=plainCursor;
 $$(".workspace-nav-item").forEach(b=>b.onclick=()=>switchWorkspace(b.dataset.workspace));
 $("#connectLocalServiceButton").onclick=connectService;$("#startQemuButton").onclick=startQemu;$("#stopQemuButton").onclick=stopQemu;$("#clearSerialButton").onclick=()=>$("#serialOutput").textContent="";
-$("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild();};$("#runBuildButton").onclick=nativeBuild;$("#openSettingsFromBuild").onclick=()=>{state.category="toolchain";openSettings("app");};
+$("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild(true);};$("#runBuildButton").onclick=()=>nativeBuild(false);$("#openSettingsFromBuild").onclick=()=>{state.category="toolchain";openSettings("app");};
 $$(".settings-nav-item").forEach(b=>b.onclick=()=>renderSettings(b.dataset.category));
 $("#architectureSelect").onchange=()=>{const arch=$("#architectureSelect").value;if(arch==="aarch64"||arch==="riscv64"){$("#firmwareSelect").value="uefi";$("#bootloaderSelect").value="uefi-app";}$("#scaffoldPreview").textContent=arch+" target\n├── boot/\n│   └── entry.asm\n├── include/kernel/\n├── src/\n│   ├── kernel.cpp\n│   ├── console.cpp\n│   └── memory.cpp\n├── linker.ld\n└── kerno.project.json";};
 document.addEventListener("keydown",e=>{const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==="s"){e.preventDefault();saveProject(false);}if(mod&&e.key.toLowerCase()==="o"){e.preventDefault();if(state.screen==="welcome")$("#loadProjectInput").click();else $("#sourceImportInput").click();}if(mod&&e.shiftKey&&e.key.toLowerCase()==="e"){e.preventDefault();exportFile();}if(mod&&e.shiftKey&&e.key.toLowerCase()==="s"){e.preventDefault();exportProject();}if(mod&&e.key.toLowerCase()==="b"){e.preventDefault();switchWorkspace("build");nativeBuild();}});
