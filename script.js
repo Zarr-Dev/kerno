@@ -1,1504 +1,197 @@
 (() => {
-  "use strict";
+"use strict";
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const DB_NAME = "kerno-workspaces";
+const DB_VERSION = 1;
+const FILE_LIMIT = 2 * 1024 * 1024;
+const PROJECT_LIMIT = 20 * 1024 * 1024;
+let database = null;
+let monacoLoad = null;
 
-  const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const STORAGE_KEY = "kerno.kernel-studio.workspace.v1";
-  const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
-
-  const starterFiles = () => ({
-    "boot/entry.asm": {
-      content: `; Kerno x86_64 entry-point example
-; This sample assumes the boot stage has already entered long mode.
-; A production boot path still needs a matching GRUB protocol and setup.
-
-BITS 64
-DEFAULT REL
-
-SECTION .bss
-ALIGN 16
-stack_bottom:
-    RESB 16384
-stack_top:
-
-SECTION .text
-GLOBAL _start
-EXTERN kernel_main
-
-_start:
-    cli
-    lea rsp, [rel stack_top]
-    and rsp, -16
-    call kernel_main
-
-.hang:
-    hlt
-    jmp .hang
-`
-    },
-    "boot/ports.asm": {
-      content: `; Minimal x86 port I/O helpers (NASM, 64-bit mode)
-; System I/O privilege and hardware availability depend on execution context.
-
-BITS 64
-SECTION .text
-GLOBAL kerno_outb
-GLOBAL kerno_inb
-
-; void kerno_outb(uint16_t port, uint8_t value)
-kerno_outb:
-    mov dx, di
-    mov al, sil
-    out dx, al
-    ret
-
-; uint8_t kerno_inb(uint16_t port)
-kerno_inb:
-    mov dx, di
-    xor eax, eax
-    in al, dx
-    ret
-`
-    },
-    "boot/grub.cfg": {
-      content: `set timeout=3
-set default=0
-
-menuentry "Kerno OS" {
-    multiboot2 /boot/kernel.elf
-    boot
-}
-`
-    },
-    "src/kernel.cpp": {
-      content: `#include <stdint.h>
-#include "kerno/console.hpp"
-
-extern "C" void kernel_main() {
-    console_clear(ConsoleColor::Black);
-    console_write("KERNO / KERNEL STUDIO", ConsoleColor::BrightCyan);
-    console_write("Your kernel workspace is alive.", ConsoleColor::White);
-    console_write("Start by exploring src/, boot/, and include/.", ConsoleColor::LightGray);
-
-    for (;;) {
-        __asm__ volatile ("hlt");
-    }
-}
-`
-    },
-    "src/console.cpp": {
-      content: `#include <stdint.h>
-#include "kerno/console.hpp"
-
-namespace {
-    constexpr uintptr_t VGA_MEMORY = 0xB8000;
-    constexpr uint8_t WIDTH = 80;
-    constexpr uint8_t HEIGHT = 25;
-    uint8_t cursor_row = 0;
-    uint8_t cursor_column = 0;
-
-    volatile uint16_t* vga_buffer() {
-        return reinterpret_cast<volatile uint16_t*>(VGA_MEMORY);
-    }
-
-    uint8_t make_attribute(ConsoleColor color) {
-        return static_cast<uint8_t>(color);
-    }
-}
-
-void console_clear(ConsoleColor color) {
-    const uint16_t blank = static_cast<uint16_t>(' ') |
-        (static_cast<uint16_t>(make_attribute(color)) << 8);
-
-    for (uint16_t i = 0; i < WIDTH * HEIGHT; ++i) {
-        vga_buffer()[i] = blank;
-    }
-
-    cursor_row = 0;
-    cursor_column = 0;
-}
-
-void console_write(const char* text, ConsoleColor color) {
-    if (text == nullptr) return;
-
-    while (*text != '\\0') {
-        if (*text == '\\n') {
-            cursor_column = 0;
-            if (++cursor_row >= HEIGHT) cursor_row = 0;
-        } else {
-            const uint16_t cell = static_cast<uint16_t>(*text) |
-                (static_cast<uint16_t>(make_attribute(color)) << 8);
-            vga_buffer()[cursor_row * WIDTH + cursor_column] = cell;
-
-            if (++cursor_column >= WIDTH) {
-                cursor_column = 0;
-                if (++cursor_row >= HEIGHT) cursor_row = 0;
-            }
-        }
-        ++text;
-    }
-}
-`
-    },
-    "src/memory.cpp": {
-      content: `#include <stddef.h>
-#include <stdint.h>
-
-// Freestanding memory helpers for a kernel without a hosted C runtime.
-extern "C" void* kerno_memset(void* destination, int value, size_t count) {
-    auto* output = static_cast<uint8_t*>(destination);
-    for (size_t i = 0; i < count; ++i) {
-        output[i] = static_cast<uint8_t>(value);
-    }
-    return destination;
-}
-
-extern "C" void* kerno_memcpy(void* destination, const void* source, size_t count) {
-    auto* output = static_cast<uint8_t*>(destination);
-    const auto* input = static_cast<const uint8_t*>(source);
-
-    for (size_t i = 0; i < count; ++i) {
-        output[i] = input[i];
-    }
-    return destination;
-}
-`
-    },
-    "include/kerno/console.hpp": {
-      content: `#pragma once
-#include <stdint.h>
-
-enum class ConsoleColor : uint8_t {
-    Black = 0x00,
-    Blue = 0x01,
-    Green = 0x02,
-    Cyan = 0x03,
-    Red = 0x04,
-    Magenta = 0x05,
-    Brown = 0x06,
-    LightGray = 0x07,
-    DarkGray = 0x08,
-    BrightBlue = 0x09,
-    BrightGreen = 0x0A,
-    BrightCyan = 0x0B,
-    BrightRed = 0x0C,
-    BrightMagenta = 0x0D,
-    Yellow = 0x0E,
-    White = 0x0F
+const DEFAULTS = {
+  locale:"en", theme:"dark", accent:"sage", density:"balanced",
+  autosave:true, confirmDestructive:true, startScreen:"welcome",
+  editorFontSize:13, tabSize:4, wordWrap:"off", lineNumbers:true, minimap:false,
+  defaultArchitecture:"x86_64", defaultFirmware:"bios", defaultBootloader:"grub",
+  defaultKernelLanguage:"cpp", optimization:"debug",
+  guestMemoryMiB:512, heapReserveMiB:16, stackReserveKiB:512, pageSize:"4KiB", kernelBase:"0x00100000",
+  qemuBinary:"qemu-system-x86_64", qemuMachine:"q35", qemuDisplay:"std", qemuVcpus:2,
+  qemuVncPort:5901, qemuAcceleration:"auto",
+  localServiceUrl:"http://127.0.0.1:8765",
+  assembler:"nasm", crossCompiler:"x86_64-elf-g++", linker:"x86_64-elf-ld", isoBuilder:"grub-mkrescue"
 };
 
-void console_clear(ConsoleColor color);
-void console_write(const char* text, ConsoleColor color);
-`
-    },
-    "linker.ld": {
-      content: `ENTRY(_start)
-
-SECTIONS
-{
-    . = 1M;
-
-    .multiboot ALIGN(8) : {
-        KEEP(*(.multiboot))
-    }
-
-    .text ALIGN(4K) : {
-        *(.text .text.*)
-    }
-
-    .rodata ALIGN(4K) : {
-        *(.rodata .rodata.*)
-    }
-
-    .data ALIGN(4K) : {
-        *(.data .data.*)
-    }
-
-    .bss ALIGN(4K) : {
-        *(COMMON)
-        *(.bss .bss.*)
-    }
-}
-`
-    },
-    "kerno.project.json": {
-      content: `{
-  "name": "My First OS",
-  "target": "x86_64",
-  "bootloader": "GRUB / Multiboot2",
-  "language": ["Assembly", "C++"],
-  "entry": "boot/entry.asm",
-  "kernel": "src/kernel.cpp",
-  "linkerScript": "linker.ld"
-}
-`
-    },
-    "docs/architecture.md": {
-      content: `# Kerno OS — Architecture Notes
-
-## Boot flow
-
-1. Firmware starts the selected bootloader.
-2. GRUB loads the kernel image and transfers control according to the configured boot protocol.
-3. The assembly entry point establishes the kernel execution environment.
-4. The C++ kernel entry initializes early kernel services.
-
-## Source map
-
-- \`boot/\`: low-level entry and hardware I/O examples.
-- \`src/\`: C++ kernel implementation.
-- \`include/\`: shared kernel interfaces.
-- \`linker.ld\`: kernel memory layout.
-- \`boot/grub.cfg\`: boot menu configuration.
-
-> These files are starter examples for editing and learning. A compatible boot protocol, compiler flags, linker setup, and early CPU initialization must be validated before treating an image as bootable.
-`
-    }
-  });
-
-  const state = {
-    projectName: "My First OS",
-    files: {},
-    openTabs: [],
-    activeFile: "src/kernel.cpp",
-    splitFile: "boot/entry.asm",
-    collapsedFolders: new Set(["build"]),
-    dirtyFiles: new Set(),
-    editor: null,
-    splitEditor: null,
-    models: {},
-    activeView: "project",
-    activeOutput: "problems",
-    theme: "dark",
-    outputExpanded: false,
-    autosaveTimer: null,
-    settings: { fontSize: 13, tabSize: 4, wordWrap: "off" },
-    selectedStarter: "text"
-  };
-
-  function languageFor(path) {
-    const ext = path.split(".").pop().toLowerCase();
-    if (["asm", "s", "inc"].includes(ext)) return "kerno-asm";
-    if (["c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx"].includes(ext)) return "cpp";
-    if (ext === "json") return "json";
-    if (ext === "md") return "markdown";
-    if (ext === "cfg" || ext === "ini") return "ini";
-    if (ext === "ld") return "kerno-linker";
-    if (["txt", "mk"].includes(ext) || path.toLowerCase().endsWith("makefile")) return "plaintext";
-    return "plaintext";
-  }
-
-  function languageLabel(path) {
-    const language = languageFor(path);
-    return ({
-      "kerno-asm": "Assembly · NASM",
-      cpp: path.endsWith(".c") ? "C" : "C++",
-      json: "JSON",
-      markdown: "Markdown",
-      ini: "GRUB Config",
-      "kerno-linker": "Linker Script",
-      plaintext: "Text"
-    })[language] || "Text";
-  }
-
-  function markFor(path) {
-    const language = languageFor(path);
-    if (language === "kerno-asm") return ["A", "asm"];
-    if (language === "cpp") return [path.endsWith(".h") || path.endsWith(".hpp") ? "H" : "C", path.endsWith(".h") || path.endsWith(".hpp") ? "header" : "cpp"];
-    if (language === "json") return ["{}", "json"];
-    if (language === "ini") return ["≡", "config"];
-    if (language === "kerno-linker") return ["L", "linker"];
-    if (language === "markdown") return ["M", "text"];
-    return ["·", "text"];
-  }
-
-  function normalizePath(value) {
-    const raw = String(value || "").replace(/\\/g, "/").replace(/^\/+/, "");
-    const parts = [];
-    for (const part of raw.split("/")) {
-      if (!part || part === ".") continue;
-      if (part === "..") return "";
-      if (/[\\x00-\\x1f]/.test(part)) return "";
-      parts.push(part);
-    }
-    return parts.join("/");
-  }
-
-  function setDefaultFiles() {
-    const samples = starterFiles();
-    state.files = {};
-    for (const [path, value] of Object.entries(samples)) {
-      state.files[path] = { content: value.content, language: languageFor(path) };
-    }
-    state.openTabs = ["src/kernel.cpp", "boot/entry.asm", "boot/grub.cfg"];
-    state.activeFile = "src/kernel.cpp";
-    state.splitFile = "boot/entry.asm";
-    state.dirtyFiles.clear();
-    state.collapsedFolders = new Set();
-  }
-
-  function toast(message, detail = "") {
-    const node = document.createElement("div");
-    node.className = "toast";
-    node.textContent = message;
-    if (detail) {
-      const small = document.createElement("small");
-      small.textContent = detail;
-      node.append(small);
-    }
-    $("#toastRegion").append(node);
-    window.setTimeout(() => node.remove(), 3600);
-  }
-
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.style.display = "none";
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-  }
-
-  function activeContent(path = state.activeFile) {
-    if (state.models[path]) return state.models[path].getValue();
-    if (path === state.activeFile && $("#fallbackEditor").style.display === "block") return $("#fallbackEditor").value;
-    return state.files[path]?.content ?? "";
-  }
-
-  function markDirty(path) {
-    state.dirtyFiles.add(path);
-    $("#unsavedIndicator").textContent = "UNSAVED CHANGES";
-    $("#unsavedIndicator").classList.add("unsaved");
-    $("#saveStatus").textContent = "Unsaved source changes";
-    renderTabs();
-    clearTimeout(state.autosaveTimer);
-    state.autosaveTimer = window.setTimeout(() => saveWorkspace(true), 850);
-  }
-
-  function currentWorkspacePayload() {
-    const files = {};
-    Object.keys(state.files).forEach(path => { files[path] = activeContent(path); });
-    return {
-      version: 1,
-      projectName: state.projectName,
-      theme: state.theme,
-      settings: state.settings,
-      files,
-      savedAt: new Date().toISOString()
-    };
-  }
-
-  function saveWorkspace(silent = false) {
-    Object.keys(state.files).forEach(path => {
-      state.files[path].content = activeContent(path);
-    });
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentWorkspacePayload()));
-      state.dirtyFiles.clear();
-      $("#unsavedIndicator").textContent = "SAVED IN BROWSER";
-      $("#unsavedIndicator").classList.remove("unsaved");
-      $("#saveStatus").textContent = "Saved in this browser";
-      renderTabs();
-      if (!silent) toast("Workspace saved", "Source files are stored in this browser on this device.");
-      return true;
-    } catch (error) {
-      $("#saveStatus").textContent = "Browser storage unavailable";
-      if (!silent) toast("Could not save in browser", "Use Export project to keep an external copy.");
-      return false;
-    }
-  }
-
-  function restoreWorkspace() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return false;
-      const saved = JSON.parse(raw);
-      if (!saved || saved.version !== 1 || !saved.files || typeof saved.files !== "object") return false;
-      const restored = {};
-      Object.entries(saved.files).forEach(([rawPath, content]) => {
-        const path = normalizePath(rawPath);
-        if (path && typeof content === "string") restored[path] = { content, language: languageFor(path) };
-      });
-      if (!Object.keys(restored).length) return false;
-      state.files = restored;
-      state.projectName = typeof saved.projectName === "string" ? saved.projectName : "Restored OS";
-      state.settings = { ...state.settings, ...(saved.settings || {}) };
-      state.theme = saved.theme === "light" ? "light" : "dark";
-      const firstCpp = Object.keys(restored).find(path => path.endsWith(".cpp") || path.endsWith(".c")) || Object.keys(restored)[0];
-      state.openTabs = [firstCpp, ...Object.keys(restored).filter(path => path !== firstCpp).slice(0, 2)];
-      state.activeFile = firstCpp;
-      state.splitFile = state.openTabs[1] || firstCpp;
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  function makeModel(path, content) {
-    if (!window.monaco) return null;
-    const encoded = path.split("/").map(encodeURIComponent).join("/");
-    const uri = window.monaco.Uri.parse("file:///kerno/" + encoded);
-    const existing = window.monaco.editor.getModel(uri);
-    if (existing) return existing;
-    const model = window.monaco.editor.createModel(content, languageFor(path), uri);
-    model.onDidChangeContent(() => {
-      state.files[path].content = model.getValue();
-      markDirty(path);
-    });
-    return model;
-  }
-
-  function ensureModel(path) {
-    if (!state.files[path]) return null;
-    if (!state.models[path] && window.monaco) {
-      state.models[path] = makeModel(path, state.files[path].content);
-    }
-    return state.models[path] || null;
-  }
-
-  function renderTabs() {
-    const host = $("#openFiles");
-    host.innerHTML = "";
-    state.openTabs.forEach(path => {
-      if (!state.files[path]) return;
-      const [mark, kind] = markFor(path);
-      const tab = document.createElement("button");
-      tab.className = "file-tab" + (path === state.activeFile ? " active" : "");
-      tab.type = "button";
-      const icon = document.createElement("span");
-      icon.className = "file-mark " + kind;
-      icon.textContent = mark;
-      const name = document.createElement("span");
-      name.className = "tab-name";
-      name.textContent = path.split("/").pop();
-      tab.append(icon, name);
-      if (state.dirtyFiles.has(path)) {
-        const dirty = document.createElement("span");
-        dirty.className = "tab-dirty";
-        tab.append(dirty);
-      }
-      const close = document.createElement("span");
-      close.className = "tab-close";
-      close.textContent = "×";
-      close.title = "Close tab";
-      tab.append(close);
-      tab.addEventListener("click", event => {
-        if (event.target === close) closeTab(path);
-        else setActiveFile(path);
-      });
-      host.append(tab);
-    });
-  }
-
-  function closeTab(path) {
-    const index = state.openTabs.indexOf(path);
-    if (index < 0) return;
-    state.openTabs.splice(index, 1);
-    if (!state.openTabs.length) {
-      const next = Object.keys(state.files)[0];
-      if (next) state.openTabs.push(next);
-    }
-    if (state.activeFile === path) {
-      const next = state.openTabs[Math.max(0, Math.min(index, state.openTabs.length - 1))];
-      if (next) setActiveFile(next);
-    }
-    renderTabs();
-  }
-
-  function setActiveFile(path) {
-    if (!state.files[path]) return;
-    state.activeFile = path;
-    if (!state.openTabs.includes(path)) state.openTabs.push(path);
-    const model = ensureModel(path);
-    if (state.editor && model) state.editor.setModel(model);
-    else if (!state.editor) {
-      $("#fallbackEditor").value = state.files[path].content;
-      $("#fallbackEditor").style.display = "block";
-    }
-    $("#activeFilePath").textContent = path;
-    $("#paneFileName").textContent = path.split("/").pop();
-    $("#languageStatus").textContent = languageLabel(path);
-    $("#languageDot").className = "file-language-dot " + markFor(path)[1];
-    $("#paneRole").textContent = roleFor(path);
-    renderTabs();
-    renderTree();
-    if (state.editor) state.editor.focus();
-  }
-
-  function roleFor(path) {
-    if (path.startsWith("boot/") && path.endsWith(".asm")) return "BOOT / LOW LEVEL";
-    if (path.startsWith("boot/")) return "BOOT CONFIGURATION";
-    if (path.startsWith("src/")) return "KERNEL SOURCE";
-    if (path.startsWith("include/")) return "KERNEL INTERFACE";
-    if (path.endsWith(".ld")) return "MEMORY LAYOUT";
-    if (path.endsWith(".json")) return "PROJECT METADATA";
-    if (path.endsWith(".md")) return "PROJECT DOCUMENTATION";
-    return "SOURCE FILE";
-  }
-
-  function buildTreeData() {
-    const root = { folders: new Map(), files: [] };
-    Object.keys(state.files).sort((a, b) => a.localeCompare(b)).forEach(path => {
-      const parts = path.split("/");
-      let node = root;
-      for (const folder of parts.slice(0, -1)) {
-        if (!node.folders.has(folder)) node.folders.set(folder, { folders: new Map(), files: [], path: (node.path ? node.path + "/" : "") + folder });
-        node = node.folders.get(folder);
-      }
-      node.files.push({ name: parts[parts.length - 1], path });
-    });
-    return root;
-  }
-
-  function renderTreeChildren(parent, node) {
-    const folders = [...node.folders.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    folders.forEach(([name, child]) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "tree-folder";
-      const head = document.createElement("button");
-      head.className = "tree-folder-head";
-      head.type = "button";
-      const arrow = document.createElement("span");
-      arrow.className = "folder-arrow";
-      const collapsed = state.collapsedFolders.has(child.path);
-      arrow.textContent = collapsed ? "›" : "⌄";
-      const glyph = document.createElement("span");
-      glyph.className = "folder-glyph";
-      glyph.textContent = "▰";
-      const label = document.createElement("span");
-      label.textContent = name;
-      const count = document.createElement("span");
-      count.className = "folder-count";
-      count.textContent = countFiles(child);
-      head.append(arrow, glyph, label, count);
-      head.addEventListener("click", () => {
-        if (state.collapsedFolders.has(child.path)) state.collapsedFolders.delete(child.path);
-        else state.collapsedFolders.add(child.path);
-        renderTree();
-      });
-      wrapper.append(head);
-      if (!collapsed) {
-        const contents = document.createElement("div");
-        contents.className = "folder-contents";
-        renderTreeChildren(contents, child);
-        wrapper.append(contents);
-      }
-      parent.append(wrapper);
-    });
-    node.files.forEach(item => {
-      const row = document.createElement("button");
-      row.className = "tree-file" + (state.activeFile === item.path ? " active" : "");
-      row.type = "button";
-      const [mark, kind] = markFor(item.path);
-      const icon = document.createElement("span");
-      icon.className = "file-mark " + kind;
-      icon.textContent = mark;
-      const name = document.createElement("span");
-      name.className = "tree-file-name";
-      name.textContent = item.name;
-      row.append(icon, name);
-      if (state.dirtyFiles.has(item.path)) {
-        const dot = document.createElement("span");
-        dot.className = "file-state";
-        row.append(dot);
-      }
-      const actions = document.createElement("span");
-      actions.className = "file-row-actions";
-      const rename = document.createElement("button");
-      rename.type = "button"; rename.textContent = "✎"; rename.title = "Rename file";
-      rename.addEventListener("click", event => { event.stopPropagation(); renameFile(item.path); });
-      const remove = document.createElement("button");
-      remove.type = "button"; remove.textContent = "×"; remove.title = "Remove file";
-      remove.addEventListener("click", event => { event.stopPropagation(); deleteFile(item.path); });
-      actions.append(rename, remove);
-      row.append(actions);
-      row.addEventListener("click", () => setActiveFile(item.path));
-      parent.append(row);
-    });
-  }
-
-  function countFiles(node) {
-    let count = node.files.length;
-    for (const child of node.folders.values()) count += countFiles(child);
-    return count;
-  }
-
-  function renderTree() {
-    const host = $("#fileTree");
-    if (!host) return;
-    host.innerHTML = "";
-    const tree = buildTreeData();
-    renderTreeChildren(host, tree);
-    $("#fileCountStatus").textContent = Object.keys(state.files).length + " source files";
-  }
-
-  function renameFile(oldPath) {
-    const oldName = oldPath.split("/").pop();
-    const proposed = window.prompt("Rename file", oldName);
-    if (!proposed || proposed === oldName) return;
-    const nextPath = normalizePath(oldPath.includes("/") ? oldPath.slice(0, oldPath.lastIndexOf("/") + 1) + proposed : proposed);
-    if (!nextPath || state.files[nextPath]) {
-      toast("Could not rename file", "Choose a valid, unused file name.");
-      return;
-    }
-    const content = activeContent(oldPath);
-    state.files[nextPath] = { content, language: languageFor(nextPath) };
-    delete state.files[oldPath];
-    if (state.models[oldPath]) {
-      state.models[oldPath].dispose();
-      delete state.models[oldPath];
-    }
-    if (state.openTabs.includes(oldPath)) state.openTabs = state.openTabs.map(path => path === oldPath ? nextPath : path);
-    state.dirtyFiles.delete(oldPath);
-    if (state.activeFile === oldPath) state.activeFile = nextPath;
-    if (state.splitFile === oldPath) state.splitFile = nextPath;
-    ensureModel(nextPath);
-    setActiveFile(state.activeFile);
-    updateSplitSelect();
-    if (state.splitEditor) state.splitEditor.setModel(ensureModel(state.splitFile));
-    saveWorkspace(true);
-    toast("File renamed", oldPath + " → " + nextPath);
-  }
-
-  function deleteFile(path) {
-    if (!window.confirm("Remove " + path + " from this workspace?")) return;
-    if (state.models[path]) {
-      state.models[path].dispose();
-      delete state.models[path];
-    }
-    delete state.files[path];
-    state.dirtyFiles.delete(path);
-    state.openTabs = state.openTabs.filter(item => item !== path);
-    if (!Object.keys(state.files).length) {
-      state.files["src/kernel.cpp"] = { content: "// Start writing your kernel here.\\n", language: "cpp" };
-    }
-    if (state.activeFile === path) state.activeFile = state.openTabs[0] || Object.keys(state.files)[0];
-    if (state.splitFile === path) state.splitFile = state.activeFile;
-    if (!state.openTabs.length) state.openTabs.push(state.activeFile);
-    setActiveFile(state.activeFile);
-    updateSplitSelect();
-    if (state.splitEditor) state.splitEditor.setModel(ensureModel(state.splitFile));
-    saveWorkspace(true);
-    toast("File removed", path);
-  }
-
-  function createFile() {
-    $("#newFilePath").value = "src/new_module.cpp";
-    $("#newFileModal").classList.remove("hidden");
-    $("#newFilePath").focus();
-    $("#newFilePath").select();
-  }
-
-  function confirmCreateFile() {
-    const path = normalizePath($("#newFilePath").value.trim());
-    if (!path || !/^[\w.\-/]+$/.test(path) || path.endsWith("/") || state.files[path]) {
-      toast("Invalid file path", "Use a new relative path such as src/new_module.cpp.");
-      return;
-    }
-    state.files[path] = { content: defaultContent(path), language: languageFor(path) };
-    ensureModel(path);
-    state.openTabs.push(path);
-    $("#newFileModal").classList.add("hidden");
-    setActiveFile(path);
-    updateSplitSelect();
-    renderTree();
-    markDirty(path);
-    toast("Source file created", path);
-  }
-
-  function defaultContent(path) {
-    const lang = languageFor(path);
-    if (lang === "kerno-asm") return "; New NASM source file\\nBITS 64\\nSECTION .text\\n";
-    if (lang === "cpp") return "#include <stdint.h>\\n\\n// New kernel module\\n";
-    if (lang === "json") return "{\\n  \\n}\\n";
-    if (lang === "kerno-linker") return "/* Linker script */\\nSECTIONS\\n{\\n    . = 1M;\\n}\\n";
-    if (lang === "markdown") return "# New document\\n";
-    return "";
-  }
-
-  function exportActiveFile() {
-    if (!state.files[state.activeFile]) return toast("No file selected");
-    const content = activeContent();
-    downloadBlob(new Blob([content], { type: "text/plain;charset=utf-8" }), state.activeFile.split("/").pop());
-    toast("File exported", state.activeFile.split("/").pop() + " downloaded.");
-  }
-
-  async function exportProject() {
-    Object.keys(state.files).forEach(path => { state.files[path].content = activeContent(path); });
-    const manifest = {
-      format: "kerno-project",
-      version: 1,
-      projectName: state.projectName,
-      target: "x86_64",
-      exportedAt: new Date().toISOString(),
-      files: Object.entries(state.files).map(([path, file]) => ({ path, content: file.content }))
-    };
-    if (!window.JSZip) {
-      downloadBlob(new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json" }), safeFileName(state.projectName) + ".kerno-project.json");
-      toast("Project exported as JSON", "ZIP support is unavailable; all text source is included in the manifest.");
-      return;
-    }
-    const zip = new window.JSZip();
-    Object.entries(state.files).forEach(([path, file]) => zip.file(path, file.content));
-    zip.file("Kerno-Project.json", JSON.stringify(manifest, null, 2));
-    try {
-      const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
-      downloadBlob(blob, safeFileName(state.projectName) + ".kerno.zip");
-      toast("Project archive exported", Object.keys(state.files).length + " source files packaged.");
-    } catch (error) {
-      toast("Export failed", error.message || "The project archive could not be created.");
-    }
-  }
-
-  function safeFileName(name) {
-    return String(name || "kerno-project").trim().replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "kerno-project";
-  }
-
-  function isLikelyBinary(path) {
-    return /\.(png|jpe?g|gif|webp|ico|bmp|elf|iso|bin|o|a|so|dll|exe|class|woff2?|ttf|pdf|mp3|mp4|zip)$/i.test(path);
-  }
-
-  async function addImportedText(path, content, overwrite = true) {
-    const safePath = normalizePath(path);
-    if (!safePath || isLikelyBinary(safePath)) return false;
-    if (new Blob([content]).size > MAX_IMPORT_BYTES) return false;
-    if (!overwrite && state.files[safePath]) return false;
-    if (state.models[safePath]) state.models[safePath].dispose();
-    state.files[safePath] = { content, language: languageFor(safePath) };
-    delete state.models[safePath];
-    ensureModel(safePath);
-    if (!state.openTabs.includes(safePath)) state.openTabs.push(safePath);
-    return true;
-  }
-
-  async function importZip(file) {
-    if (!window.JSZip) throw new Error("ZIP support did not load. Check your network and try again.");
-    const zip = await window.JSZip.loadAsync(file);
-    let imported = 0;
-    let skipped = 0;
-    const entries = [];
-    zip.forEach((path, entry) => { if (!entry.dir && path !== "Kerno-Project.json") entries.push([path, entry]); });
-    for (const [path, entry] of entries) {
-      if (isLikelyBinary(path)) { skipped++; continue; }
-      const content = await entry.async("string");
-      if (await addImportedText(path, content)) imported++;
-      else skipped++;
-    }
-    const manifestFile = zip.file("Kerno-Project.json");
-    if (manifestFile) {
-      try {
-        const manifest = JSON.parse(await manifestFile.async("string"));
-        if (manifest.format === "kerno-project" && manifest.projectName) setProjectName(manifest.projectName);
-      } catch { /* source archive remains usable even if its optional manifest is malformed */ }
-    }
-    return { imported, skipped };
-  }
-
-  async function importProjectManifest(file) {
-    const manifest = JSON.parse(await file.text());
-    if (manifest.format !== "kerno-project" || !Array.isArray(manifest.files)) return false;
-    let imported = 0;
-    for (const item of manifest.files) {
-      if (typeof item.path === "string" && typeof item.content === "string" && await addImportedText(item.path, item.content)) imported++;
-    }
-    if (manifest.projectName) setProjectName(manifest.projectName);
-    return imported;
-  }
-
-  async function importFiles(fileList) {
-    const files = [...fileList];
-    if (!files.length) return;
-    let imported = 0;
-    let skipped = 0;
-    const commonRoot = files.length > 1 && files.every(file => file.webkitRelativePath) ?
-      files.map(file => file.webkitRelativePath.split("/")[0]).every((root, _, all) => root === all[0]) : false;
-    for (const file of files) {
-      const name = file.name.toLowerCase();
-      try {
-        if (name.endsWith(".zip") || name.endsWith(".kerno")) {
-          const result = await importZip(file);
-          imported += result.imported; skipped += result.skipped;
-          continue;
-        }
-        if (name.endsWith(".kerno-project.json")) {
-          const count = await importProjectManifest(file);
-          if (count === false) skipped++; else imported += count;
-          continue;
-        }
-        if (isLikelyBinary(file.name) || file.size > MAX_IMPORT_BYTES) { skipped++; continue; }
-        let path = file.webkitRelativePath || file.name;
-        if (commonRoot) path = path.split("/").slice(1).join("/");
-        if (await addImportedText(path, await file.text())) imported++;
-        else skipped++;
-      } catch (error) {
-        skipped++;
-        toast("Could not import " + file.name, error.message || "Unsupported or unreadable file.");
-      }
-    }
-    if (imported) {
-      const first = state.openTabs[state.openTabs.length - 1];
-      if (first) setActiveFile(first);
-      renderTree();
-      renderTabs();
-      updateSplitSelect();
-      if (state.splitEditor && state.files[state.splitFile]) state.splitEditor.setModel(ensureModel(state.splitFile));
-      saveWorkspace(true);
-    }
-    toast(imported + " file(s) imported", skipped ? skipped + " item(s) skipped (binary, oversized, or unsupported)." : "Added to the current workspace.");
-  }
-
-  function setProjectName(name) {
-    state.projectName = String(name || "Untitled OS").trim().slice(0, 48) || "Untitled OS";
-    $("#projectNameLabel").textContent = state.projectName;
-    if ($("#sideProjectName")) $("#sideProjectName").textContent = state.projectName;
-  }
-
-  function applyTheme() {
-    document.body.classList.toggle("light-theme", state.theme === "light");
-    if (window.monaco && state.editor) {
-      window.monaco.editor.setTheme(state.theme === "dark" ? "kerno-dark" : "kerno-light");
-    }
-  }
-
-  function toggleTheme() {
-    state.theme = state.theme === "dark" ? "light" : "dark";
-    applyTheme();
-    saveWorkspace(true);
-    toast(state.theme === "dark" ? "Dark theme enabled" : "Light theme enabled");
-  }
-
-  function registerCustomLanguages(monaco) {
-    monaco.languages.register({ id: "kerno-asm", extensions: [".asm", ".s", ".inc"], aliases: ["NASM", "Assembly", "asm"] });
-    monaco.languages.setMonarchTokensProvider("kerno-asm", {
-      tokenizer: {
-        root: [
-          [/;.*$/, "comment"],
-          [/\b(section|global|extern|align|times|bits|default|db|dw|dd|dq|resb|resw|resd|equ|incbin)\b/i, "keyword"],
-          [/\b(mov|add|sub|mul|div|cmp|jmp|je|jne|call|ret|push|pop|cli|sti|hlt|xor|lea|int|and|or|in|out|test|shl|shr)\b/i, "keyword"],
-          [/\b(rax|rbx|rcx|rdx|rsi|rdi|rsp|rbp|r8|r9|r10|r11|r12|r13|r14|r15|eax|ebx|ecx|edx|ax|bx|cx|dx|al|ah|bl|bh)\b/i, "variable"],
-          [/0x[0-9a-fA-F]+|\b\d+\b/, "number"],
-          [/\.[a-zA-Z_][\w.]*/, "type"],
-          [/\b[a-zA-Z_][\w]*:/, "type"],
-          [/"[^"]*"/, "string"]
-        ]
-      }
-    });
-    monaco.languages.register({ id: "kerno-linker", extensions: [".ld"], aliases: ["Linker Script"] });
-    monaco.languages.setMonarchTokensProvider("kerno-linker", {
-      tokenizer: {
-        root: [
-          [/\/\*.*?\*\//, "comment"],
-          [/\/\/.*$/, "comment"],
-          [/\b(ENTRY|SECTIONS|KEEP|ALIGN|PROVIDE|ASSERT|ORIGIN|LENGTH)\b/, "keyword"],
-          [/\.[a-zA-Z_][\w.]*/, "type"],
-          [/0x[0-9a-fA-F]+|\b\d+[kKmM]?\b/, "number"],
-          [/[{}():;]/, "delimiter"]
-        ]
-      }
-    });
-  }
-
-  function defineThemes(monaco) {
-    monaco.editor.defineTheme("kerno-dark", {
-      base: "vs-dark", inherit: true,
-      rules: [
-        { token: "comment", foreground: "75889A", fontStyle: "italic" },
-        { token: "keyword", foreground: "C5A4DF" },
-        { token: "string", foreground: "A9D4B4" },
-        { token: "number", foreground: "DDB77B" },
-        { token: "type", foreground: "8CB9EF" },
-        { token: "variable", foreground: "8CC9B3" }
-      ],
-      colors: {
-        "editor.background": "#0E131A",
-        "editor.foreground": "#DCE5EF",
-        "editorLineNumber.foreground": "#566679",
-        "editorLineNumber.activeForeground": "#C4D0DD",
-        "editor.lineHighlightBackground": "#17212C",
-        "editor.selectionBackground": "#34516B88",
-        "editorCursor.foreground": "#9DD5BD",
-        "editorIndentGuide.background1": "#202B37",
-        "editorIndentGuide.activeBackground1": "#456052",
-        "editorWidget.background": "#1A2530",
-        "editorSuggestWidget.background": "#1A2530"
-      }
-    });
-    monaco.editor.defineTheme("kerno-light", {
-      base: "vs", inherit: true,
-      rules: [
-        { token: "comment", foreground: "788A96", fontStyle: "italic" },
-        { token: "keyword", foreground: "8C50A8" },
-        { token: "string", foreground: "357A51" },
-        { token: "number", foreground: "9A641B" },
-        { token: "type", foreground: "2767A5" }
-      ],
-      colors: {
-        "editor.background": "#FFFFFF",
-        "editor.foreground": "#263540",
-        "editorLineNumber.foreground": "#9BA8B2",
-        "editorLineNumber.activeForeground": "#526372",
-        "editor.lineHighlightBackground": "#F1F6F5",
-        "editorCursor.foreground": "#26795E",
-        "editor.selectionBackground": "#B6DCCB88"
-      }
-    });
-  }
-
-  function editorOptions(model) {
-    return {
-      model,
-      theme: state.theme === "dark" ? "kerno-dark" : "kerno-light",
-      automaticLayout: true,
-      fontFamily: '"DM Mono", Consolas, monospace',
-      fontSize: Number(state.settings.fontSize) || 13,
-      lineHeight: 22,
-      minimap: { enabled: false },
-      padding: { top: 17, bottom: 20 },
-      scrollBeyondLastLine: false,
-      renderLineHighlight: "line",
-      cursorBlinking: "smooth",
-      smoothScrolling: true,
-      roundedSelection: false,
-      tabSize: Number(state.settings.tabSize) || 4,
-      wordWrap: state.settings.wordWrap,
-      glyphMargin: false,
-      folding: true,
-      guides: { indentation: true },
-      automaticClosingBrackets: "always",
-      bracketPairColorization: { enabled: true },
-      suggest: { showWords: true }
-    };
-  }
-
-  function initMonaco() {
-    if (!window.require || !window.require.config) {
-      showFallbackEditor();
-      toast("Monaco could not load", "The built-in text area is available. Check the CDN connection for syntax highlighting.");
-      return;
-    }
-    window.require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs" } });
-    window.MonacoEnvironment = {
-      getWorkerUrl: function () {
-        const worker = "self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/'};importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/base/worker/workerMain.js');";
-        return "data:text/javascript;charset=utf-8," + encodeURIComponent(worker);
-      }
-    };
-    window.require(["vs/editor/editor.main"], function () {
-      const monaco = window.monaco;
-      registerCustomLanguages(monaco);
-      defineThemes(monaco);
-      Object.entries(state.files).forEach(([path, file]) => {
-        state.models[path] = makeModel(path, file.content);
-      });
-      state.editor = monaco.editor.create($("#editorHost"), editorOptions(state.models[state.activeFile]));
-      state.editor.onDidChangeCursorPosition(event => {
-        $("#cursorStatus").textContent = "Ln " + event.position.lineNumber + ", Col " + event.position.column;
-      });
-      state.editor.onDidChangeModel(() => updateActiveFileMeta());
-      $("#fallbackEditor").style.display = "none";
-      if (!$("#splitPane").classList.contains("hidden")) createSplitEditor();
-      updateActiveFileMeta();
-    }, function () {
-      showFallbackEditor();
-      toast("Monaco could not load", "Using the built-in text editor instead.");
-    });
-  }
-
-  function showFallbackEditor() {
-    $("#fallbackEditor").style.display = "block";
-    $("#fallbackEditor").value = state.files[state.activeFile]?.content || "";
-    $("#fallbackEditor").oninput = () => {
-      if (!state.files[state.activeFile]) return;
-      state.files[state.activeFile].content = $("#fallbackEditor").value;
-      markDirty(state.activeFile);
-    };
-    $("#fallbackEditor").onkeyup = updateCursorFromFallback;
-    $("#fallbackEditor").onclick = updateCursorFromFallback;
-  }
-
-  function updateCursorFromFallback() {
-    const input = $("#fallbackEditor");
-    const before = input.value.slice(0, input.selectionStart);
-    const line = before.split("\\n");
-    $("#cursorStatus").textContent = "Ln " + line.length + ", Col " + (line[line.length - 1].length + 1);
-  }
-
-  function updateActiveFileMeta() {
-    $("#activeFilePath").textContent = state.activeFile;
-    $("#paneFileName").textContent = state.activeFile.split("/").pop();
-    $("#languageStatus").textContent = languageLabel(state.activeFile);
-    $("#paneRole").textContent = roleFor(state.activeFile);
-  }
-
-  function createSplitEditor() {
-    if (!window.monaco || !state.editor) return;
-    if (!state.splitFile || !state.files[state.splitFile]) state.splitFile = state.openTabs.find(path => path !== state.activeFile) || state.activeFile;
-    $("#splitPane").classList.remove("hidden");
-    $("#splitButton").classList.add("active");
-    updateSplitSelect();
-    if (!state.splitEditor) {
-      state.splitEditor = window.monaco.editor.create($("#splitEditorHost"), editorOptions(ensureModel(state.splitFile)));
-    } else {
-      state.splitEditor.setModel(ensureModel(state.splitFile));
-      state.splitEditor.layout();
-    }
-    state.editor.layout();
-  }
-
-  function updateSplitSelect() {
-    const select = $("#splitFileSelect");
-    if (!select) return;
-    select.innerHTML = "";
-    Object.keys(state.files).sort().forEach(path => {
-      const option = document.createElement("option");
-      option.value = path;
-      option.textContent = path;
-      option.selected = path === state.splitFile;
-      select.append(option);
-    });
-  }
-
-  function closeSplit() {
-    $("#splitPane").classList.add("hidden");
-    $("#splitButton").classList.remove("active");
-    state.splitEditor?.layout();
-    state.editor?.layout();
-  }
-
-  function toggleSplit() {
-    if (!$("#splitPane").classList.contains("hidden")) {
-      closeSplit();
-      return;
-    }
-    state.splitFile = state.openTabs.find(path => path !== state.activeFile) || state.activeFile;
-    createSplitEditor();
-    toast("Split editor opened", "Both panes edit the same project files.");
-  }
-
-  const outputViews = {
-    problems: '<div class="output-empty"><span class="empty-icon">✓</span><div><strong>No editor problems detected</strong><p>Live compiler diagnostics will appear when a build service is connected.</p></div></div>',
-    build: '<div class="output-empty"><span class="empty-icon">⌁</span><div><strong>No build has been run</strong><p>Build output is not simulated as a successful compilation. Connect a native toolchain to build a real kernel.</p></div></div>',
-    serial: '<div class="output-empty"><span class="empty-icon">∿</span><div><strong>Serial channel is disconnected</strong><p>Kernel serial output will appear here when a QEMU session is connected.</p></div></div>',
-    notes: '<div class="output-line"><span class="output-info">[EDITOR]</span><span>Monaco provides source editing and syntax highlighting for C/C++, NASM Assembly, linker scripts, JSON, GRUB configuration, and Markdown.</span></div><div class="output-line"><span class="output-info">[FILES]</span><span>Import individual source files, a directory, or a Kerno ZIP archive. Export the active file or the complete project.</span></div><div class="output-line"><span class="output-warn">[BUILD]</span><span>Build &amp; Boot is a frontend placeholder. No compiler, linker, GRUB tool, ISO packager, or QEMU process runs in the browser.</span></div>'
-  };
-
-  function setOutput(view) {
-    state.activeOutput = view;
-    $$(".output-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.output === view));
-    $("#outputContent").innerHTML = outputViews[view] || outputViews.problems;
-  }
-
-  function appendOutput(message, type = "info") {
-    const line = document.createElement("div");
-    line.className = "output-line";
-    const stamp = document.createElement("span");
-    stamp.className = type === "warn" ? "output-warn" : type === "ok" ? "output-ok" : "output-info";
-    stamp.textContent = "[" + new Date().toLocaleTimeString() + "]";
-    const text = document.createElement("span");
-    text.textContent = message;
-    line.append(stamp, text);
-    $("#outputContent").append(line);
-  }
-
-  function runBuildPreview() {
-    setOutput("build");
-    $("#outputContent").innerHTML = "";
-    appendOutput("Kerno frontend requested a build.", "info");
-    appendOutput("No native toolchain is connected. No compile or ISO packaging was attempted.", "warn");
-    appendOutput("Next integration: local build service with NASM, cross-compiler, linker, GRUB and xorriso.", "info");
-    toast("Build service not connected", "This action does not create an ISO or start an emulator.");
-  }
-
-  function renderProjectView() {
-    $("#sideHeading").textContent = "Project map";
-    $("#sideActionButton").title = "Create source file";
-    $("#sideActionButton").textContent = "＋";
-    $("#panelView").innerHTML = `<div class="project-card"><div class="project-card-icon">K</div><div class="project-card-copy"><strong id="sideProjectName"></strong><span>Kernel project · source workspace</span></div><span class="live-dot"></span></div><div class="tree-toolbar"><span>PROJECT FILES</span><div><button class="mini-action" id="newFileButton" title="New file">＋</button><button class="mini-action" id="importFolderButton" title="Import source folder">⇧</button><button class="mini-action" id="refreshTreeButton" title="Refresh file map">↻</button></div></div><div class="file-tree" id="fileTree"></div><div class="panel-footnote"><span class="footnote-mark">i</span><span>Source files are editable. Save locally or export a project archive.</span></div>`;
-    $("#sideProjectName").textContent = state.projectName;
-    $("#newFileButton").addEventListener("click", createFile);
-    $("#importFolderButton").addEventListener("click", () => $("#folderInput").click());
-    $("#refreshTreeButton").addEventListener("click", () => { renderTree(); toast("Project map refreshed"); });
-    renderTree();
-  }
-
-  const snippets = [
-    { group: "C++ KERNEL", items: [
-      { name: "Kernel entry point", detail: "Freestanding kernel_main()", language: "cpp", code: 'extern "C" void kernel_main() {\\n    // Kernel initialization starts here.\\n    for (;;) {\\n        __asm__ volatile ("hlt");\\n    }\\n}\\n' },
-      { name: "VGA text cell", detail: "Write one character to text memory", language: "cpp", code: "volatile uint16_t* const vga = reinterpret_cast<volatile uint16_t*>(0xB8000);\\nvga[0] = static_cast<uint16_t>(\'K\') | (static_cast<uint16_t>(0x0F) << 8);\\n" },
-      { name: "Freestanding memset", detail: "Small memory initialization helper", language: "cpp", code: 'extern "C" void* kerno_memset(void* dst, int value, size_t size) {\\n    auto* out = static_cast<uint8_t*>(dst);\\n    for (size_t i = 0; i < size; ++i) out[i] = static_cast<uint8_t>(value);\\n    return dst;\\n}\\n' }
-    ]},
-    { group: "NASM ASSEMBLY", items: [
-      { name: "64-bit entry stub", detail: "Kernel entry after long-mode handoff", language: "asm", code: "BITS 64\\nSECTION .text\\nGLOBAL _start\\nEXTERN kernel_main\\n_start:\\n    cli\\n    call kernel_main\\n.hang:\\n    hlt\\n    jmp .hang\\n" },
-      { name: "Port output", detail: "Write one byte to an I/O port", language: "asm", code: "GLOBAL kerno_outb\\nkerno_outb:\\n    mov dx, di\\n    mov al, sil\\n    out dx, al\\n    ret\\n" },
-      { name: "Save general registers", detail: "Simple register preservation pattern", language: "asm", code: "    push rbx\\n    push rbp\\n    push r12\\n    ; ... your routine ...\\n    pop r12\\n    pop rbp\\n    pop rbx\\n    ret\\n" }
-    ]}
-  ];
-
-  function insertAtCursor(text) {
-    if (state.editor) {
-      const selection = state.editor.getSelection();
-      state.editor.executeEdits("kerno-snippet", [{ range: selection, text, forceMoveMarkers: true }]);
-      state.editor.focus();
-    } else {
-      const input = $("#fallbackEditor");
-      const start = input.selectionStart;
-      const end = input.selectionEnd;
-      input.setRangeText(text, start, end, "end");
-      state.files[state.activeFile].content = input.value;
-      markDirty(state.activeFile);
-      input.focus();
-    }
-  }
-
-  function renderSnippetsView() {
-    $("#sideHeading").textContent = "Code patterns";
-    $("#sideActionButton").textContent = "?";
-    $("#sideActionButton").title = "How code patterns work";
-    $("#panelView").innerHTML = '<div class="panel-footnote"><span class="footnote-mark">+</span><span>Select a pattern to insert it at the editor cursor. Choose the matching language file first.</span></div>';
-    snippets.forEach(group => {
-      const block = document.createElement("div");
-      block.className = "snippet-group";
-      const heading = document.createElement("h3");
-      heading.textContent = group.group;
-      block.append(heading);
-      group.items.forEach(item => {
-        const button = document.createElement("button");
-        button.className = "snippet-button";
-        const name = document.createElement("strong");
-        name.textContent = item.name;
-        const detail = document.createElement("span");
-        detail.textContent = item.detail;
-        button.append(name, detail);
-        button.addEventListener("click", () => {
-          const isAsmFile = languageFor(state.activeFile) === "kerno-asm";
-          const isCppFile = languageFor(state.activeFile) === "cpp";
-          const matchesLanguage = item.language === "asm" ? isAsmFile : isCppFile;
-          if (!matchesLanguage) {
-            toast("Choose a matching source file", item.language === "asm" ? "Open a .asm file before inserting this Assembly pattern." : "Open a C or C++ file before inserting this C++ pattern.");
-            return;
-          }
-          insertAtCursor(item.code);
-          toast("Pattern inserted", item.name);
-        });
-        block.append(button);
-      });
-      $("#panelView").append(block);
-    });
-  }
-
-  function renderSettingsView() {
-    $("#sideHeading").textContent = "Editor settings";
-    $("#sideActionButton").textContent = "↺";
-    $("#sideActionButton").title = "Reset editor settings";
-    $("#panelView").innerHTML = `<label class="setting-row">Font size<select id="fontSizeSetting"><option value="11">11 px</option><option value="12">12 px</option><option value="13">13 px</option><option value="14">14 px</option><option value="15">15 px</option><option value="16">16 px</option></select></label><label class="setting-row">Tab width<select id="tabSizeSetting"><option value="2">2 spaces</option><option value="4">4 spaces</option><option value="8">8 spaces</option></select></label><label class="setting-row">Line wrapping<select id="wordWrapSetting"><option value="off">Off</option><option value="on">On</option></select></label><p class="setting-note">These settings apply to the Monaco editor and are stored with this browser workspace.</p><button class="tool-button" id="themeSettingButton">Toggle dark / light theme</button>`;
-    $("#fontSizeSetting").value = String(state.settings.fontSize);
-    $("#tabSizeSetting").value = String(state.settings.tabSize);
-    $("#wordWrapSetting").value = state.settings.wordWrap;
-    $("#fontSizeSetting").addEventListener("change", event => updateEditorSetting("fontSize", Number(event.target.value)));
-    $("#tabSizeSetting").addEventListener("change", event => updateEditorSetting("tabSize", Number(event.target.value)));
-    $("#wordWrapSetting").addEventListener("change", event => updateEditorSetting("wordWrap", event.target.value));
-    $("#themeSettingButton").addEventListener("click", toggleTheme);
-  }
-
-  function updateEditorSetting(key, value) {
-    state.settings[key] = value;
-    [state.editor, state.splitEditor].forEach(editor => {
-      if (!editor) return;
-      if (key === "fontSize") editor.updateOptions({ fontSize: value });
-      if (key === "tabSize") editor.updateOptions({ tabSize: value });
-      if (key === "wordWrap") editor.updateOptions({ wordWrap: value });
-    });
-    saveWorkspace(true);
-  }
-
-  function activateView(view) {
-    state.activeView = view;
-    $$(".rail-button[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === view));
-    if (view === "project") renderProjectView();
-    if (view === "snippets") renderSnippetsView();
-    if (view === "settings") renderSettingsView();
-  }
-
-  const commands = [
-    ["Save workspace", "save", "Ctrl + S"],
-    ["Import files / ZIP project", "import", "Ctrl + O"],
-    ["Export active source file", "export-file", "Ctrl + Shift + E"],
-    ["Export complete project ZIP", "export-project", "Ctrl + Shift + S"],
-    ["Create source file", "new-file", ""],
-    ["Open project map", "project", ""],
-    ["Open code patterns", "snippets", ""],
-    ["Open editor settings", "settings", ""],
-    ["Toggle split editor", "split", ""],
-    ["Toggle output panel", "output", "Ctrl + J"],
-    ["Build & Boot (preview)", "build", "Ctrl + B"],
-    ["Toggle light / dark theme", "theme", ""],
-    ["Toggle focus mode", "focus", ""]
-  ];
-
-  function openCommandPalette() {
-    $("#commandBackdrop").classList.remove("hidden");
-    $("#commandInput").value = "";
-    renderCommands("");
-    $("#commandInput").focus();
-  }
-
-  function renderCommands(query) {
-    const q = query.trim().toLowerCase();
-    const items = [
-      ...commands.filter(item => item[0].toLowerCase().includes(q)).map(item => ({ label: item[0], action: item[1], key: item[2] })),
-      ...Object.keys(state.files).filter(path => path.toLowerCase().includes(q)).map(path => ({ label: "Open " + path, action: "file:" + path, key: "FILE" }))
-    ];
-    const host = $("#commandResults");
-    host.innerHTML = "";
-    items.forEach((item, index) => {
-      const button = document.createElement("button");
-      button.className = "command-item" + (index === 0 ? " active" : "");
-      const label = document.createElement("span");
-      label.textContent = item.label;
-      const key = document.createElement("kbd");
-      key.textContent = item.key || "↵";
-      button.append(label, key);
-      button.addEventListener("click", () => runCommand(item.action));
-      host.append(button);
-    });
-    if (!items.length) {
-      const none = document.createElement("div");
-      none.className = "command-item";
-      none.textContent = "No matching action or file";
-      host.append(none);
-    }
-  }
-
-  function runCommand(action) {
-    $("#commandBackdrop").classList.add("hidden");
-    if (action.startsWith("file:")) return setActiveFile(action.slice(5));
-    const actions = {
-      save: () => saveWorkspace(),
-      import: () => $("#importInput").click(),
-      "export-file": exportActiveFile,
-      "export-project": exportProject,
-      "new-file": createFile,
-      project: () => activateView("project"),
-      snippets: () => activateView("snippets"),
-      settings: () => activateView("settings"),
-      split: toggleSplit,
-      output: toggleOutput,
-      build: runBuildPreview,
-      theme: toggleTheme,
-      focus: toggleFocusMode
-    };
-    actions[action]?.();
-  }
-
-  function toggleOutput() {
-    const panel = $("#outputPanel");
-    const resizer = $("#bottomResizer");
-    const hidden = panel.classList.toggle("collapsed");
-    resizer.style.display = hidden ? "none" : "";
-  }
-
-  function toggleFocusMode() {
-    document.body.classList.toggle("focus-mode");
-    state.editor?.layout();
-    state.splitEditor?.layout();
-  }
-
-  function createProject() {
-    const name = $("#newProjectName").value.trim() || "Untitled OS";
-    if (!window.confirm("Create a new workspace? The current workspace will be replaced in this browser. Export it first to keep a copy.")) return;
-    setDefaultFiles();
-    if (state.selectedStarter === "framebuffer") {
-      state.files["src/framebuffer.cpp"] = {
-        language: "cpp",
-        content: `#include <stdint.h>
-
-// Framebuffer interface placeholder.
-// Connect this structure to the framebuffer information supplied by your boot protocol.
-struct Framebuffer {
-    uintptr_t address;
-    uint32_t width;
-    uint32_t height;
-    uint32_t pitch;
-    uint8_t bits_per_pixel;
+const LANGUAGES = {
+  en:{settings:"Settings",back:"Back",welcomeTitle:"Build your operating system.",welcomeSubtitle:"A focused environment for kernel source, machine configuration, memory planning and emulator workflows.",newProject:"New project",newProjectDesc:"Create a structured OS workspace from a kernel template.",loadProject:"Load project",loadProjectDesc:"Open a Kerno archive, project manifest or source directory.",configureIDE:"Configure IDE",configureDesc:"Set language, appearance, editor behavior and local tools.",recentProjects:"Recent projects",noRecent:"No recent projects",noRecentDesc:"Create or load an OS project to begin.",createWorkspace:"Create workspace",projectName:"Project name",starterTemplate:"Starter template",architecture:"Architecture",firmware:"Firmware",kernelLanguage:"Kernel language",bootloader:"Bootloader",guestMemory:"Guest RAM (MiB)",virtualCpus:"Virtual CPUs",applySettings:"Apply settings",general:"General",appearance:"Appearance",language:"Language",editor:"Editor",osArchitecture:"OS & Architecture",memory:"Memory",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Storage & Data",advanced:"Advanced",source:"Source",machine:"Machine",build:"Build",importFiles:"Import files",exportProject:"Export project",buildBoot:"Build & Boot",projectFiles:"Project files",cancel:"Cancel",machineDisplay:"Machine display",noMachineSession:"No machine session",connectQemuPrompt:"Connect Kerno Local Service to launch and display a QEMU guest."},
+  id:{settings:"Pengaturan",back:"Kembali",welcomeTitle:"Bangun sistem operasi milikmu.",welcomeSubtitle:"Lingkungan terfokus untuk source kernel, konfigurasi mesin, perencanaan memori, dan emulator.",newProject:"Proyek baru",newProjectDesc:"Buat workspace OS terstruktur dari template kernel.",loadProject:"Muat proyek",loadProjectDesc:"Buka arsip Kerno atau direktori source.",configureIDE:"Konfigurasi IDE",configureDesc:"Atur bahasa, tampilan, editor, dan tool lokal.",recentProjects:"Proyek terbaru",noRecent:"Belum ada proyek",noRecentDesc:"Buat atau muat proyek OS untuk memulai.",createWorkspace:"Buat workspace",projectName:"Nama proyek",starterTemplate:"Template awal",architecture:"Arsitektur",firmware:"Firmware",kernelLanguage:"Bahasa kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtual",applySettings:"Terapkan pengaturan",general:"Umum",appearance:"Tampilan",language:"Bahasa",editor:"Editor",osArchitecture:"OS & Arsitektur",memory:"Memori",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Penyimpanan & Data",advanced:"Lanjutan",source:"Source",machine:"Mesin",build:"Build",importFiles:"Impor file",exportProject:"Ekspor proyek",buildBoot:"Build & Boot",projectFiles:"File proyek",cancel:"Batal",machineDisplay:"Tampilan mesin",noMachineSession:"Belum ada sesi mesin",connectQemuPrompt:"Hubungkan Kerno Local Service untuk menjalankan guest QEMU."},
+  ms:{settings:"Tetapan",back:"Kembali",welcomeTitle:"Bina sistem operasi anda.",welcomeSubtitle:"Persekitaran khusus untuk source kernel, konfigurasi mesin, memori dan emulator.",newProject:"Projek baharu",newProjectDesc:"Cipta workspace OS daripada templat kernel.",loadProject:"Muat projek",loadProjectDesc:"Buka arkib Kerno atau direktori source.",configureIDE:"Konfigurasi IDE",configureDesc:"Tetapkan bahasa, penampilan dan alat setempat.",recentProjects:"Projek terkini",noRecent:"Tiada projek terkini",noRecentDesc:"Cipta atau muat projek OS untuk bermula.",createWorkspace:"Cipta workspace",projectName:"Nama projek",starterTemplate:"Templat permulaan",architecture:"Seni bina",firmware:"Firmware",kernelLanguage:"Bahasa kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU maya",applySettings:"Gunakan tetapan",general:"Umum",appearance:"Penampilan",language:"Bahasa",editor:"Editor",osArchitecture:"OS & Seni bina",memory:"Memori",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Storan & Data",advanced:"Lanjutan",source:"Source",machine:"Mesin",build:"Build",importFiles:"Import fail",exportProject:"Eksport projek",buildBoot:"Build & Boot",projectFiles:"Fail projek",cancel:"Batal",machineDisplay:"Paparan mesin",noMachineSession:"Tiada sesi mesin",connectQemuPrompt:"Sambungkan Kerno Local Service untuk menjalankan QEMU."},
+  zh:{settings:"设置",back:"返回",welcomeTitle:"构建你自己的操作系统。",welcomeSubtitle:"专注于内核源代码、机器配置、内存规划和模拟器工作流。",newProject:"新建项目",newProjectDesc:"从内核模板创建操作系统工作区。",loadProject:"加载项目",loadProjectDesc:"打开 Kerno 压缩包或源代码目录。",configureIDE:"配置 IDE",configureDesc:"设置语言、外观、编辑器和本地工具。",recentProjects:"最近项目",noRecent:"没有最近项目",noRecentDesc:"创建或加载操作系统项目以开始。",createWorkspace:"创建工作区",projectName:"项目名称",starterTemplate:"起始模板",architecture:"架构",firmware:"固件",kernelLanguage:"内核语言",bootloader:"引导程序",guestMemory:"客户机内存 (MiB)",virtualCpus:"虚拟 CPU",applySettings:"应用设置",general:"常规",appearance:"外观",language:"语言",editor:"编辑器",osArchitecture:"操作系统与架构",memory:"内存",emulator:"QEMU 与模拟器",toolchain:"工具链",storage:"存储与数据",advanced:"高级",source:"源代码",machine:"机器",build:"构建",importFiles:"导入文件",exportProject:"导出项目",buildBoot:"构建并启动",projectFiles:"项目文件",cancel:"取消",machineDisplay:"机器显示",noMachineSession:"没有机器会话",connectQemuPrompt:"连接 Kerno Local Service 以启动 QEMU 客户机。"},
+  ja:{settings:"設定",back:"戻る",welcomeTitle:"自分のオペレーティングシステムを構築。",welcomeSubtitle:"カーネルソース、マシン構成、メモリ計画、エミュレーターに集中できる環境。",newProject:"新規プロジェクト",newProjectDesc:"カーネルテンプレートから OS ワークスペースを作成。",loadProject:"プロジェクトを読み込む",loadProjectDesc:"Kerno アーカイブまたはソースディレクトリを開く。",configureIDE:"IDE を設定",configureDesc:"言語、外観、エディター、ローカルツールを設定。",recentProjects:"最近のプロジェクト",noRecent:"最近のプロジェクトはありません",noRecentDesc:"OS プロジェクトを作成または読み込んで開始。",createWorkspace:"ワークスペースを作成",projectName:"プロジェクト名",starterTemplate:"開始テンプレート",architecture:"アーキテクチャ",firmware:"ファームウェア",kernelLanguage:"カーネル言語",bootloader:"ブートローダー",guestMemory:"ゲスト RAM (MiB)",virtualCpus:"仮想 CPU",applySettings:"設定を適用",general:"一般",appearance:"外観",language:"言語",editor:"エディター",osArchitecture:"OS とアーキテクチャ",memory:"メモリ",emulator:"QEMU とエミュレーター",toolchain:"ツールチェーン",storage:"ストレージとデータ",advanced:"詳細設定",source:"ソース",machine:"マシン",build:"ビルド",importFiles:"ファイルをインポート",exportProject:"プロジェクトをエクスポート",buildBoot:"ビルドして起動",projectFiles:"プロジェクトファイル",cancel:"キャンセル",machineDisplay:"マシン画面",noMachineSession:"マシンセッションなし",connectQemuPrompt:"Kerno Local Service に接続して QEMU を起動。"},
+  ko:{settings:"설정",back:"뒤로",welcomeTitle:"나만의 운영체제를 만드세요.",welcomeSubtitle:"커널 소스, 머신 구성, 메모리 계획 및 에뮬레이터 환경입니다.",newProject:"새 프로젝트",newProjectDesc:"커널 템플릿으로 OS 작업 공간을 만듭니다.",loadProject:"프로젝트 불러오기",loadProjectDesc:"Kerno 아카이브 또는 소스 디렉터리를 엽니다.",configureIDE:"IDE 구성",configureDesc:"언어, 모양, 편집기 및 로컬 도구 설정.",recentProjects:"최근 프로젝트",noRecent:"최근 프로젝트가 없습니다",noRecentDesc:"OS 프로젝트를 만들거나 불러오세요.",createWorkspace:"작업 공간 만들기",projectName:"프로젝트 이름",starterTemplate:"시작 템플릿",architecture:"아키텍처",firmware:"펌웨어",kernelLanguage:"커널 언어",bootloader:"부트로더",guestMemory:"게스트 RAM (MiB)",virtualCpus:"가상 CPU",applySettings:"설정 적용",general:"일반",appearance:"모양",language:"언어",editor:"편집기",osArchitecture:"OS 및 아키텍처",memory:"메모리",emulator:"QEMU 및 에뮬레이터",toolchain:"도구체인",storage:"저장소 및 데이터",advanced:"고급",source:"소스",machine:"머신",build:"빌드",importFiles:"파일 가져오기",exportProject:"프로젝트 내보내기",buildBoot:"빌드 및 부팅",projectFiles:"프로젝트 파일",cancel:"취소",machineDisplay:"머신 디스플레이",noMachineSession:"머신 세션 없음",connectQemuPrompt:"Kerno Local Service에 연결하여 QEMU 실행."},
+  de:{settings:"Einstellungen",back:"Zurück",welcomeTitle:"Baue dein eigenes Betriebssystem.",welcomeSubtitle:"Umgebung für Kernel-Quellcode, Maschinenkonfiguration, Speicher und Emulator.",newProject:"Neues Projekt",newProjectDesc:"OS-Arbeitsbereich aus Kernel-Vorlage erstellen.",loadProject:"Projekt laden",loadProjectDesc:"Kerno-Archiv oder Quellverzeichnis öffnen.",configureIDE:"IDE konfigurieren",configureDesc:"Sprache, Darstellung, Editor und lokale Tools einstellen.",recentProjects:"Zuletzt verwendete Projekte",noRecent:"Keine aktuellen Projekte",noRecentDesc:"Erstelle oder lade ein OS-Projekt.",createWorkspace:"Arbeitsbereich erstellen",projectName:"Projektname",starterTemplate:"Startvorlage",architecture:"Architektur",firmware:"Firmware",kernelLanguage:"Kernel-Sprache",bootloader:"Bootloader",guestMemory:"Gast-RAM (MiB)",virtualCpus:"Virtuelle CPUs",applySettings:"Einstellungen übernehmen",general:"Allgemein",appearance:"Darstellung",language:"Sprache",editor:"Editor",osArchitecture:"OS & Architektur",memory:"Speicher",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Speicher & Daten",advanced:"Erweitert",source:"Quellcode",machine:"Maschine",build:"Build",importFiles:"Dateien importieren",exportProject:"Projekt exportieren",buildBoot:"Build & Boot",projectFiles:"Projektdateien",cancel:"Abbrechen",machineDisplay:"Maschinenanzeige",noMachineSession:"Keine Maschinensitzung",connectQemuPrompt:"Verbinde Kerno Local Service, um QEMU zu starten."},
+  fr:{settings:"Paramètres",back:"Retour",welcomeTitle:"Construisez votre système d’exploitation.",welcomeSubtitle:"Environnement dédié au noyau, à la configuration machine, à la mémoire et à l’émulation.",newProject:"Nouveau projet",newProjectDesc:"Créer un espace OS depuis un modèle de noyau.",loadProject:"Charger un projet",loadProjectDesc:"Ouvrir une archive Kerno ou un dossier source.",configureIDE:"Configurer l’IDE",configureDesc:"Régler la langue, l’apparence et les outils locaux.",recentProjects:"Projets récents",noRecent:"Aucun projet récent",noRecentDesc:"Créez ou chargez un projet OS.",createWorkspace:"Créer l’espace",projectName:"Nom du projet",starterTemplate:"Modèle de départ",architecture:"Architecture",firmware:"Firmware",kernelLanguage:"Langage du noyau",bootloader:"Chargeur d’amorçage",guestMemory:"RAM invitée (MiB)",virtualCpus:"CPU virtuels",applySettings:"Appliquer les paramètres",general:"Général",appearance:"Apparence",language:"Langue",editor:"Éditeur",osArchitecture:"OS & Architecture",memory:"Mémoire",emulator:"QEMU & Émulateur",toolchain:"Toolchain",storage:"Stockage & Données",advanced:"Avancé",source:"Sources",machine:"Machine",build:"Build",importFiles:"Importer fichiers",exportProject:"Exporter projet",buildBoot:"Build & Boot",projectFiles:"Fichiers du projet",cancel:"Annuler",machineDisplay:"Affichage machine",noMachineSession:"Aucune session machine",connectQemuPrompt:"Connectez Kerno Local Service pour lancer QEMU."},
+  es:{settings:"Ajustes",back:"Volver",welcomeTitle:"Construye tu propio sistema operativo.",welcomeSubtitle:"Entorno centrado en código kernel, configuración de máquina, memoria y emulación.",newProject:"Nuevo proyecto",newProjectDesc:"Crea un espacio OS desde una plantilla kernel.",loadProject:"Cargar proyecto",loadProjectDesc:"Abre un archivo Kerno o directorio fuente.",configureIDE:"Configurar IDE",configureDesc:"Configura idioma, apariencia y herramientas locales.",recentProjects:"Proyectos recientes",noRecent:"No hay proyectos recientes",noRecentDesc:"Crea o carga un proyecto OS.",createWorkspace:"Crear espacio",projectName:"Nombre del proyecto",starterTemplate:"Plantilla inicial",architecture:"Arquitectura",firmware:"Firmware",kernelLanguage:"Lenguaje del kernel",bootloader:"Cargador de arranque",guestMemory:"RAM invitada (MiB)",virtualCpus:"CPU virtuales",applySettings:"Aplicar ajustes",general:"General",appearance:"Apariencia",language:"Idioma",editor:"Editor",osArchitecture:"SO y arquitectura",memory:"Memoria",emulator:"QEMU y emulador",toolchain:"Toolchain",storage:"Almacenamiento y datos",advanced:"Avanzado",source:"Código",machine:"Máquina",build:"Compilar",importFiles:"Importar archivos",exportProject:"Exportar proyecto",buildBoot:"Compilar y arrancar",projectFiles:"Archivos del proyecto",cancel:"Cancelar",machineDisplay:"Pantalla de máquina",noMachineSession:"Sin sesión de máquina",connectQemuPrompt:"Conecta Kerno Local Service para iniciar QEMU."},
+  pt:{settings:"Configurações",back:"Voltar",welcomeTitle:"Construa seu próprio sistema operacional.",welcomeSubtitle:"Ambiente focado em kernel, máquina, memória e emulação.",newProject:"Novo projeto",newProjectDesc:"Crie um workspace OS a partir de um modelo kernel.",loadProject:"Carregar projeto",loadProjectDesc:"Abra um arquivo Kerno ou diretório de fontes.",configureIDE:"Configurar IDE",configureDesc:"Defina idioma, aparência e ferramentas locais.",recentProjects:"Projetos recentes",noRecent:"Nenhum projeto recente",noRecentDesc:"Crie ou carregue um projeto de SO.",createWorkspace:"Criar workspace",projectName:"Nome do projeto",starterTemplate:"Modelo inicial",architecture:"Arquitetura",firmware:"Firmware",kernelLanguage:"Linguagem do kernel",bootloader:"Bootloader",guestMemory:"RAM convidada (MiB)",virtualCpus:"CPUs virtuais",applySettings:"Aplicar configurações",general:"Geral",appearance:"Aparência",language:"Idioma",editor:"Editor",osArchitecture:"SO e arquitetura",memory:"Memória",emulator:"QEMU e emulador",toolchain:"Toolchain",storage:"Armazenamento e dados",advanced:"Avançado",source:"Código-fonte",machine:"Máquina",build:"Build",importFiles:"Importar arquivos",exportProject:"Exportar projeto",buildBoot:"Build & Boot",projectFiles:"Arquivos do projeto",cancel:"Cancelar",machineDisplay:"Tela da máquina",noMachineSession:"Nenhuma sessão",connectQemuPrompt:"Conecte Kerno Local Service para iniciar o QEMU."},
+  ru:{settings:"Настройки",back:"Назад",welcomeTitle:"Создайте собственную операционную систему.",welcomeSubtitle:"Среда для ядра, конфигурации машины, памяти и эмулятора.",newProject:"Новый проект",newProjectDesc:"Создайте рабочую область ОС из шаблона ядра.",loadProject:"Загрузить проект",loadProjectDesc:"Откройте архив Kerno или каталог исходников.",configureIDE:"Настроить IDE",configureDesc:"Настройте язык, оформление и локальные инструменты.",recentProjects:"Недавние проекты",noRecent:"Нет недавних проектов",noRecentDesc:"Создайте или загрузите проект ОС.",createWorkspace:"Создать рабочую область",projectName:"Имя проекта",starterTemplate:"Шаблон",architecture:"Архитектура",firmware:"Прошивка",kernelLanguage:"Язык ядра",bootloader:"Загрузчик",guestMemory:"Память гостя (MiB)",virtualCpus:"Виртуальные CPU",applySettings:"Применить настройки",general:"Общие",appearance:"Оформление",language:"Язык",editor:"Редактор",osArchitecture:"ОС и архитектура",memory:"Память",emulator:"QEMU и эмулятор",toolchain:"Инструменты",storage:"Хранилище и данные",advanced:"Дополнительно",source:"Исходники",machine:"Машина",build:"Сборка",importFiles:"Импорт файлов",exportProject:"Экспорт проекта",buildBoot:"Сборка и запуск",projectFiles:"Файлы проекта",cancel:"Отмена",machineDisplay:"Экран машины",noMachineSession:"Нет сеанса машины",connectQemuPrompt:"Подключите Kerno Local Service для запуска QEMU."},
+  tr:{settings:"Ayarlar",back:"Geri",welcomeTitle:"Kendi işletim sisteminizi oluşturun.",welcomeSubtitle:"Kernel kodu, makine, bellek ve emülasyon ortamı.",newProject:"Yeni proje",newProjectDesc:"Kernel şablonundan OS çalışma alanı oluşturun.",loadProject:"Projeyi yükle",loadProjectDesc:"Kerno arşivi veya kaynak klasörü açın.",configureIDE:"IDE'yi yapılandır",configureDesc:"Dil, görünüm ve yerel araçları ayarlayın.",recentProjects:"Son projeler",noRecent:"Yakın zamanda proje yok",noRecentDesc:"Bir OS projesi oluşturun veya yükleyin.",createWorkspace:"Çalışma alanı oluştur",projectName:"Proje adı",starterTemplate:"Başlangıç şablonu",architecture:"Mimari",firmware:"Firmware",kernelLanguage:"Kernel dili",bootloader:"Önyükleyici",guestMemory:"Konuk RAM (MiB)",virtualCpus:"Sanal CPU",applySettings:"Ayarları uygula",general:"Genel",appearance:"Görünüm",language:"Dil",editor:"Editör",osArchitecture:"OS ve Mimari",memory:"Bellek",emulator:"QEMU ve Emülatör",toolchain:"Araç zinciri",storage:"Depolama ve Veri",advanced:"Gelişmiş",source:"Kaynak",machine:"Makine",build:"Derleme",importFiles:"Dosyaları içe aktar",exportProject:"Projeyi dışa aktar",buildBoot:"Derle ve başlat",projectFiles:"Proje dosyaları",cancel:"İptal",machineDisplay:"Makine ekranı",noMachineSession:"Makine oturumu yok",connectQemuPrompt:"QEMU için Kerno Local Service'e bağlanın."},
+  ar:{settings:"الإعدادات",back:"رجوع",welcomeTitle:"أنشئ نظام التشغيل الخاص بك.",welcomeSubtitle:"بيئة متخصصة للنواة وإعداد الجهاز والذاكرة والمحاكي.",newProject:"مشروع جديد",newProjectDesc:"إنشاء مساحة عمل من قالب نواة.",loadProject:"تحميل مشروع",loadProjectDesc:"افتح أرشيف Kerno أو مجلد المصدر.",configureIDE:"تكوين IDE",configureDesc:"اضبط اللغة والمظهر والأدوات المحلية.",recentProjects:"المشاريع الأخيرة",noRecent:"لا توجد مشاريع حديثة",noRecentDesc:"أنشئ مشروع نظام تشغيل أو حمّله.",createWorkspace:"إنشاء مساحة عمل",projectName:"اسم المشروع",starterTemplate:"القالب الأساسي",architecture:"المعمارية",firmware:"البرنامج الثابت",kernelLanguage:"لغة النواة",bootloader:"محمل الإقلاع",guestMemory:"ذاكرة الضيف (MiB)",virtualCpus:"وحدات CPU افتراضية",applySettings:"تطبيق الإعدادات",general:"عام",appearance:"المظهر",language:"اللغة",editor:"المحرر",osArchitecture:"النظام والمعمارية",memory:"الذاكرة",emulator:"QEMU والمحاكي",toolchain:"سلسلة الأدوات",storage:"التخزين والبيانات",advanced:"متقدم",source:"المصدر",machine:"الجهاز",build:"البناء",importFiles:"استيراد الملفات",exportProject:"تصدير المشروع",buildBoot:"بناء وتشغيل",projectFiles:"ملفات المشروع",cancel:"إلغاء",machineDisplay:"عرض الجهاز",noMachineSession:"لا توجد جلسة جهاز",connectQemuPrompt:"اتصل بخدمة Kerno المحلية لتشغيل QEMU."},
+  hi:{settings:"सेटिंग्स",back:"वापस",welcomeTitle:"अपना ऑपरेटिंग सिस्टम बनाएं।",welcomeSubtitle:"कर्नेल स्रोत, मशीन कॉन्फ़िगरेशन, मेमोरी और एमुलेटर के लिए वातावरण।",newProject:"नया प्रोजेक्ट",newProjectDesc:"कर्नेल टेम्पलेट से OS वर्कस्पेस बनाएं।",loadProject:"प्रोजेक्ट लोड करें",loadProjectDesc:"Kerno आर्काइव या स्रोत फ़ोल्डर खोलें।",configureIDE:"IDE कॉन्फ़िगर करें",configureDesc:"भाषा, रूप और स्थानीय टूल सेट करें।",recentProjects:"हाल के प्रोजेक्ट",noRecent:"कोई हाल का प्रोजेक्ट नहीं",noRecentDesc:"OS प्रोजेक्ट बनाएं या लोड करें।",createWorkspace:"वर्कस्पेस बनाएं",projectName:"प्रोजेक्ट का नाम",starterTemplate:"स्टार्टर टेम्पलेट",architecture:"आर्किटेक्चर",firmware:"फर्मवेयर",kernelLanguage:"कर्नेल भाषा",bootloader:"बूटलोडर",guestMemory:"गेस्ट RAM (MiB)",virtualCpus:"वर्चुअल CPU",applySettings:"सेटिंग्स लागू करें",general:"सामान्य",appearance:"दिखावट",language:"भाषा",editor:"एडिटर",osArchitecture:"OS और आर्किटेक्चर",memory:"मेमोरी",emulator:"QEMU और एमुलेटर",toolchain:"टूलचेन",storage:"स्टोरेज और डेटा",advanced:"उन्नत",source:"स्रोत",machine:"मशीन",build:"बिल्ड",importFiles:"फ़ाइलें आयात करें",exportProject:"प्रोजेक्ट निर्यात करें",buildBoot:"बिल्ड और बूट",projectFiles:"प्रोजेक्ट फ़ाइलें",cancel:"रद्द करें",machineDisplay:"मशीन डिस्प्ले",noMachineSession:"कोई मशीन सत्र नहीं",connectQemuPrompt:"QEMU चलाने के लिए Kerno Local Service से कनेक्ट करें।"},
+  it:{settings:"Impostazioni",back:"Indietro",welcomeTitle:"Costruisci il tuo sistema operativo.",welcomeSubtitle:"Ambiente dedicato a kernel, macchina, memoria ed emulazione.",newProject:"Nuovo progetto",newProjectDesc:"Crea un workspace OS da un modello kernel.",loadProject:"Carica progetto",loadProjectDesc:"Apri un archivio Kerno o una cartella sorgente.",configureIDE:"Configura IDE",configureDesc:"Imposta lingua, aspetto e strumenti locali.",recentProjects:"Progetti recenti",noRecent:"Nessun progetto recente",noRecentDesc:"Crea o carica un progetto OS.",createWorkspace:"Crea workspace",projectName:"Nome progetto",starterTemplate:"Modello iniziale",architecture:"Architettura",firmware:"Firmware",kernelLanguage:"Linguaggio kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtuali",applySettings:"Applica impostazioni",general:"Generale",appearance:"Aspetto",language:"Lingua",editor:"Editor",osArchitecture:"OS e Architettura",memory:"Memoria",emulator:"QEMU ed emulatore",toolchain:"Toolchain",storage:"Archiviazione e dati",advanced:"Avanzate",source:"Sorgente",machine:"Macchina",build:"Build",importFiles:"Importa file",exportProject:"Esporta progetto",buildBoot:"Build & Boot",projectFiles:"File progetto",cancel:"Annulla",machineDisplay:"Display macchina",noMachineSession:"Nessuna sessione",connectQemuPrompt:"Connetti Kerno Local Service per avviare QEMU."}
 };
 
-void framebuffer_initialize(const Framebuffer& framebuffer) {
-    (void)framebuffer;
-    // Validate pixel format and dimensions before drawing.
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false};
+function tr(k){return (LANGUAGES[state.settings.locale]&&LANGUAGES[state.settings.locale][k])||LANGUAGES.en[k]||k;}
+function translate(){ $$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=state.settings.locale;document.documentElement.dir=state.settings.locale==="ar"?"rtl":"ltr"; }
+function notify(a,b){const n=document.createElement("div");n.className="toast";n.textContent=a;if(b){const s=document.createElement("small");s.textContent=b;n.append(s);}$("#toastRegion").append(n);setTimeout(()=>n.remove(),3500);}
+function makeId(){return crypto&&crypto.randomUUID?crypto.randomUUID():"kerno-"+Date.now()+"-"+Math.random().toString(36).slice(2);}
+function dbOpen(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains("projects"))d.createObjectStore("projects",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta",{keyPath:"key"});};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
+function dbReq(store,mode,fn){return new Promise((resolve,reject)=>{const tx=database.transaction(store,mode),r=fn(tx.objectStore(store));r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);tx.onabort=()=>reject(tx.error||Error("Storage transaction aborted"));});}
+const get=(s,k)=>dbReq(s,"readonly",o=>o.get(k)), put=(s,v)=>dbReq(s,"readwrite",o=>o.put(v)), all=s=>dbReq(s,"readonly",o=>o.getAll()), clear=s=>dbReq(s,"readwrite",o=>o.clear());
+async function loadSettings(){try{const x=await get("meta","settings");if(x&&x.value)state.settings=Object.assign({},DEFAULTS,x.value);}catch(_){try{state.settings=Object.assign({},DEFAULTS,JSON.parse(localStorage.getItem("kerno-settings")||"{}"));}catch(__){}}}
+async function saveSettings(){try{await put("meta",{key:"settings",value:state.settings});}catch(_){try{localStorage.setItem("kerno-settings",JSON.stringify(state.settings));}catch(__){notify("Settings could not be saved","Browser storage is unavailable.");}}}
+function normalizePath(p){const raw=String(p||"").split(String.fromCharCode(92)).join("/").replace(/^\/+/,"");const parts=[];for(const x of raw.split("/")){if(!x||x===".")continue;if(x===".."||/[\x00-\x1f]/.test(x))return "";parts.push(x);}return parts.join("/");}
+function safeName(n){return String(n||"kerno-project").trim().replace(/[^a-z0-9_-]+/gi,"-").replace(/^-+|-+$/g,"")||"kerno-project";}
+function fileSize(p){return Object.values(p.files||{}).reduce((n,x)=>n+new Blob([x]).size,0);}
+function formatBytes(n){return n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(2)+" MB";}
+function download(blob,name){const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=name;a.style.display="none";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1400);}
+function langOf(path){const e=path.split(".").pop().toLowerCase();if(["asm","s","inc"].includes(e))return "kerno-asm";if(["c","h"].includes(e))return "c";if(["cpp","cc","cxx","hpp","hh","hxx"].includes(e))return "cpp";if(e==="ld")return "kerno-linker";if(e==="json")return "json";if(e==="md")return "markdown";if(["cfg","ini"].includes(e))return "ini";return "plaintext";}
+function langLabel(p){return ({"kerno-asm":"Assembly / NASM",cpp:"C++",c:"C","kerno-linker":"Linker Script",json:"JSON",markdown:"Markdown",ini:"GRUB Config",plaintext:"Text"})[langOf(p)]||"Text";}
+function fileBadge(p){const x=langOf(p);return x==="kerno-asm"?["A","mark-asm"]:x==="cpp"||x==="c"?["C","mark-cpp"]:x==="json"?["{}","mark-json"]:x==="ini"?["≡","mark-config"]:x==="kerno-linker"?["L","mark-linker"]:["·","mark-doc"];}
+function show(name){state.screen=name;["welcome","newProject","settings","app"].forEach(x=>$("#"+x+"Screen").classList.toggle("hidden",x!==name));if(name==="welcome")refreshRecent();}
+function emptyRecent(){const d=document.createElement("div");d.className="recent-empty";d.innerHTML="<span>⌁</span><div><strong></strong><p></p></div>";$("strong",d).textContent=tr("noRecent");$("p",d).textContent=tr("noRecentDesc");return d;}
+async function refreshRecent(){try{state.recent=(await all("projects")).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,12);}catch(_){state.recent=[];}const host=$("#recentProjects");host.innerHTML="";if(!state.recent.length){host.append(emptyRecent());return;}state.recent.forEach(p=>{const b=document.createElement("button");b.className="recent-item";b.innerHTML='<span class="recent-icon">K</span><span class="recent-copy"><strong></strong><small></small></span><span class="recent-open">OPEN →</span>';$("strong",b).textContent=p.name;$("small",b).textContent=(p.config.architecture||"unknown")+" · "+Object.keys(p.files).length+" files · "+new Date(p.updatedAt).toLocaleDateString();b.onclick=()=>loadProject(p.id);host.append(b);});}
+function configFor(name){const s=state.settings;return {name:name,architecture:s.defaultArchitecture,firmware:s.defaultFirmware,bootloader:s.defaultBootloader,kernelLanguage:s.defaultKernelLanguage,optimization:s.optimization,memory:{guestMiB:s.guestMemoryMiB,heapReserveMiB:s.heapReserveMiB,stackReserveKiB:s.stackReserveKiB,pageSize:s.pageSize,kernelBase:s.kernelBase},qemu:{binary:s.qemuBinary,machine:s.qemuMachine,display:s.qemuDisplay,vcpus:s.qemuVcpus,vncPort:s.qemuVncPort,acceleration:s.qemuAcceleration}};}
+function scaffold(c,template){const ext=c.kernelLanguage==="c"?"c":"cpp",f={};let asm;
+if(c.architecture==="x86_64"||c.architecture==="i686")asm=["; Kerno x86 entry scaffold","; Validate boot ABI, CPU mode and Multiboot2 handoff before booting.","BITS 32","SECTION .multiboot","ALIGN 8","dd 0xE85250D6","dd 0","dd header_end - header_start","dd -(0xE85250D6 + (header_end - header_start))","header_start:","    dd 0","    dd 8","header_end:","SECTION .bss","ALIGN 16","stack_bottom: RESB 16384","stack_top:","SECTION .text","GLOBAL _start","EXTERN kernel_main","_start:","    cli","    mov esp, stack_top","    call kernel_main",".halt:","    hlt","    jmp .halt",""].join("\n");
+else if(c.architecture==="aarch64")asm=["// AArch64 entry scaffold; firmware ABI and exception level must be validated.",".section .text.boot",".global _start","_start:","    msr daifset, #0xf","    bl kernel_main","1:  wfe","    b 1b",""].join("\n");
+else asm=["# RISC-V 64 entry scaffold; validate privilege and platform ABI."," .section .text.init",".globl _start","_start:","    la sp, kernel_stack_top","    call kernel_main","1:  wfi","    j 1b",".section .bss",".align 12","kernel_stack:","    .space 16384","kernel_stack_top:",""].join("\n");
+f["boot/entry.asm"]=asm;
+if(c.bootloader==="grub")f["boot/grub.cfg"]=["set timeout=3","set default=0","","menuentry '"+c.name+"' {","    multiboot2 /boot/kernel.elf","    boot","}",""].join("\n");
+f["include/kernel/types.h"]=["#pragma once","#include <stdint.h>","#include <stddef.h>","typedef uintptr_t kerno_addr_t;","typedef uint64_t kerno_size_t;",""].join("\n");
+f["include/kernel/console.h"]=["#pragma once","void kerno_console_initialize(void);","void kerno_console_write(const char* text);",""].join("\n");
+f["include/kernel/memory.h"]=["#pragma once","#include <stddef.h>","void* kerno_memset(void* dst, int value, size_t size);","void* kerno_memcpy(void* dst, const void* src, size_t size);",""].join("\n");
+f["src/kernel."+ext]=["#include <stdint.h>","#include \"kernel/console.h\"","#include \"kernel/memory.h\"","","extern \"C\" void kernel_main(void) {","    kerno_console_initialize();","    kerno_console_write(\""+c.name+" kernel initialized.\");","    for (;;) {","        __asm__ volatile (\"hlt\");","    }","}",""].join("\n");
+f["src/console."+ext]=["#include \"kernel/console.h\"","","void kerno_console_initialize(void) {","    // Initialize a validated VGA, framebuffer or serial backend.","}","","void kerno_console_write(const char* text) {","    (void)text;","    // Implement the selected output driver after boot handoff validation.","}",""].join("\n");
+f["src/memory."+ext]=["#include <stddef.h>","#include <stdint.h>","#include \"kernel/memory.h\"","","void* kerno_memset(void* dst, int value, size_t size) {","    uint8_t* out=(uint8_t*)dst;","    for(size_t i=0;i<size;++i) out[i]=(uint8_t)value;","    return dst;","}","","void* kerno_memcpy(void* dst,const void* src,size_t size) {","    uint8_t* out=(uint8_t*)dst;","    const uint8_t* in=(const uint8_t*)src;","    for(size_t i=0;i<size;++i) out[i]=in[i];","    return dst;","}",""].join("\n");
+if(template==="kernel-framebuffer"){f["include/kernel/framebuffer.h"]=["#pragma once","#include <stdint.h>","typedef struct { uintptr_t address; uint32_t width,height,pitch; uint8_t bits_per_pixel; } kerno_framebuffer_t;","void kerno_framebuffer_initialize(const kerno_framebuffer_t* fb);",""].join("\n");f["src/framebuffer."+ext]=["#include \"kernel/framebuffer.h\"","void kerno_framebuffer_initialize(const kerno_framebuffer_t* fb) {","    if(!fb || !fb->address || !fb->width || !fb->height) return;","    // Validate pitch, pixel format and accessible memory before drawing.","}",""].join("\n");}
+f["linker.ld"]=["ENTRY(_start)","SECTIONS","{","    . = "+c.memory.kernelBase+";","    .multiboot ALIGN(8) : { KEEP(*(.multiboot)) }","    .text ALIGN(4K) : { *(.text .text.*) }","    .rodata ALIGN(4K) : { *(.rodata .rodata.*) }","    .data ALIGN(4K) : { *(.data .data.*) }","    .bss ALIGN(4K) : { *(COMMON) *(.bss .bss.*) }","}",""].join("\n");
+f["kerno.project.json"]=JSON.stringify({format:"kerno-project",version:1,name:c.name,config:c},null,2)+"\n";
+f["docs/architecture.md"]=["# "+c.name,"","## Target","- Architecture: "+c.architecture,"- Firmware: "+c.firmware,"- Bootloader: "+c.bootloader,"- Kernel language: "+c.kernelLanguage,"","## Source layout","- boot/: entry and boot configuration","- include/kernel/: kernel interfaces","- src/: kernel implementation","- linker.ld: memory layout","","## Boot validation","This scaffold contains editable source. Validate boot ABI, CPU mode, compiler flags, linker output and bootloader contract together before treating an image as bootable.",""].join("\n");
+f["README.md"]="# "+c.name+"\n\nKernel source workspace created by Kerno. Review docs/architecture.md before native builds.\n";
+return f;}
+function validName(x){return /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,47}$/.test(x);}
+async function createProject(){const name=$("#projectNameInput").value.trim();if(!validName(name)){notify("Invalid project name","Use letters, numbers, spaces, dots, dashes or underscores.");return;}const c=configFor(name);c.architecture=$("#architectureSelect").value;c.firmware=$("#firmwareSelect").value;c.kernelLanguage=$("#kernelLanguageSelect").value;c.bootloader=$("#bootloaderSelect").value;c.memory.guestMiB=Number($("#guestMemoryInput").value);c.qemu.vcpus=Number($("#cpuCountInput").value);c.qemu.machine=["aarch64","riscv64"].includes(c.architecture)?"virt":"q35";if(!Number.isInteger(c.memory.guestMiB)||c.memory.guestMiB<64||c.memory.guestMiB>32768||!Number.isInteger(c.qemu.vcpus)||c.qemu.vcpus<1||c.qemu.vcpus>32){notify("Invalid resources","RAM must be 64–32768 MiB; vCPU must be 1–32.");return;}state.settings.defaultArchitecture=c.architecture;state.settings.defaultFirmware=c.firmware;state.settings.defaultBootloader=c.bootloader;state.settings.defaultKernelLanguage=c.kernelLanguage;state.settings.guestMemoryMiB=c.memory.guestMiB;state.settings.qemuVcpus=c.qemu.vcpus;await saveSettings();state.project={id:makeId(),name,config:c,files:scaffold(c,$("#templateSelect").value),template:$("#templateSelect").value,createdAt:Date.now(),updatedAt:Date.now()};await saveProject(true);await openProject();notify("OS workspace created",Object.keys(state.project.files).length+" editable source/config files generated.");}
+function renderTree(){const host=$("#sourceTree");if(!host||!state.project)return;host.innerHTML="";const root={dirs:{},files:[]};Object.keys(state.project.files).sort().forEach(path=>{let n=root;const parts=path.split("/");parts.slice(0,-1).forEach(dir=>{if(!n.dirs[dir])n.dirs[dir]={dirs:{},files:[]};n=n.dirs[dir];});n.files.push({path,name:parts[parts.length-1]});});function draw(parent,node){Object.keys(node.dirs).sort().forEach(name=>{const wrap=document.createElement("div");wrap.className="tree-folder";const head=document.createElement("button");head.className="tree-folder-head";head.innerHTML='<span class="folder-arrow">⌄</span><span class="folder-icon">▰</span><span></span>';$("span:last-child",head).textContent=name;const content=document.createElement("div");content.className="folder-contents";head.onclick=()=>{content.classList.toggle("hidden");$(".folder-arrow",head).textContent=content.classList.contains("hidden")?"›":"⌄";};wrap.append(head,content);draw(content,node.dirs[name]);parent.append(wrap);});node.files.forEach(file=>{const b=document.createElement("button");b.className="tree-file"+(file.path===state.activeFile?" active":"");const ic=fileBadge(file.path);b.innerHTML='<span class="file-type-mark"></span><span class="tree-file-name"></span>';$("span:first-child",b).classList.add(ic[1]);$("span:first-child",b).textContent=ic[0];$(".tree-file-name",b).textContent=file.name;b.onclick=()=>openFile(file.path);parent.append(b);});}draw(host,root);$("#sourceCount").textContent=Object.keys(state.project.files).length+" files";$("#projectStorageSize").textContent=formatBytes(fileSize(state.project));}
+function renderTabs(){const host=$("#sourceTabs");host.innerHTML="";state.tabs.forEach(path=>{if(!(path in state.project.files))return;const b=document.createElement("button");b.className="source-tab"+(path===state.activeFile?" active":"");const ic=fileBadge(path);b.innerHTML='<span class="file-type-mark"></span><span></span><span class="tab-close">×</span>';$("span:first-child",b).classList.add(ic[1]);$("span:first-child",b).textContent=ic[0];$("span:nth-child(2)",b).textContent=path.split("/").pop();b.onclick=e=>{if(e.target.classList.contains("tab-close"))closeTab(path);else openFile(path);};host.append(b);});}
+function ensureModel(path){if(!window.monaco||!state.project||!(path in state.project.files))return null;if(state.models[path])return state.models[path];const uri=window.monaco.Uri.parse("file:///kerno/"+path.split("/").map(encodeURIComponent).join("/"));const m=window.monaco.editor.getModel(uri)||window.monaco.editor.createModel(state.project.files[path],langOf(path),uri);m.onDidChangeContent(()=>{state.project.files[path]=m.getValue();$("#editorStatus").textContent="Modified · local autosave scheduled";if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),900);}});state.models[path]=m;return m;}
+function syncEditor(){if(!state.project||!state.activeFile)return;if(state.models[state.activeFile])state.project.files[state.activeFile]=state.models[state.activeFile].getValue();else if($("#plainEditor").style.display==="block")state.project.files[state.activeFile]=$("#plainEditor").value;}
+function renderEditor(){const empty=!state.activeFile||!(state.activeFile in state.project.files);$("#editorEmpty").classList.toggle("hidden",!empty);if(empty){$("#editorBreadcrumb").textContent="No source file selected";$("#plainEditor").style.display="none";return;}$("#editorBreadcrumb").textContent=state.activeFile;$("#languageMode").textContent=langLabel(state.activeFile);if(state.editor&&state.models[state.activeFile]){state.editor.setModel(state.models[state.activeFile]);$("#plainEditor").style.display="none";}else{$("#plainEditor").value=state.project.files[state.activeFile];$("#plainEditor").style.display="block";}}
+function openFile(path){if(!(path in state.project.files))return;syncEditor();state.activeFile=path;if(!state.tabs.includes(path))state.tabs.push(path);renderTree();renderTabs();renderEditor();if(state.editor&&state.models[path])state.editor.setModel(state.models[path]);}
+function closeTab(path){state.tabs=state.tabs.filter(x=>x!==path);if(state.activeFile===path)state.activeFile=state.tabs[0]||Object.keys(state.project.files)[0]||null;renderTabs();renderEditor();}
+function disposeEditors(){Object.values(state.models).forEach(m=>{try{m.dispose();}catch(_){}});state.models={};if(state.editor){state.editor.dispose();state.editor=null;}if(state.splitEditor){state.splitEditor.dispose();state.splitEditor=null;}}
+function defineLanguages(m){m.languages.register({id:"kerno-asm",extensions:[".asm",".s",".inc"],aliases:["NASM","Assembly"]});m.languages.setMonarchTokensProvider("kerno-asm",{tokenizer:{root:[[/;.*$/,"comment"],[/\b(section|global|extern|align|times|bits|default|db|dw|dd|dq|resb|resw|resd|equ)\b/i,"keyword"],[/\b(mov|add|sub|mul|div|cmp|jmp|je|jne|call|ret|push|pop|cli|sti|hlt|xor|lea|int|and|or|in|out|test|shl|shr)\b/i,"keyword"],[/\b(rax|rbx|rcx|rdx|rsi|rdi|rsp|rbp|eax|ebx|ecx|edx|ax|bx|cx|dx|al|ah)\b/i,"variable"],[/0x[0-9a-f]+|\b\d+\b/i,"number"],[/\.[\w.]+/,"type"],[/\b[\w]+:/,"type"]]}});m.languages.register({id:"kerno-linker",extensions:[".ld"],aliases:["Linker Script"]});m.languages.setMonarchTokensProvider("kerno-linker",{tokenizer:{root:[[/\/\*.*?\*\//,"comment"],[/\/\/.*$/,"comment"],[/\b(ENTRY|SECTIONS|KEEP|ALIGN|PROVIDE|ASSERT|ORIGIN|LENGTH)\b/,"keyword"],[/\.[\w.]+/,"type"],[/0x[0-9a-f]+|\b\d+[kKmM]?\b/i,"number"]]}});}
+function defineThemes(m){m.editor.defineTheme("kerno-dark",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"778B9B",fontStyle:"italic"},{token:"keyword",foreground:"C5A4DF"},{token:"string",foreground:"A8D3B3"},{token:"number",foreground:"DDB77B"},{token:"type",foreground:"8CB9ED"},{token:"variable",foreground:"8DC8B2"}],colors:{"editor.background":"#0E141B","editor.foreground":"#E1E9F0","editorLineNumber.foreground":"#526476","editorLineNumber.activeForeground":"#C7D2DC","editor.lineHighlightBackground":"#17212A","editor.selectionBackground":"#3A586F88","editorCursor.foreground":"#A4D4BE","editorIndentGuide.background1":"#263440","editorIndentGuide.activeBackground1":"#557C6B","editorWidget.background":"#1C2833"}});m.editor.defineTheme("kerno-light",{base:"vs",inherit:true,rules:[{token:"comment",foreground:"788A96",fontStyle:"italic"},{token:"keyword",foreground:"8C50A8"},{token:"string",foreground:"357A51"},{token:"number",foreground:"9B641B"},{token:"type",foreground:"2767A5"}],colors:{"editor.background":"#FFFFFF","editor.foreground":"#263540","editorLineNumber.foreground":"#9BA8B2","editorLineNumber.activeForeground":"#526372","editor.lineHighlightBackground":"#F1F6F5","editorCursor.foreground":"#26795E"}});}
+function monacoOptions(model){return {model,theme:state.settings.theme==="light"?"kerno-light":"kerno-dark",automaticLayout:true,fontFamily:"'DM Mono',Consolas,monospace",fontSize:Number(state.settings.editorFontSize),lineHeight:22,minimap:{enabled:!!state.settings.minimap},padding:{top:15,bottom:18},scrollBeyondLastLine:false,renderLineHighlight:"line",cursorBlinking:"smooth",smoothScrolling:true,tabSize:Number(state.settings.tabSize),wordWrap:state.settings.wordWrap,lineNumbers:state.settings.lineNumbers?"on":"off",glyphMargin:false,folding:true,bracketPairColorization:{enabled:true},guides:{indentation:true}};}
+async function initMonaco(){if(!state.project)return;try{if(!monacoLoad)monacoLoad=new Promise((resolve,reject)=>{if(!window.require){reject(Error("Monaco loader unavailable"));return;}window.require.config({paths:{vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"}});window.MonacoEnvironment={getWorkerUrl:()=> "data:text/javascript;charset=utf-8,"+encodeURIComponent("self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/'};importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/base/worker/workerMain.js');")};window.require(["vs/editor/editor.main"],()=>resolve(window.monaco),reject);});const m=await monacoLoad;defineLanguages(m);defineThemes(m);Object.keys(state.project.files).forEach(ensureModel);if(!state.editor){state.editor=m.editor.create($("#monacoPane"),monacoOptions(ensureModel(state.activeFile)));state.editor.onDidChangeCursorPosition(e=>$("#cursorPosition").textContent="Ln "+e.position.lineNumber+", Col "+e.position.column);}else if(state.activeFile)state.editor.setModel(ensureModel(state.activeFile));$("#plainEditor").style.display="none";if(!$("#splitPane").classList.contains("hidden"))openSplit();applyEditorSettings();}catch(e){$("#plainEditor").style.display=state.activeFile?"block":"none";if(state.activeFile)$("#plainEditor").value=state.project.files[state.activeFile];$("#editorStatus").textContent="Basic editor active · Monaco unavailable";}}
+function applyEditorSettings(){[state.editor,state.splitEditor].forEach(e=>{if(e)e.updateOptions({fontSize:Number(state.settings.editorFontSize),tabSize:Number(state.settings.tabSize),wordWrap:state.settings.wordWrap,lineNumbers:state.settings.lineNumbers?"on":"off",minimap:{enabled:!!state.settings.minimap}});});if(window.monaco&&state.editor)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":"kerno-dark");}
+function openSplit(){if(!window.monaco||!state.editor)return;$("#splitPane").classList.remove("hidden");const paths=Object.keys(state.project.files);state.splitFile=state.splitFile&&state.project.files[state.splitFile]!==undefined?state.splitFile:(paths.find(x=>x!==state.activeFile)||state.activeFile);const sel=$("#splitFileSelect");sel.innerHTML="";paths.forEach(path=>{const o=document.createElement("option");o.value=path;o.textContent=path;o.selected=path===state.splitFile;sel.append(o);});if(!state.splitEditor)state.splitEditor=window.monaco.editor.create($("#splitMonacoPane"),monacoOptions(ensureModel(state.splitFile)));else state.splitEditor.setModel(ensureModel(state.splitFile));}
+function toggleSplit(){if($("#splitPane").classList.contains("hidden"))openSplit();else $("#splitPane").classList.add("hidden");}
+async function openProject(){show("app");$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();disposeEditors();state.tabs=[];state.activeFile=Object.keys(state.project.files).find(x=>/kernel\.(c|cpp)$/.test(x))||Object.keys(state.project.files)[0]||null;state.tabs=state.activeFile?[state.activeFile]:[];state.splitFile=Object.keys(state.project.files).find(x=>x!==state.activeFile)||state.activeFile;renderTree();renderTabs();renderEditor();renderMachine();renderBuild();renderMemory();initMonaco();await saveProject(true);}
+async function loadProject(id){try{state.project=await get("projects",id);if(!state.project)throw Error("Project not found in browser storage.");await openProject();}catch(e){notify("Could not load project",e.message);}}
+function createSourceFile(){if(!state.project)return;const path=normalizePath(prompt("New source path (example: src/interrupts.cpp)","src/new_module.cpp"));if(!path)return;if(!/^[\w./-]+$/.test(path)||state.project.files[path]!==undefined){notify("Invalid or existing file path");return;}const ext=path.split(".").pop().toLowerCase();state.project.files[path]=["asm","s","inc"].includes(ext)?"; New NASM source\nBITS 32\nSECTION .text\n":["c","cpp","h","hpp"].includes(ext)?"#include <stdint.h>\n\n// New kernel module\n":"";state.tabs.push(path);openFile(path);saveProject(true);notify("Source file created",path);}
+function binaryPath(p){return /\.(iso|elf|bin|o|a|so|dll|exe|png|jpe?g|gif|webp|ico|pdf|mp3|mp4|woff2?|ttf)$/i.test(p);}
+async function importZip(file){if(!window.JSZip)throw Error("ZIP library unavailable.");const zip=await JSZip.loadAsync(file);let n=0,skip=0,total=fileSize(state.project);const entries=[];zip.forEach((p,e)=>{if(!e.dir)entries.push([p,e]);});for(const [raw,e] of entries){const p=normalizePath(raw);if(!p||binaryPath(p)||p==="KernoProject.json"){skip++;continue;}const content=await e.async("string"),size=new Blob([content]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT){skip++;continue;}total+=size;state.project.files[p]=content;n++;}const m=zip.file("KernoProject.json");if(m){try{const data=JSON.parse(await m.async("string"));if(data.config)state.project.config=Object.assign(state.project.config,data.config);if(data.name)state.project.name=data.name;}catch(_){}}return {n,skip};}
+async function importMany(list,strip){const files=Array.from(list||[]);let n=0,skip=0,total=fileSize(state.project);const root=files.length&&files.every(f=>f.webkitRelativePath)&&files.map(f=>f.webkitRelativePath.split("/")[0]).every(x=>x===files[0].webkitRelativePath.split("/")[0])?files[0].webkitRelativePath.split("/")[0]:"";for(const f of files){try{if(/\.(zip|kerno)$/i.test(f.name)){const r=await importZip(f);n+=r.n;skip+=r.skip;continue;}let p=f.webkitRelativePath||f.name;if(strip&&root)p=p.split("/").slice(1).join("/");p=normalizePath(p);if(!p||binaryPath(p)||f.size>FILE_LIMIT||total+f.size>PROJECT_LIMIT){skip++;continue;}state.project.files[p]=await f.text();total+=f.size;n++;}catch(_){skip++;}}if(n){const next=Object.keys(state.project.files).find(x=>!state.tabs.includes(x));if(next)openFile(next);renderTree();renderTabs();await saveProject(true);}notify(n+" file(s) imported",skip?skip+" item(s) skipped due to type/path/size limits.":"Project updated.");}
+function exportFile(){if(!state.project||!state.activeFile)return;syncEditor();download(new Blob([state.project.files[state.activeFile]],{type:"text/plain;charset=utf-8"}),state.activeFile.split("/").pop());notify("Source file exported",state.activeFile);}
+async function exportProject(){if(!state.project)return;syncEditor();const manifest={format:"kerno-project",version:1,id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files,createdAt:state.project.createdAt,exportedAt:new Date().toISOString()};if(!window.JSZip){download(new Blob([JSON.stringify(manifest,null,2)],{type:"application/json"}),safeName(state.project.name)+".kerno-project.json");return;}const z=new JSZip();Object.entries(state.project.files).forEach(([p,v])=>z.file(p,v));z.file("KernoProject.json",JSON.stringify(manifest,null,2));download(await z.generateAsync({type:"blob",compression:"DEFLATE"}),safeName(state.project.name)+".kerno.zip");notify("Project archive exported",Object.keys(state.project.files).length+" files included.");}
+function cleanProjectFiles(files){const out={};let size=0;Object.entries(files).forEach(([raw,text])=>{const p=normalizePath(raw);if(!p||binaryPath(p)||typeof text!=="string")return;const n=new Blob([text]).size;if(n>FILE_LIMIT||size+n>PROJECT_LIMIT)return;size+=n;out[p]=text;});return out;}
+async function loadArchive(file){const project={id:makeId(),name:file.name.replace(/\.(zip|kerno|json)$/i,""),config:configFor("Imported OS"),files:{},createdAt:Date.now(),updatedAt:Date.now()};state.project=project;if(file.name.toLowerCase().endsWith(".json")){const data=JSON.parse(await file.text());if(data.format!=="kerno-project"||!data.files)throw Error("Not a Kerno project manifest.");project.name=data.name||project.name;project.config=Object.assign(project.config,data.config||{});project.files=data.files;}else{const r=await importZip(file);if(!r.n)throw Error("No supported text source files were found.");}project.files=cleanProjectFiles(project.files);if(!Object.keys(project.files).length)throw Error("Project archive contains no supported source files.");await saveProject(true);await openProject();notify("Project loaded",project.name);}
+function applyTheme(){document.body.classList.toggle("light-theme",state.settings.theme==="light");if(window.monaco&&state.editor)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":"kerno-dark");}
+function applyAccent(){const map={sage:"#79b8a3",cyan:"#63c9ca",blue:"#80aee8",amber:"#d7b16e"};document.documentElement.style.setProperty("--accent",map[state.settings.accent]||map.sage);}
+function applyDensity(){document.documentElement.dataset.density=state.settings.density;}
+function renderMemory(){const s=state.settings,ram=Number(s.guestMemoryMiB)||0,res=Number(s.heapReserveMiB||0)+Number(s.stackReserveKiB||0)/1024+1,free=Math.max(0,ram-res);if($("#memoryMeterFill"))$("#memoryMeterFill").style.width=Math.min(100,res/Math.max(1,ram)*100)+"%";if($("#memoryReservedLabel"))$("#memoryReservedLabel").textContent="Planned reserve: "+res.toFixed(2)+" MiB";if($("#memoryAvailableLabel"))$("#memoryAvailableLabel").textContent="Unreserved guest RAM: "+free.toFixed(2)+" MiB";if($("#memoryPlanNote"))$("#memoryPlanNote").textContent=res>=ram?"Invalid plan: kernel reservations exceed guest RAM.":"Configuration estimate only; it does not allocate host physical RAM or implement a kernel allocator.";}
+function renderMachine(){if(!state.project)return;const c=state.project.config;$("#machineArchitecture").textContent=c.architecture;$("#machineType").textContent=c.qemu.machine;$("#machineMemory").textContent=c.memory.guestMiB+" MiB";$("#machineCpus").textContent=c.qemu.vcpus;$("#machineDisplaySpec").textContent=c.qemu.display==="std"?"Standard VGA":c.qemu.display==="virtio"?"Virtio GPU":"Headless";}
+function renderBuild(){if(!state.project)return;$("#buildTarget").textContent=state.project.config.architecture;$("#buildBootloader").textContent=state.project.config.bootloader;$("#buildLanguage").textContent=state.project.config.kernelLanguage.toUpperCase();}
+function updateProjectHeader(){if(!state.project)return;$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();}
+function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
+function renderMachineEmpty(message){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=message||tr("connectQemuPrompt");}
+function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
+async function testService(){try{KernoLocalService.configure(state.settings.localServiceUrl);const h=await KernoLocalService.health();setServiceStatus(true,"Local service connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Connected · API "+(h.apiVersion||"unknown");notify("Local service connected");return true;}catch(e){setServiceStatus(false,"QEMU not connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Unavailable · "+e.message;notify("Local service unavailable",e.message);return false;}}
+async function connectService(){if(!await testService())return;try{const s=await KernoLocalService.emulatorStatus();if(s.status==="running"){setServiceStatus(true,"QEMU running");if(s.displayUrl)showDisplay(s.displayUrl);if(s.serialOutput)$("#serialOutput").textContent=String(s.serialOutput).slice(-12000);}else renderMachineEmpty("Local service is connected; no guest is running.");}catch(_){}}
+function showDisplay(value){let u;try{u=new URL(value);}catch(_){notify("Invalid emulator display URL");return;}if(!["http:","https:"].includes(u.protocol)||!["localhost","127.0.0.1","::1"].includes(u.hostname.replace(/^\[|\]$/g,""))){notify("Display URL rejected","The QEMU web display must be hosted locally.");return;}const v=$("#machineViewport");v.innerHTML="";const f=document.createElement("iframe");f.src=u.href;f.title="QEMU guest display";v.append(f);}
+async function startQemu(){if(!state.project)return;if(!state.localConnected&&!await testService())return;$("#startQemuButton").disabled=true;try{const r=await KernoLocalService.startEmulator(currentPayload(),state.settings);if(r.status!=="running"&&!r.displayUrl)throw Error(r.message||"Service did not confirm a running QEMU session.");setServiceStatus(true,"QEMU running");if(r.displayUrl)showDisplay(r.displayUrl);if(r.serialOutput)$("#serialOutput").textContent=String(r.serialOutput).slice(-12000);notify("QEMU session started","Runtime service confirmed the guest session.");}catch(e){notify("QEMU could not start",e.message);}finally{$("#startQemuButton").disabled=false;}}
+async function stopQemu(){if(!state.localConnected){notify("Local service is not connected");return;}$("#stopQemuButton").disabled=true;try{const r=await KernoLocalService.stopEmulator();if(r.status&&r.status!=="stopped")throw Error(r.message||"Service did not confirm process termination.");renderMachineEmpty("QEMU stopped by the local service.");setServiceStatus(true,"Service connected · machine stopped");notify("QEMU stopped");}catch(e){notify("Could not stop QEMU",e.message);}finally{$("#stopQemuButton").disabled=false;}}
+function currentPayload(){syncEditor();return {id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files};}
+async function runNativeBuild(){if(!state.project)return;if(!state.localConnected&&!await testService())return;$("#runBuildButton").disabled=true;$("#buildProjectButton").disabled=true;$("#buildStateLabel").textContent="SUBMITTED";$("#buildLog").textContent="Submitting native build request…\n";try{const r=await KernoLocalService.build(currentPayload(),state.settings);const status=String(r.status||"").toLowerCase();if(!["success","failed","cancelled"].includes(status))throw Error("Build service returned an unknown terminal status.");$("#buildStateLabel").textContent=status.toUpperCase();$("#buildLog").textContent=(r.log||r.message||("Build "+status))+"\n";if(status==="success"&&r.artifact)notify("Native build completed",r.artifact.name||"Artifact reported by local service.");else notify("Native build "+status,r.message||"See build output.");}catch(e){$("#buildStateLabel").textContent="SERVICE ERROR";$("#buildLog").textContent+="Build request failed: "+e.message;notify("Native build unavailable",e.message);}finally{$("#runBuildButton").disabled=false;$("#buildProjectButton").disabled=false;}}
+async function checkToolchain(){try{KernoLocalService.configure(state.settings.localServiceUrl);const r=await KernoLocalService.toolchain();const names=Object.entries(r.tools||{}).filter(x=>x[1]&&x[1].available).map(x=>x[0]);$("#toolchainResult").textContent=names.length?names.join(", "):"No tools reported";}catch(e){$("#toolchainResult").textContent="Unavailable: "+e.message;}}
+const catNames={general:"General",appearance:"Appearance",language:"Language",editor:"Editor",architecture:"OS & Architecture",memory:"Memory",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Storage & Data",advanced:"Advanced"};
+const catDesc={general:"Startup behavior and project defaults.",appearance:"Theme, accent and interface density.",language:"Choose the global Kerno interface language.",editor:"Source editing and navigation preferences.",architecture:"Target CPU and boot environment.",memory:"Guest RAM and kernel memory reservations.",emulator:"QEMU machine and local runtime.",toolchain:"Native compiler, assembler, linker and ISO tools.",storage:"Manage browser-local project data.",advanced:"Configure the local execution bridge."};
+function renderSettings(category){state.category=category;$$(".settings-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.category===category));$("#settingsTitle").textContent=tr(category==="architecture"?"osArchitecture":category);$("#settingsEyebrow").textContent=category.toUpperCase();$("#settingsDescription").textContent=catDesc[category]||"";const host=$("#settingsFields");const option=(k,v,label)=>'<option value="'+v+'" '+(state.settings[k]===v?"selected":"")+'>'+label+'</option>';const select=(k,arr)=>'<select data-setting="'+k+'">'+arr.map(x=>option(k,x[0],x[1])).join("")+'</select>';const input=(k,type,min,max,step)=>'<input data-setting="'+k+'" type="'+type+'" value="'+String(state.settings[k])+'" '+(min!==undefined?'min="'+min+'"':"")+' '+(max!==undefined?'max="'+max+'"':"")+' '+(step!==undefined?'step="'+step+'"':"")+'/>';const check=k=>'<input data-setting="'+k+'" type="checkbox" '+(state.settings[k]?"checked":"")+'/>';const row=(label,desc,control)=>'<div class="setting-row"><div class="setting-copy"><strong>'+label+'</strong><small>'+desc+'</small></div>'+control+'</div>';const group=(title,content)=>'<section class="settings-group"><h3>'+title+'</h3>'+content+'</section>';let html="";
+if(category==="general")html=group("Workspace behavior",row("Auto-save","Persist source edits to browser storage after a short idle period.",check("autosave"))+row("Confirm destructive actions","Ask before clearing stored project data.",check("confirmDestructive"))+row("Startup screen","Choose how Kerno opens.",select("startScreen",[["welcome","Welcome / project picker"],["lastProject","Resume last project"]])));
+if(category==="appearance")html=group("Interface appearance",row("Theme","Apply to the complete IDE and editor.",select("theme",[["dark","Dark"],["light","Light"]]))+row("Accent color","Focus, active states and status highlights.",select("accent",[["sage","Sage green"],["cyan","Cyan"],["blue","Blue"],["amber","Amber"]]))+row("UI density","Spacing for menus, panels and forms.",select("density",[["compact","Compact"],["balanced","Balanced"],["comfortable","Comfortable"]])));
+if(category==="language"){const langs=[["en","English"],["id","Bahasa Indonesia"],["ms","Bahasa Melayu"],["zh","简体中文"],["ja","日本語"],["ko","한국어"],["de","Deutsch"],["fr","Français"],["es","Español"],["pt","Português"],["ru","Русский"],["tr","Türkçe"],["ar","العربية"],["hi","हिन्दी"],["it","Italiano"]];html=group("Global language",row("Interface language","Change common Kerno navigation and workspace labels.",select("locale",langs)))+'<p class="setting-note">Source code and native compiler output are not translated.</p>';}
+if(category==="editor")html=group("Editor preferences",row("Font size","Monaco editor font size.",input("editorFontSize","number",10,22,1))+row("Tab width","Spaces inserted when pressing Tab.",select("tabSize",[[2,"2 spaces"],[4,"4 spaces"],[8,"8 spaces"]]))+row("Word wrap","Wrap long source lines.",select("wordWrap",[["off","Off"],["on","On"]]))+row("Line numbers","Show line numbering.",check("lineNumbers"))+row("Minimap","Show source overview.",check("minimap")));
+if(category==="architecture")html=group("Default OS target",row("Architecture","Target CPU for new projects.",select("defaultArchitecture",[["x86_64","x86_64"],["i686","i686"],["aarch64","AArch64"],["riscv64","RISC-V 64"]]))+row("Firmware","Boot firmware target.",select("defaultFirmware",[["bios","BIOS / legacy"],["uefi","UEFI"]]))+row("Bootloader","Boot handoff layer.",select("defaultBootloader",[["grub","GRUB"],["uefi-app","UEFI application"],["custom","Custom boot stage"]]))+row("Kernel language","Primary kernel language.",select("defaultKernelLanguage",[["cpp","C++"],["c","C"]]))+row("Optimization profile","Requested compiler profile.",select("optimization",[["debug","Debug (-O0)"],["size","Size (-Os)"],["speed","Speed (-O2)"]])));
+if(category==="memory")html=group("Guest memory plan",row("Guest RAM (MiB)","RAM assigned to the VM, not physical host memory.",input("guestMemoryMiB","number",64,32768,64))+row("Kernel heap reserve (MiB)","Planning budget for dynamic allocations.",input("heapReserveMiB","number",1,8192,1))+row("Initial stack reserve (KiB)","Planning budget for boot stack.",input("stackReserveKiB","number",64,1048576,64))+row("Page size target","Page-table granularity target.",select("pageSize",[["4KiB","4 KiB"],["2MiB","2 MiB"],["1GiB","1 GiB"]]))+row("Kernel link base","Hexadecimal linker base address.",input("kernelBase","text")) )+'<section class="settings-group"><h3>Reservation summary</h3><div class="memory-meter"><span id="memoryMeterFill"></span></div><div class="memory-readout"><span id="memoryReservedLabel"></span><span id="memoryAvailableLabel"></span></div><p class="setting-note" id="memoryPlanNote">Estimate only; this does not allocate host RAM or implement a kernel allocator.</p></section>';
+if(category==="emulator")html=group("QEMU profile",row("QEMU executable","Binary name resolved by local service.",input("qemuBinary","text"))+row("Machine model","Virtual board.",select("qemuMachine",[["q35","q35 · modern x86"],["pc","pc · legacy x86"],["virt","virt · ARM / RISC-V"]]))+row("Display","Virtual graphics backend.",select("qemuDisplay",[["std","Standard VGA"],["virtio","Virtio GPU"],["none","Headless"]]))+row("vCPU count","Virtual processor cores.",input("qemuVcpus","number",1,32,1))+row("VNC port","Local VNC display port.",input("qemuVncPort","number",5900,5999,1))+row("Acceleration","Host acceleration policy.",select("qemuAcceleration",[["auto","Automatic"],["kvm","KVM · Linux"],["whpx","WHPX · Windows"],["tcg","TCG · software"]])) )+'<p class="setting-note">The browser does not execute QEMU. The local service validates and manages the emulator process.</p>';
+if(category==="toolchain")html=group("Native tools",row("Assembler","NASM executable.",input("assembler","text"))+row("Cross compiler","Target C/C++ compiler.",input("crossCompiler","text"))+row("Linker","Target linker.",input("linker","text"))+row("ISO packager","GRUB rescue or xorriso integration.",input("isoBuilder","text")))+'<div class="inline-actions"><button class="tool-button" id="checkToolchainButton">Check local toolchain</button><span class="setting-note" id="toolchainResult">Not checked</span></div>';
+if(category==="storage")html=group("Browser-local data",'<div class="setting-row"><div class="setting-copy"><strong>Storage engine</strong><small>Project source is stored in this browser profile.</small></div><b>IndexedDB</b></div><div class="setting-row"><div class="setting-copy"><strong>Saved projects</strong><small>Local Kerno workspace count.</small></div><b id="storedProjectCount">—</b></div><div class="setting-row"><div class="setting-copy"><strong>Storage estimate</strong><small>Browser-provided quota estimate.</small></div><b id="browserStorageEstimate">Checking…</b></div>')+'<div class="inline-actions"><button class="tool-button" id="exportAllProjectsButton">Export all projects</button><button class="tool-button danger-button" id="clearProjectsButton">Delete all local projects</button></div><p class="setting-note">Export backups before clearing local project data.</p>';
+if(category==="advanced")html=group("Local execution bridge",row("Service endpoint","Loopback URL for Kerno Local Service API.",input("localServiceUrl","url")))+'<div class="inline-actions"><button class="tool-button" id="testLocalServiceButton">Test connection</button><span class="setting-note" id="localServiceResult">Not connected</span></div>'+group("Security boundaries",'<p class="setting-note">The browser never runs shell commands directly. The local service must validate paths and options, use an allow-listed toolchain, isolate build directories, cap resource use and terminate child processes on cancellation.</p>');
+host.innerHTML=html;host.onchange=settingChanged;host.oninput=settingChanged;if(category==="memory")renderMemory();if(category==="storage")renderStorageSettings();$("#testLocalServiceButton")&&$("#testLocalServiceButton").addEventListener("click",testService);$("#checkToolchainButton")&&$("#checkToolchainButton").addEventListener("click",checkToolchain);$("#exportAllProjectsButton")&&$("#exportAllProjectsButton").addEventListener("click",exportAll);$("#clearProjectsButton")&&$("#clearProjectsButton").addEventListener("click",clearAllProjects);}
+function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale")translate();if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density")applyDensity();if(["editorFontSize","tabSize","wordWrap","lineNumbers","minimap"].includes(k))applyEditorSettings();if(["guestMemoryMiB","heapReserveMiB","stackReserveKiB"].includes(k))renderMemory();}
+function validateSettings(){const s=state.settings;for(const [k,min,max] of [["editorFontSize",10,22],["guestMemoryMiB",64,32768],["heapReserveMiB",1,8192],["stackReserveKiB",64,1048576],["qemuVcpus",1,32],["qemuVncPort",5900,5999]])if(!Number.isInteger(Number(s[k]))||s[k]<min||s[k]>max)throw Error(k+" is outside the permitted range.");if(s.heapReserveMiB+s.stackReserveKiB/1024+1>=s.guestMemoryMiB)throw Error("Kernel reservations exceed guest RAM.");if(!/^0x[0-9a-fA-F]{6,16}$/.test(s.kernelBase))throw Error("Kernel base must be hexadecimal, e.g. 0x00100000.");KernoLocalService.configure(s.localServiceUrl);}
+async function applySettings(){try{validateSettings();}catch(e){notify("Settings need attention",e.message);return;}await saveSettings();applyTheme();applyAccent();applyDensity();translate();applyEditorSettings();if(state.project){const c=state.project.config;c.architecture=state.settings.defaultArchitecture;c.firmware=state.settings.defaultFirmware;c.bootloader=state.settings.defaultBootloader;c.kernelLanguage=state.settings.defaultKernelLanguage;c.optimization=state.settings.optimization;c.memory=Object.assign(c.memory,{guestMiB:state.settings.guestMemoryMiB,heapReserveMiB:state.settings.heapReserveMiB,stackReserveKiB:state.settings.stackReserveKiB,pageSize:state.settings.pageSize,kernelBase:state.settings.kernelBase});c.qemu=Object.assign(c.qemu,{binary:state.settings.qemuBinary,machine:state.settings.qemuMachine,display:state.settings.qemuDisplay,vcpus:state.settings.qemuVcpus,vncPort:state.settings.qemuVncPort,acceleration:state.settings.qemuAcceleration});await saveProject(true);updateProjectHeader();renderMachine();renderBuild();}notify("Settings applied","IDE preferences and OS target updated.");show(state.settingsReturn);}
+function applyTheme(){document.body.classList.toggle("light-theme",state.settings.theme==="light");if(window.monaco&&state.editor)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":"kerno-dark");}
+function applyAccent(){const map={sage:"#79b8a3",cyan:"#63c9ca",blue:"#80aee8",amber:"#d7b16e"};document.documentElement.style.setProperty("--accent",map[state.settings.accent]||map.sage);}
+function applyDensity(){document.documentElement.dataset.density=state.settings.density;}
+function renderMemory(){const s=state.settings,ram=Number(s.guestMemoryMiB)||0,res=Number(s.heapReserveMiB||0)+Number(s.stackReserveKiB||0)/1024+1,free=Math.max(0,ram-res);if($("#memoryMeterFill"))$("#memoryMeterFill").style.width=Math.min(100,res/Math.max(ram,1)*100)+"%";if($("#memoryReservedLabel"))$("#memoryReservedLabel").textContent="Planned reserve: "+res.toFixed(2)+" MiB";if($("#memoryAvailableLabel"))$("#memoryAvailableLabel").textContent="Unreserved guest RAM: "+free.toFixed(2)+" MiB";if($("#memoryPlanNote"))$("#memoryPlanNote").textContent=res>=ram?"Invalid plan: kernel reservations exceed guest RAM.":"Estimate only. It does not allocate physical host RAM or implement an allocator.";}
+async function renderStorageSettings(){if($("#storedProjectCount"))$("#storedProjectCount").textContent=(await all("projects")).length;if($("#browserStorageEstimate")){if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();$("#browserStorageEstimate").textContent=formatBytes(e.usage||0)+" / "+formatBytes(e.quota||0);}else $("#browserStorageEstimate").textContent="Unavailable";}}
+async function exportAll(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
+async function clearAllProjects(){if(state.settings.confirmDestructive&&!confirm("Delete all locally stored projects? This cannot be undone."))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
+function renderMachine(){if(!state.project)return;const c=state.project.config;$("#machineArchitecture").textContent=c.architecture;$("#machineType").textContent=c.qemu.machine;$("#machineMemory").textContent=c.memory.guestMiB+" MiB";$("#machineCpus").textContent=c.qemu.vcpus;$("#machineDisplaySpec").textContent=c.qemu.display==="std"?"Standard VGA":c.qemu.display==="virtio"?"Virtio GPU":"Headless";}
+function renderBuild(){if(!state.project)return;$("#buildTarget").textContent=state.project.config.architecture;$("#buildBootloader").textContent=state.project.config.bootloader;$("#buildLanguage").textContent=state.project.config.kernelLanguage.toUpperCase();}
+function updateProjectHeader(){if(!state.project)return;$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();}
+function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
+function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=msg||tr("connectQemuPrompt");}
+function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
+async function testService(){try{KernoLocalService.configure(state.settings.localServiceUrl);const h=await KernoLocalService.health();setServiceStatus(true,"Local service connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Connected · API "+(h.apiVersion||"unknown");notify("Local service connected");return true;}catch(e){setServiceStatus(false,"QEMU not connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Unavailable · "+e.message;notify("Local service unavailable",e.message);return false;}}
+async function connectService(){if(!await testService())return;try{const s=await KernoLocalService.emulatorStatus();if(s.status==="running"){setServiceStatus(true,"QEMU running");if(s.displayUrl)showDisplay(s.displayUrl);if(s.serialOutput)$("#serialOutput").textContent=String(s.serialOutput).slice(-12000);}else renderMachineEmpty("Local service connected; no guest is running.");}catch(_){}}
+function showDisplay(value){let u;try{u=new URL(value);}catch(_){notify("Invalid emulator display URL");return;}if(!["http:","https:"].includes(u.protocol)||!["localhost","127.0.0.1","::1"].includes(u.hostname.replace(/^\[|\]$/g,""))){notify("Display URL rejected","The QEMU display must be hosted locally.");return;}const v=$("#machineViewport");v.innerHTML="";const f=document.createElement("iframe");f.src=u.href;f.title="QEMU guest display";v.append(f);}
+async function startQemu(){if(!state.project)return;if(!state.localConnected&&!await testService())return;$("#startQemuButton").disabled=true;try{const r=await KernoLocalService.startEmulator(payload(),state.settings);if(r.status!=="running"&&!r.displayUrl)throw Error(r.message||"Service did not confirm a running QEMU session.");setServiceStatus(true,"QEMU running");if(r.displayUrl)showDisplay(r.displayUrl);if(r.serialOutput)$("#serialOutput").textContent=String(r.serialOutput).slice(-12000);notify("QEMU session started","Runtime service confirmed the guest session.");}catch(e){notify("QEMU could not start",e.message);}finally{$("#startQemuButton").disabled=false;}}
+async function stopQemu(){if(!state.localConnected){notify("Local service is not connected");return;}$("#stopQemuButton").disabled=true;try{const r=await KernoLocalService.stopEmulator();if(r.status&&r.status!=="stopped")throw Error(r.message||"Service did not confirm process termination.");renderMachineEmpty("QEMU stopped by local service.");setServiceStatus(true,"Service connected · machine stopped");notify("QEMU stopped");}catch(e){notify("Could not stop QEMU",e.message);}finally{$("#stopQemuButton").disabled=false;}}
+function payload(){syncEditor();return {id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files};}
+async function nativeBuild(){if(!state.project)return;if(!state.localConnected&&!await testService())return;$("#runBuildButton").disabled=true;$("#buildProjectButton").disabled=true;$("#buildStateLabel").textContent="SUBMITTED";$("#buildLog").textContent="Submitting native build request…\n";try{const r=await KernoLocalService.build(payload(),state.settings);const status=String(r.status||"").toLowerCase();if(!["success","failed","cancelled"].includes(status))throw Error("Build service returned an unknown terminal status.");$("#buildStateLabel").textContent=status.toUpperCase();$("#buildLog").textContent=(r.log||r.message||"Build "+status)+"\n";if(status==="success"&&r.artifact)notify("Native build completed",r.artifact.name||"Artifact reported by service.");else notify("Native build "+status,r.message||"Review build output.");}catch(e){$("#buildStateLabel").textContent="SERVICE ERROR";$("#buildLog").textContent+="Build request failed: "+e.message;notify("Native build unavailable",e.message);}finally{$("#runBuildButton").disabled=false;$("#buildProjectButton").disabled=false;}}
+async function checkToolchain(){try{KernoLocalService.configure(state.settings.localServiceUrl);const r=await KernoLocalService.toolchain();const names=Object.entries(r.tools||{}).filter(x=>x[1]&&x[1].available).map(x=>x[0]);$("#toolchainResult").textContent=names.length?names.join(", "):"No tools reported";}catch(e){$("#toolchainResult").textContent="Unavailable: "+e.message;}}
+async function loadArchive(file){const p={id:makeId(),name:file.name.replace(/\.(zip|kerno|json)$/i,""),config:configFor("Imported OS"),files:{},createdAt:Date.now(),updatedAt:Date.now()};state.project=p;if(file.name.toLowerCase().endsWith(".json")){const m=JSON.parse(await file.text());if(m.format!=="kerno-project"||!m.files)throw Error("Not a Kerno project manifest.");p.name=m.name||p.name;p.config=Object.assign(p.config,m.config||{});p.files=m.files;}else{const r=await importZip(file);if(!r.n)throw Error("No supported text source files found.");}p.files=cleanFiles(p.files);if(!Object.keys(p.files).length)throw Error("Project archive contains no supported source files.");await saveProject(true);await openProject();notify("Project loaded",p.name);}
+function cleanFiles(files){const out={};let total=0;Object.entries(files).forEach(([raw,text])=>{const path=normalizePath(raw);if(!path||binaryPath(path)||typeof text!=="string")return;const size=new Blob([text]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT)return;total+=size;out[path]=text;});return out;}
+function openSettings(from){state.settingsReturn=from||state.screen;show("settings");renderSettings(state.category);}
+function applyStartup(){applyTheme();applyAccent();applyDensity();translate();if(state.settings.startScreen==="lastProject"){all("projects").then(list=>{list.sort((a,b)=>b.updatedAt-a.updatedAt);if(list[0]){state.project=list[0];openProject();}else show("welcome");}).catch(()=>show("welcome"));}else show("welcome");}
+function bindEvents(){
+$("#welcomeNewProject").onclick=()=>show("newProject");$("#welcomeLoadProject").onclick=()=>$("#loadProjectInput").click();$("#welcomeConfigure").onclick=()=>openSettings("welcome");$("#welcomeSettingsButton").onclick=()=>openSettings("welcome");
+$("#backFromNewProject").onclick=()=>show("welcome");$("#cancelNewProject").onclick=()=>show("welcome");$("#createProjectButton").onclick=createProject;
+$("#backFromSettings").onclick=()=>show(state.settingsReturn);$("#saveSettingsButton").onclick=applySettings;
+$("#clearRecentButton").onclick=async()=>{if(state.settings.confirmDestructive&&!confirm("Clear recent history? Saved projects remain unchanged."))return;await refreshRecent();};
+$("#loadProjectInput").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{await loadArchive(f);}catch(err){state.project=null;show("welcome");notify("Project load failed",err.message);}};
+$("#projectFolderInput").onchange=async e=>{const files=Array.from(e.target.files||[]);e.target.value="";if(!files.length)return;const name=files[0].webkitRelativePath.split("/")[0]||"Imported OS";state.project={id:makeId(),name,config:configFor(name),files:{},createdAt:Date.now(),updatedAt:Date.now()};await importMany(files,true);if(Object.keys(state.project.files).length){await saveProject(true);await openProject();}else{state.project=null;notify("No supported source files found");}};
+$("#importProjectFilesButton").onclick=()=>$("#sourceImportInput").click();$("#sourceImportInput").onchange=e=>{importMany(e.target.files,false);e.target.value="";};$("#sourceFolderInput").onchange=e=>{importMany(e.target.files,true);e.target.value="";};
+$("#addSourceFileButton").onclick=createSourceFile;$("#importSourceFolderButton").onclick=()=>$("#sourceFolderInput").click();$("#emptyNewFileButton").onclick=createSourceFile;
+$("#saveProjectButton").onclick=()=>saveProject(false);$("#saveFileButton").onclick=()=>saveProject(false);$("#exportFileButton").onclick=exportFile;$("#exportProjectButton").onclick=exportProject;
+$("#appSettingsButton").onclick=()=>openSettings("app");$("#backToWelcomeButton").onclick=async()=>{await saveProject(true);disposeEditors();show("welcome");};
+$("#splitEditorButton").onclick=toggleSplit;$("#closeSplitButton").onclick=()=>$("#splitPane").classList.add("hidden");$("#splitFileSelect").onchange=e=>{state.splitFile=e.target.value;if(state.splitEditor)state.splitEditor.setModel(ensureModel(state.splitFile));};
+$("#plainEditor").oninput=()=>{if(state.activeFile){state.project.files[state.activeFile]=$("#plainEditor").value;if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),900);}}};
+$("#plainEditor").onkeyup=plainCursor;$("#plainEditor").onclick=plainCursor;
+$$(".workspace-nav-item").forEach(b=>b.onclick=()=>switchWorkspace(b.dataset.workspace));
+$("#connectLocalServiceButton").onclick=connectService;$("#startQemuButton").onclick=startQemu;$("#stopQemuButton").onclick=stopQemu;$("#clearSerialButton").onclick=()=>$("#serialOutput").textContent="";
+$("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild();};$("#runBuildButton").onclick=nativeBuild;$("#openSettingsFromBuild").onclick=()=>{state.category="toolchain";openSettings("app");};
+$$(".settings-nav-item").forEach(b=>b.onclick=()=>renderSettings(b.dataset.category));
+$("#architectureSelect").onchange=()=>{const arch=$("#architectureSelect").value;if(arch==="aarch64"||arch==="riscv64"){$("#firmwareSelect").value="uefi";$("#bootloaderSelect").value="uefi-app";}$("#scaffoldPreview").textContent=arch+" target\n├── boot/\n│   └── entry.asm\n├── include/kernel/\n├── src/\n│   ├── kernel.cpp\n│   ├── console.cpp\n│   └── memory.cpp\n├── linker.ld\n└── kerno.project.json";};
+document.addEventListener("keydown",e=>{const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==="s"){e.preventDefault();saveProject(false);}if(mod&&e.key.toLowerCase()==="o"){e.preventDefault();if(state.screen==="welcome")$("#loadProjectInput").click();else $("#sourceImportInput").click();}if(mod&&e.shiftKey&&e.key.toLowerCase()==="e"){e.preventDefault();exportFile();}if(mod&&e.shiftKey&&e.key.toLowerCase()==="s"){e.preventDefault();exportProject();}if(mod&&e.key.toLowerCase()==="b"){e.preventDefault();switchWorkspace("build");nativeBuild();}});
 }
-`
-      };
-    }
-    Object.values(state.models).forEach(model => model.dispose());
-    state.models = {};
-    state.editor?.dispose();
-    state.splitEditor?.dispose();
-    state.editor = null;
-    state.splitEditor = null;
-    setProjectName(name);
-    state.openTabs = ["src/kernel.cpp", "boot/entry.asm", "boot/grub.cfg"];
-    state.activeFile = "src/kernel.cpp";
-    state.splitFile = "boot/entry.asm";
-    $("#newProjectModal").classList.add("hidden");
-    activateView("project");
-    renderTabs();
-    if (window.monaco) {
-      Object.entries(state.files).forEach(([path, file]) => state.models[path] = makeModel(path, file.content));
-      state.editor = window.monaco.editor.create($("#editorHost"), editorOptions(state.models[state.activeFile]));
-      if (!$("#splitPane").classList.contains("hidden")) createSplitEditor();
-      $("#fallbackEditor").style.display = "none";
-    } else {
-      showFallbackEditor();
-    }
-    setActiveFile(state.activeFile);
-    saveWorkspace(true);
-    toast("New OS workspace created", name + " · starter source files loaded.");
-  }
-
-  function setProjectName(name) {
-    state.projectName = String(name || "Untitled OS").trim().slice(0, 48) || "Untitled OS";
-    $("#projectNameLabel").textContent = state.projectName;
-    $("#sideProjectName").textContent = state.projectName;
-  }
-
-  function bindResizer(element, onMove) {
-    element.addEventListener("pointerdown", event => {
-      event.preventDefault();
-      element.classList.add("dragging");
-      element.setPointerCapture(event.pointerId);
-      const move = moveEvent => onMove(moveEvent.clientY);
-      const stop = () => {
-        element.classList.remove("dragging");
-        element.removeEventListener("pointermove", move);
-        element.removeEventListener("pointerup", stop);
-        state.editor?.layout();
-        state.splitEditor?.layout();
-      };
-      element.addEventListener("pointermove", move);
-      element.addEventListener("pointerup", stop);
-    });
-  }
-
-  function applyOutputSize(height) {
-    const bounded = Math.max(90, Math.min(window.innerHeight * .62, window.innerHeight - 150));
-    document.documentElement.style.setProperty("--output-height", Math.max(90, Math.min(height, bounded)) + "px");
-  }
-
-  function wireEvents() {
-    $("#newProjectButton").addEventListener("click", () => $("#newProjectModal").classList.remove("hidden"));
-    $("#importButton").addEventListener("click", () => $("#importInput").click());
-    $("#importInput").addEventListener("change", event => { importFiles(event.target.files); event.target.value = ""; });
-    $("#folderInput").addEventListener("change", event => { importFiles(event.target.files); event.target.value = ""; });
-    $("#exportFileButton").addEventListener("click", exportActiveFile);
-    $("#exportProjectButton").addEventListener("click", exportProject);
-    $("#buildButton").addEventListener("click", runBuildPreview);
-    $("#saveButton").addEventListener("click", () => saveWorkspace());
-    $("#splitButton").addEventListener("click", toggleSplit);
-    $("#closeSplitButton").addEventListener("click", closeSplit);
-    $("#splitFileSelect").addEventListener("change", event => {
-      state.splitFile = event.target.value;
-      if (state.splitEditor) state.splitEditor.setModel(ensureModel(state.splitFile));
-    });
-    $("#sideActionButton").addEventListener("click", () => {
-      if (state.activeView === "settings") {
-        state.settings = { fontSize: 13, tabSize: 4, wordWrap: "off" };
-        renderSettingsView();
-        updateEditorSetting("fontSize", 13);
-        updateEditorSetting("tabSize", 4);
-        updateEditorSetting("wordWrap", "off");
-      } else if (state.activeView === "snippets") {
-        toast("Code patterns", "Select a pattern below to insert it at the cursor.");
-      } else createFile();
-    });
-    $("#refreshTreeButton").addEventListener("click", () => { renderTree(); toast("Project map refreshed"); });
-    $("#themeButton").addEventListener("click", toggleTheme);
-    $("#focusButton").addEventListener("click", toggleFocusMode);
-    $("#commandButton").addEventListener("click", openCommandPalette);
-    $("#helpButton").addEventListener("click", () => {
-      setOutput("notes");
-      toast("Kerno Kernel Studio", "A focused OS source workspace with browser-based import and export.");
-    });
-    $("#editorMenuButton").addEventListener("click", openCommandPalette);
-    $("#clearOutputButton").addEventListener("click", () => { $("#outputContent").innerHTML = ""; });
-    $("#expandOutputButton").addEventListener("click", () => {
-      state.outputExpanded = !state.outputExpanded;
-      applyOutputSize(state.outputExpanded ? window.innerHeight * .48 : 190);
-      $("#expandOutputButton").textContent = state.outputExpanded ? "⌄" : "⌃";
-    });
-    $("#hideOutputButton").addEventListener("click", toggleOutput);
-    $$(".output-tab").forEach(tab => tab.addEventListener("click", () => setOutput(tab.dataset.output)));
-    $$(".rail-button[data-view]").forEach(button => button.addEventListener("click", () => activateView(button.dataset.view)));
-    $("#closeNewFileModal").addEventListener("click", () => $("#newFileModal").classList.add("hidden"));
-    $("#cancelNewFile").addEventListener("click", () => $("#newFileModal").classList.add("hidden"));
-    $("#confirmNewFile").addEventListener("click", confirmCreateFile);
-    $("#newFilePath").addEventListener("keydown", event => { if (event.key === "Enter") confirmCreateFile(); });
-    $("#newFileModal").addEventListener("click", event => { if (event.target === $("#newFileModal")) $("#newFileModal").classList.add("hidden"); });
-    $("#closeNewProjectModal").addEventListener("click", () => $("#newProjectModal").classList.add("hidden"));
-    $("#cancelNewProject").addEventListener("click", () => $("#newProjectModal").classList.add("hidden"));
-    $("#confirmNewProject").addEventListener("click", createProject);
-    $("#newProjectModal").addEventListener("click", event => { if (event.target === $("#newProjectModal")) $("#newProjectModal").classList.add("hidden"); });
-    $$(".starter-card").forEach(card => card.addEventListener("click", () => {
-      state.selectedStarter = card.dataset.starter;
-      $$(".starter-card").forEach(item => item.classList.toggle("selected", item === card));
-    }));
-    bindResizer($("#bottomResizer"), y => applyOutputSize(window.innerHeight - y - 23));
-
-    $("#commandInput").addEventListener("input", event => renderCommands(event.target.value));
-    $("#commandInput").addEventListener("keydown", event => {
-      if (event.key === "Escape") $("#commandBackdrop").classList.add("hidden");
-      if (event.key === "Enter") {
-        const selected = $(".command-item.active") || $(".command-item");
-        selected?.click();
-      }
-      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        event.preventDefault();
-        const items = $$(".command-item", $("#commandResults"));
-        if (!items.length) return;
-        const current = items.findIndex(item => item.classList.contains("active"));
-        const next = event.key === "ArrowDown" ? (current + 1) % items.length : (current - 1 + items.length) % items.length;
-        items.forEach((item, index) => item.classList.toggle("active", index === next));
-        items[next].scrollIntoView({ block: "nearest" });
-      }
-    });
-    $("#commandBackdrop").addEventListener("click", event => {
-      if (event.target === $("#commandBackdrop")) $("#commandBackdrop").classList.add("hidden");
-    });
-    document.addEventListener("keydown", event => {
-      const mod = event.ctrlKey || event.metaKey;
-      if (mod && event.shiftKey && event.key.toLowerCase() === "p") { event.preventDefault(); openCommandPalette(); }
-      if (mod && event.key.toLowerCase() === "s") { event.preventDefault(); saveWorkspace(); }
-      if (mod && event.key.toLowerCase() === "o") { event.preventDefault(); $("#importInput").click(); }
-      if (mod && event.shiftKey && event.key.toLowerCase() === "e") { event.preventDefault(); exportActiveFile(); }
-      if (mod && event.shiftKey && event.key.toLowerCase() === "s") { event.preventDefault(); exportProject(); }
-      if (mod && event.key.toLowerCase() === "b") { event.preventDefault(); runBuildPreview(); }
-      if (mod && event.key.toLowerCase() === "j") { event.preventDefault(); toggleOutput(); }
-      if (event.key === "Escape") {
-        $("#commandBackdrop").classList.add("hidden");
-        $("#newFileModal").classList.add("hidden");
-        $("#newProjectModal").classList.add("hidden");
-      }
-    });
-  }
-
-  function boot() {
-    setDefaultFiles();
-    const restored = restoreWorkspace();
-    setProjectName(state.projectName);
-    $("#newProjectName").value = state.projectName;
-    $("#outputContent").innerHTML = outputViews.problems;
-    if (state.theme === "light") document.body.classList.add("light-theme");
-    renderProjectView();
-    renderTabs();
-    setActiveFile(state.activeFile);
-    updateSplitSelect();
-    wireEvents();
-    initMonaco();
-    if (restored) toast("Workspace restored", "Your last browser-saved Kerno source project was reopened.");
-    else $("#saveStatus").textContent = "Starter workspace loaded";
-  }
-
-  boot();
+function plainCursor(){const el=$("#plainEditor"),lines=el.value.slice(0,el.selectionStart).split("\n");$("#cursorPosition").textContent="Ln "+lines.length+", Col "+(lines[lines.length-1].length+1);}
+async function exportAllProjects(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
+async function clearProjects(){if(state.settings.confirmDestructive&&!confirm("Delete all Kerno projects from this browser?"))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
+async function renderStorage(){if($("#storedProjectCount"))$("#storedProjectCount").textContent=(await all("projects")).length;if($("#browserStorageEstimate")){if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();$("#browserStorageEstimate").textContent=formatBytes(e.usage||0)+" / "+formatBytes(e.quota||0);}else $("#browserStorageEstimate").textContent="Unavailable";}}
+async function boot(){bindEvents();try{database=await dbOpen();}catch(e){notify("IndexedDB unavailable",e.message);}await loadSettings();applyStartup();refreshRecent();}
+boot();
 })();
