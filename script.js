@@ -548,8 +548,8 @@ function tr(k){const locale=activeLocale();return (LANGUAGES[locale]&&LANGUAGES[
 function translate(){
   const locale=activeLocale(),copy=UI_COPY[locale]||UI_COPY.en;
   $$("[data-i18n]").forEach(node=>{const key=node.dataset.i18n,value=copy[key]??tr(key);if(value!==undefined&&value!==key)node.textContent=value;});
-  $("[data-i18n-aria]").forEach(node=>{const key=node.dataset.i18nAria,value=copy[key]??tr(key);if(value!==key)node.setAttribute("aria-label",value);});
-  $("[data-i18n-title]").forEach(node=>{const key=node.dataset.i18nTitle,value=copy[key]??tr(key);if(value!==key)node.setAttribute("title",value);});
+  $$("[data-i18n-aria]").forEach(node=>{const key=node.dataset.i18nAria,value=copy[key]??tr(key);if(value!==key)node.setAttribute("aria-label",value);});
+  $$("[data-i18n-title]").forEach(node=>{const key=node.dataset.i18nTitle,value=copy[key]??tr(key);if(value!==key)node.setAttribute("title",value);});
   document.documentElement.lang=locale;
   document.documentElement.dir="ltr";
   document.title=copy["meta.title"]||"Kerno — Operating System Builder";
