@@ -756,7 +756,11 @@ def start_qemu(payload: dict) -> dict:
     if config.get("architecture") != "x86_64" or config.get("firmware") != "bios" or config.get("bootloader") != "grub":
         raise RuntimeError("QEMU boot profile is currently enabled for x86_64 + BIOS + GRUB projects only.")
     settings = payload.get("settings") or {}
+    if not isinstance(settings, dict):
+        raise ValueError("QEMU settings must be an object.")
     qemu_cfg = config.get("qemu") or {}
+    if not isinstance(qemu_cfg, dict):
+        raise ValueError("QEMU machine configuration must be an object.")
     binary = executable(qemu_cfg.get("binary") or settings.get("qemuBinary"), "qemu-system-x86_64")
     with STATE_LOCK:
         current = RUNTIME.get("process")
@@ -775,11 +779,13 @@ def start_qemu(payload: dict) -> dict:
         raise RuntimeError("The previously built ISO artifact is no longer available. Build the project again.")
     preflight_log: list[str] = []
     preflight_checks: list[dict] = []
-    xorriso = executable("xorriso", "xorriso")
-    iso_report = verify_iso_image(iso_path, xorriso, LOGS, preflight_log)
-    actual_sha256 = sha256_file(iso_path)
     expected_sha256 = str(metadata.get("sha256") or "")
-    if expected_sha256 and not hmac.compare_digest(actual_sha256, expected_sha256):
+    if not re.fullmatch(r"[a-fA-F0-9]{64}", expected_sha256):
+        raise RuntimeError("The ISO artifact does not have a verified SHA-256 record. Rebuild the project with the current Kerno Local Agent.")
+    xorriso = executable("xorriso", "xorriso")
+    verify_iso_image(iso_path, xorriso, LOGS, preflight_log)
+    actual_sha256 = sha256_file(iso_path)
+    if not hmac.compare_digest(actual_sha256.lower(), expected_sha256.lower()):
         raise RuntimeError("ISO SHA-256 integrity check failed. The artifact may have changed after build.")
     preflight_checks.append({"stage": "ISO integrity", "status": "passed", "detail": "SHA-256 matches the verified build artifact."})
     preflight_checks.append({"stage": "ISO boot structure", "status": "passed", "detail": "ISO9660, El Torito and required GRUB/kernel files revalidated."})
@@ -792,6 +798,8 @@ def start_qemu(payload: dict) -> dict:
     cpu_model = str(qemu_cfg.get("cpuModel", settings.get("qemuCpuModel", "max")))
     network = str(qemu_cfg.get("network", settings.get("qemuNetwork", "none")))
     diagnostics = config.get("diagnostics") or {}
+    if not isinstance(diagnostics, dict):
+        raise ValueError("Project diagnostics configuration must be an object.")
     serial_backend = str(diagnostics.get("serialBackend", settings.get("serialBackend", "file")))
     vnc_port = int(qemu_cfg.get("vncPort", settings.get("qemuVncPort", 5901)))
     if not 64 <= ram <= 32768 or not 1 <= cpus <= 32:
