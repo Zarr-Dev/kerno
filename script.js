@@ -245,11 +245,11 @@ SECTIONS
 
 ## Source map
 
-- `boot/`: low-level entry and hardware I/O examples.
-- `src/`: C++ kernel implementation.
-- `include/`: shared kernel interfaces.
-- `linker.ld`: kernel memory layout.
-- `boot/grub.cfg`: boot menu configuration.
+- \`boot/\`: low-level entry and hardware I/O examples.
+- \`src/\`: C++ kernel implementation.
+- \`include/\`: shared kernel interfaces.
+- \`linker.ld\`: kernel memory layout.
+- \`boot/grub.cfg\`: boot menu configuration.
 
 > These files are starter examples for editing and learning. A compatible boot protocol, compiler flags, linker setup, and early CPU initialization must be validated before treating an image as bootable.
 `
