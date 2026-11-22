@@ -53,3 +53,6 @@ jobs:
           }
           console.log('HTML audit passed: ' + ids.length + ' unique IDs and nine tutorial stages.');
           NODE
+
+      - name: Audit bilingual interface copy
+        run: node tests/audit-ui-copy.cjs
