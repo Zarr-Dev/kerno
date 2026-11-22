@@ -82,6 +82,7 @@ RUNTIME = {
     "display_url": None,
     "started_at": None,
     "command": None,
+    "health_checks": [],
 }
 
 
@@ -523,6 +524,7 @@ def build_project(payload: dict) -> dict:
         log_level = {"quiet": 0, "error": 1, "warn": 2, "info": 3, "debug": 4}.get(
             str(diagnostics.get("logLevel", settings.get("kernelLogLevel", "info"))), 3
         )
+        stage("Native toolchain health")
         nasm = executable(settings.get("assembler"), "nasm")
         cpp_compiler = executable(settings.get("crossCompiler"), "x86_64-elf-g++")
         c_compiler = executable(settings.get("cCompiler"), "x86_64-elf-gcc")
@@ -531,7 +533,6 @@ def build_project(payload: dict) -> dict:
         xorriso = shutil.which("xorriso")
         if not xorriso:
             raise RuntimeError("xorriso was not found. grub-mkrescue requires xorriso to package the ISO.")
-        stage("Native toolchain health")
         compiler_machine = run_capture([cpp_compiler, "-dumpmachine"], BUILDS, logs, timeout=8).splitlines()[0].strip()
         c_compiler_machine = run_capture([c_compiler, "-dumpmachine"], BUILDS, logs, timeout=8).splitlines()[0].strip()
         if not compiler_machine.startswith("x86_64-"):
@@ -540,6 +541,7 @@ def build_project(payload: dict) -> dict:
             raise RuntimeError("Configured C cross compiler must target x86_64; reported target: " + (c_compiler_machine or "unknown"))
         health("Native toolchain health", "NASM, C/C++ compilers, linker, GRUB and xorriso resolved; both compiler targets are x86_64.")
 
+        stage("Prepare build workspace")
         build_id = uuid.uuid4().hex
         workspace = BUILDS / (project["id"] + "-" + build_id[:10])
         output = workspace / "out"
@@ -549,6 +551,7 @@ def build_project(payload: dict) -> dict:
         logs.append("Kerno native build · " + project["name"])
         logs.append("Target: x86_64 / BIOS / GRUB Multiboot2")
         logs.append("Source size: " + str(project["total_bytes"]) + " bytes")
+        health("Prepare build workspace", "Validated source manifest staged in a fresh isolated temporary build directory.")
 
         stage("Assembly")
         asm_files = sorted(path for path in project["files"] if path.startswith("boot/") and path.endswith(".asm"))
@@ -613,10 +616,14 @@ def build_project(payload: dict) -> dict:
         verify_multiboot2_header(kernel)
         health("Multiboot2 header validation", "Header magic, 8-byte alignment, architecture, length, checksum and end tag are valid.")
 
+        stage("Stage bootable ISO root")
         grub_dir = iso_root / "boot" / "grub"
         grub_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(kernel, iso_root / "boot" / "kernel.elf")
         shutil.copy2(workspace / "boot" / "grub.cfg", grub_dir / "grub.cfg")
+        if not (iso_root / "boot" / "kernel.elf").is_file() or not (grub_dir / "grub.cfg").is_file():
+            raise RuntimeError("The staged ISO root is missing the kernel or GRUB configuration.")
+        health("Stage bootable ISO root", "Kernel and GRUB configuration copied to their required paths.")
         stage("Bootloader compatibility validation")
         grub_file = shutil.which("grub-file")
         if grub_file:
@@ -739,7 +746,7 @@ def stop_qemu_process() -> None:
                 process.wait(timeout=3)
         RUNTIME.update({
             "process": None, "project_id": None, "artifact_id": None,
-            "display_url": None, "started_at": None, "command": None
+            "display_url": None, "started_at": None, "command": None, "health_checks": []
         })
 
 
