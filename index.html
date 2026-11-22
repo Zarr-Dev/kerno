@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#11161d">
-  <meta name="description" content="Kerno — an OS-focused development environment for kernel engineering.">
-  <title>Kerno — Operating System Builder</title>
+  <meta name="description" content="Kerno adalah lingkungan pengembangan sistem operasi untuk proyek kernel, build native, dan pengujian melalui QEMU.">
+  <title>Kerno — Lingkungan Pengembangan Sistem Operasi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
@@ -30,7 +30,7 @@
 
   <main class="screen welcome-screen" id="welcomeScreen">
     <header class="welcome-top">
-      <div class="brand-lockup" aria-label="Kerno OS Development Environment"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small>OS DEVELOPMENT ENVIRONMENT</small></span></div>
+      <div class="brand-lockup" aria-label="Kerno — Lingkungan Pengembangan Sistem Operasi"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small>LINGKUNGAN PENGEMBANGAN OS</small></span></div>
       <nav class="landing-nav" aria-label="Explore Kerno">
         <button class="landing-nav-link" id="landingFeaturesButton" type="button">Platform</button>
         <button class="landing-nav-link" id="landingWorkflowButton" type="button">Workflow</button>
@@ -39,166 +39,91 @@
       <div class="welcome-top-actions">
         <button class="quiet-button header-open-button" id="welcomeLoadFolder" type="button">Open folder</button>
         <button class="quiet-button" id="themeToggleWelcome" title="Cycle color theme" aria-label="Cycle color theme">◐ Theme</button>
-        <button class="quiet-button header-settings-button" id="welcomeSettingsButton" data-i18n="settings" type="button">Settings</button>
+        <button class="quiet-button header-settings-button" id="welcomeSettingsButton" data-i18n="settings" type="button">Pengaturan</button>
       </div>
     </header>
     <section class="welcome-content">
       <section class="hero-banner" id="heroBanner" aria-labelledby="heroTitle">
         <div class="hero-layout">
           <div class="welcome-intro">
-            <span class="section-kicker">KERNEL ENGINEERING · BROWSER IDE</span>
-            <h1 id="heroTitle" data-i18n="welcomeTitle">Build an OS from the first instruction.</h1>
-            <p data-i18n="welcomeSubtitle">Kerno is a focused IDE for writing C, C++, Assembly and Python, shaping a kernel project, validating a native build, and testing a bootable image in QEMU.</p>
-            <div class="hero-proof" aria-label="Core capabilities">
-              <span><b>C</b> C / C++ kernel source</span><span><b>ASM</b> Assembly boot code</span><span><b>ISO</b> Build, verify and boot</span>
+            <span class="section-kicker" data-i18n="landing.hero.kicker">REKAYASA KERNEL · IDE BERBASIS BROWSER</span>
+            <h1 id="heroTitle" data-i18n="landing.hero.title">Bangun sistem operasi, mulai dari kernel.</h1>
+            <p data-i18n="landing.hero.subtitle">Kerno menyatukan penyuntingan source, struktur proyek, konfigurasi mesin, dan pengujian melalui QEMU. Target kernel native saat ini menggunakan C/C++ dan Assembly; Python tersedia untuk skrip dan tooling.</p>
+            <div class="hero-proof" aria-label="Kapabilitas utama">
+              <span><b>C</b> <span data-i18n="landing.hero.proof.kernel">Source kernel C/C++</span></span>
+              <span><b>ASM</b> <span data-i18n="landing.hero.proof.boot">Kode boot Assembly</span></span>
+              <span><b>ISO</b> <span data-i18n="landing.hero.proof.iso">Verifikasi ISO + QEMU</span></span>
             </div>
             <div class="hero-cta-row">
-              <button class="primary-button hero-primary-cta" id="heroStartButton" type="button">Create an OS project <span aria-hidden="true">↗</span></button>
-              <button class="hero-secondary-cta" id="heroTutorialButton" type="button">Explore the learning path <span aria-hidden="true">→</span></button>
+              <button class="primary-button hero-primary-cta" id="heroStartButton" type="button"><span data-i18n="landing.hero.cta.primary">Buat proyek OS</span> <span aria-hidden="true">↗</span></button>
+              <button class="hero-secondary-cta" id="heroTutorialButton" type="button"><span data-i18n="landing.hero.cta.secondary">Pelajari alur kerja</span> <span aria-hidden="true">→</span></button>
             </div>
           </div>
-          <aside class="hero-visual" aria-label="Preview of the Kerno kernel source editor">
-            <div class="hero-visual-top"><div class="hero-file-tab"><span class="hero-file-dot"></span><strong>kernel.cpp</strong></div><span class="hero-target">X86_64 · C++</span></div>
+          <aside class="hero-visual" aria-label="Cuplikan source kernel contoh">
+            <div class="hero-visual-top"><div class="hero-file-tab"><span class="hero-file-dot"></span><strong data-i18n="landing.hero.preview.label">Contoh · kernel.cpp</strong></div><span class="hero-target" data-i18n="landing.hero.preview.target">x86_64 · C++</span></div>
             <div class="hero-code" aria-hidden="true">
               <div><span class="hero-line-number">01</span><code><i>extern</i> <b>"C"</b> <i>void</i> <strong>kernel_main</strong>() {</code></div>
               <div><span class="hero-line-number">02</span><code>&nbsp;&nbsp;<em>serial_write</em>(<b>"Kerno ready"</b>);</code></div>
               <div><span class="hero-line-number">03</span><code>&nbsp;&nbsp;<i>for</i> (;;) { <em>__asm__</em>(<b>"hlt"</b>); }</code></div>
               <div><span class="hero-line-number">04</span><code>}</code></div>
             </div>
-            <div class="hero-visual-bottom"><span><i class="hero-status-dot"></i> Syntax-colored source</span><span>BUILD <b>→</b> ISO <b>→</b> QEMU</span></div>
+            <div class="hero-visual-bottom"><span><i class="hero-status-dot"></i><span data-i18n="landing.hero.preview.caption">Cuplikan source contoh</span></span><span data-i18n="landing.hero.preview.pipeline">BUILD → ISO → QEMU</span></div>
           </aside>
         </div>
         <div class="hero-footnote">
-          <span><strong>Browser IDE</strong> for editing and project setup</span>
-          <span><strong>Local Agent</strong> for native compiler, ISO tools and QEMU</span>
-          <span class="hero-target-note">Current native build target: x86_64 · BIOS · GRUB · Multiboot2</span>
+          <span><strong>Browser IDE</strong> <span data-i18n="landing.hero.role.web">IDE browser untuk penyuntingan dan pengaturan proyek</span></span>
+          <span><strong>Kerno Local Service</strong> <span data-i18n="landing.hero.role.local">untuk tool native dan QEMU</span></span>
+          <span class="hero-target-note" data-i18n="landing.hero.target">Target build native yang saat ini didukung: x86_64 · BIOS · GRUB · Multiboot2</span>
         </div>
       </section>
       <div class="welcome-actions">
-        <button class="welcome-card primary-card" id="welcomeNewProject">
-          <span class="action-icon">＋</span><strong data-i18n="newProject">New project</strong><span data-i18n="newProjectDesc">Create a structured OS workspace from a kernel template.</span><b data-i18n="startArrow">Start a project →</b>
-        </button>
-        <button class="welcome-card" id="welcomeLoadProject">
-          <span class="action-icon">↥</span><strong data-i18n="loadProject">Load project</strong><span data-i18n="loadProjectDesc">Open a Kerno archive, project manifest or source directory.</span><b data-i18n="openWorkspace">Open workspace →</b>
-        </button>
-        <button class="welcome-card" id="welcomeConfigure">
-          <span class="action-icon">⚙</span><strong data-i18n="configureIDE">Configure IDE</strong><span data-i18n="configureDesc">Set language, appearance, editor behavior and local tools.</span><b data-i18n="openSettings">Open settings →</b>
-        </button>
+        <button class="welcome-card primary-card" id="welcomeNewProject" type="button"><span class="action-icon">＋</span><strong data-i18n="landing.action.new.title">Proyek baru</strong><span data-i18n="landing.action.new.body">Buat workspace OS terstruktur dari template kernel.</span><b data-i18n="landing.action.new.link">Mulai proyek →</b></button>
+        <button class="welcome-card" id="welcomeLoadProject" type="button"><span class="action-icon">↥</span><strong data-i18n="landing.action.load.title">Muat proyek</strong><span data-i18n="landing.action.load.body">Buka arsip Kerno, manifest proyek, atau direktori source.</span><b data-i18n="landing.action.load.link">Buka workspace →</b></button>
+        <button class="welcome-card" id="welcomeConfigure" type="button"><span class="action-icon">⚙</span><strong data-i18n="landing.action.settings.title">Atur Kerno</strong><span data-i18n="landing.action.settings.body">Sesuaikan antarmuka, editor, default proyek, dan tool lokal.</span><b data-i18n="landing.action.settings.link">Buka pengaturan →</b></button>
       </div>
       <section class="landing-section platform-section" id="platformSection">
         <div class="landing-section-heading">
-          <span class="section-kicker">ENGINEER THE WHOLE MACHINE</span>
-          <h2>Everything around the kernel, <span>in one workspace.</span></h2>
-          <p>Move from source code to a verified boot image with the tools and feedback that low-level development needs.</p>
+          <span class="section-kicker" data-i18n="landing.platform.kicker">SATU WORKSPACE UNTUK PENGEMBANGAN KERNEL</span>
+          <h2><span data-i18n="landing.platform.title">Perangkat kerja untuk kernel,</span> <em data-i18n="landing.platform.title.accent">dalam satu workspace.</em></h2>
+          <p data-i18n="landing.platform.body">Mulai dari source code hingga citra boot yang tervalidasi melalui alur kerja khusus pengembangan tingkat rendah.</p>
         </div>
         <div class="platform-grid">
-          <article class="platform-card platform-card-featured">
-            <div class="platform-card-top"><span class="platform-icon">⌘</span><span class="platform-index">01 / SOURCE</span></div>
-            <h3>Kernel source studio</h3>
-            <p>Explore C, C++, Assembly, linker scripts and GRUB configuration with a multi-file editor.</p>
-            <div class="platform-tags"><span>Monaco Editor</span><span>Project tree</span><span>Split view</span></div>
-          </article>
-          <article class="platform-card">
-            <div class="platform-card-top"><span class="platform-icon">⚙</span><span class="platform-index">02 / HARDWARE</span></div>
-            <h3>Machine configuration</h3>
-            <p>Plan memory, CPU topology, boot target and virtual hardware before running a guest.</p>
-            <div class="platform-tags"><span>Memory map</span><span>QEMU</span></div>
-          </article>
-          <article class="platform-card">
-            <div class="platform-card-top"><span class="platform-icon">▤</span><span class="platform-index">03 / BUILD</span></div>
-            <h3>Native build pipeline</h3>
-            <p>Assemble, compile, link, validate Multiboot2 and package a GRUB bootable ISO locally.</p>
-            <div class="platform-tags"><span>ELF64</span><span>ISO9660</span><span>Health checks</span></div>
-          </article>
+          <article class="platform-card platform-card-featured"><div class="platform-card-top"><span class="platform-icon">⌘</span><span class="platform-index" data-i18n="landing.platform.source.index">01 / SOURCE</span></div><h3 data-i18n="landing.platform.source.title">Studio source kernel</h3><p data-i18n="landing.platform.source.body">Sunting C, C++, Assembly, linker script, dan konfigurasi GRUB dalam workspace multi-berkas.</p><div class="platform-tags"><span data-i18n="landing.platform.source.tag.editor">Monaco Editor</span><span data-i18n="landing.platform.source.tag.tree">Penjelajah proyek</span><span data-i18n="landing.platform.source.tag.split">Editor terpisah</span></div></article>
+          <article class="platform-card"><div class="platform-card-top"><span class="platform-icon">⚙</span><span class="platform-index" data-i18n="landing.platform.machine.index">02 / MESIN</span></div><h3 data-i18n="landing.platform.machine.title">Konfigurasi mesin</h3><p data-i18n="landing.platform.machine.body">Tinjau memori guest, jumlah vCPU, jenis mesin, dan tampilan sebelum menjalankan QEMU.</p><div class="platform-tags"><span data-i18n="landing.platform.machine.tag.memory">Memori guest</span><span>QEMU</span></div></article>
+          <article class="platform-card"><div class="platform-card-top"><span class="platform-icon">▤</span><span class="platform-index" data-i18n="landing.platform.build.index">03 / BUILD</span></div><h3 data-i18n="landing.platform.build.title">Pipeline build native</h3><p data-i18n="landing.platform.build.body">Jalankan assembler, compiler, dan linker secara lokal; lalu verifikasi ELF64, Multiboot2, ISO9660, dan El Torito sebelum menerima ISO.</p><div class="platform-tags"><span>ELF64</span><span>ISO9660</span><span data-i18n="landing.platform.build.tag.health">Pemeriksaan build</span></div></article>
         </div>
       </section>
       <section class="landing-section workflow-section" id="workflowSection">
-        <div class="workflow-copy">
-          <span class="section-kicker">FROM FIRST FILE TO FIRST BOOT</span>
-          <h2>A clear path through low-level engineering.</h2>
-          <p>Kerno keeps the workflow visible: prepare the host, create the kernel, validate the image, then boot it inside an isolated virtual machine.</p>
-          <button class="workflow-link-button" id="workflowTutorialButton" type="button">Open the step-by-step tutorial <span aria-hidden="true">→</span></button>
-        </div>
-        <div class="workflow-steps" aria-label="Kerno development workflow">
-          <div class="workflow-step"><span>01</span><div><strong>Prepare</strong><small>Connect the local runtime and inspect the toolchain.</small></div></div>
-          <div class="workflow-step"><span>02</span><div><strong>Scaffold</strong><small>Create the boot entry, kernel modules and linker layout.</small></div></div>
-          <div class="workflow-step"><span>03</span><div><strong>Build & verify</strong><small>Validate ELF, Multiboot2, ISO9660 and El Torito.</small></div></div>
-          <div class="workflow-step"><span>04</span><div><strong>Boot & inspect</strong><small>Run the ISO in QEMU and inspect serial output.</small></div></div>
+        <div class="workflow-copy"><span class="section-kicker" data-i18n="landing.workflow.kicker">DARI BERKAS PERTAMA HINGGA BOOT PERTAMA</span><h2 data-i18n="landing.workflow.title">Alur yang jelas untuk rekayasa kernel.</h2><p data-i18n="landing.workflow.body">Siapkan komputer host, buat proyek kernel, validasi citra boot, lalu periksa proses eksekusinya di QEMU.</p><button class="workflow-link-button" id="workflowTutorialButton" type="button"><span data-i18n="landing.workflow.cta">Buka panduan langkah demi langkah</span> <span aria-hidden="true">→</span></button></div>
+        <div class="workflow-steps" aria-label="Alur pengembangan Kerno">
+          <div class="workflow-step"><span>01</span><div><strong data-i18n="landing.workflow.step1.title">Persiapkan</strong><small data-i18n="landing.workflow.step1.body">Hubungkan layanan lokal dan periksa toolchain native.</small></div></div>
+          <div class="workflow-step"><span>02</span><div><strong data-i18n="landing.workflow.step2.title">Buat proyek</strong><small data-i18n="landing.workflow.step2.body">Siapkan boot entry, modul kernel, dan tata letak linker.</small></div></div>
+          <div class="workflow-step"><span>03</span><div><strong data-i18n="landing.workflow.step3.title">Build dan verifikasi</strong><small data-i18n="landing.workflow.step3.body">Periksa ELF, header Multiboot2, dan struktur boot ISO.</small></div></div>
+          <div class="workflow-step"><span>04</span><div><strong data-i18n="landing.workflow.step4.title">Boot dan amati</strong><small data-i18n="landing.workflow.step4.body">Jalankan citra di QEMU dan periksa keluaran serial.</small></div></div>
         </div>
       </section>
-      <section class="landing-section iso-callout">
-        <div class="iso-callout-mark" aria-hidden="true">K</div>
-        <div><span class="section-kicker">YOUR BOOT IMAGE, YOUR RULES</span><h2>Make the first successful boot meaningful.</h2><p>Understand the boot chain, inspect every build check, and keep control of the kernel that you create.</p></div>
-        <button class="primary-button" id="isoTutorialButton" type="button">Learn the ISO pipeline <span aria-hidden="true">→</span></button>
-      </section>
-      <section class="recent-section">
-        <div class="section-heading"><div><span class="section-kicker" data-i18n="workspaceHistory">WORKSPACE HISTORY</span><h2 data-i18n="recentProjects">Recent projects</h2></div><button class="text-button" id="clearRecentButton" data-i18n="clearHistory">Clear history</button></div>
-        <div class="recent-list" id="recentProjects"><div class="recent-empty"><span>⌁</span><strong data-i18n="noRecent">No recent projects</strong><p data-i18n="noRecentDesc">Create or load an OS project to begin.</p></div></div>
-      </section>
-      <footer class="welcome-footer"><div class="welcome-footer-brand"><span>KERNO <b>0.5.0</b></span><small>OS DEVELOPMENT ENVIRONMENT</small></div><div class="welcome-footer-note" data-i18n="noAccount">No account required · Project data stays in this browser until exported</div><nav class="welcome-footer-links" aria-label="Footer links"><button type="button" id="footerTutorialButton">Tutorial</button><a href="https://github.com/Zarr-Dev/kerno" target="_blank" rel="noopener">GitHub</a><a href="https://github.com/Zarr-Dev/kerno/blob/main/local-agent/README.md" target="_blank" rel="noopener">Local Agent docs</a></nav></footer>
+      <section class="landing-section iso-callout"><div class="iso-callout-mark" aria-hidden="true">K</div><div><span class="section-kicker" data-i18n="landing.iso.kicker">PAHAMI CITRA BOOT</span><h2 data-i18n="landing.iso.title">Jadikan boot pertama sebagai hasil yang dapat dijelaskan.</h2><p data-i18n="landing.iso.body">Ikuti rantai boot, tinjau setiap hasil validasi, dan pahami bagian kernel yang sudah maupun belum diimplementasikan.</p></div><button class="primary-button" id="isoTutorialButton" type="button"><span data-i18n="landing.iso.cta">Pelajari alur ISO</span> <span aria-hidden="true">→</span></button></section>
+      <section class="recent-section"><div class="section-heading"><div><span class="section-kicker" data-i18n="landing.recent.kicker">RIWAYAT WORKSPACE</span><h2 data-i18n="landing.recent.title">Proyek terbaru</h2></div><button class="text-button" id="clearRecentButton" data-i18n="landing.recent.clear">Hapus riwayat</button></div><div class="recent-list" id="recentProjects"><div class="recent-empty"><span>⌁</span><strong data-i18n="landing.recent.empty.title">Belum ada proyek</strong><p data-i18n="landing.recent.empty.body">Buat atau muat proyek OS untuk memulai.</p></div></div></section>
+      <footer class="welcome-footer"><div class="welcome-footer-brand"><span>KERNO <b>0.5.0</b></span><small data-i18n="landing.footer.brand">LINGKUNGAN PENGEMBANGAN SISTEM OPERASI</small></div><div class="welcome-footer-note" data-i18n="landing.footer.note">Tanpa akun · Data proyek tersimpan di browser ini sampai diekspor</div><nav class="welcome-footer-links" aria-label="Tautan footer"><button type="button" id="footerTutorialButton" data-i18n="landing.footer.academy">Akademi</button><a href="https://github.com/Zarr-Dev/kerno" target="_blank" rel="noopener" data-i18n="landing.footer.repo">GitHub</a><a href="https://github.com/Zarr-Dev/kerno/blob/main/local-agent/README.md" target="_blank" rel="noopener" data-i18n="landing.footer.docs">Panduan Local Service</a></nav></footer>
     </section>
   </main>
 
   <main class="screen tutorial-screen hidden" id="tutorialScreen">
-    <header class="tutorial-header">
-      <button class="back-button" id="backFromTutorial" type="button">← Project Hub</button>
-      <div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO <small>LEARNING PATH</small></span></div>
-      <div class="tutorial-header-right"><span class="tutorial-level-chip">BEGINNER → BUILDER</span><button class="quiet-button" id="resetTutorialButton" type="button">Reset progress</button></div>
-    </header>
-    <section class="tutorial-hero">
-      <span class="section-kicker">KERNO ACADEMY / OS ENGINEERING</span>
-      <h1>From zero to your <span>first bootable kernel.</span></h1>
-      <p>A guided course from understanding the IDE to producing and testing a validated x86_64 bootable ISO. Complete each stage at your own pace.</p>
-      <div class="tutorial-progress-card">
-        <div class="tutorial-progress-copy"><div><strong>Your learning progress</strong><small id="tutorialProgressText">0 of 9 stages completed</small></div><strong id="tutorialProgressPercent">0%</strong></div>
-        <div class="tutorial-progress-track"><span id="tutorialProgressFill"></span></div>
-        <div class="tutorial-progress-foot"><span>START HERE</span><span id="tutorialProgressNext">Next: Understand Kerno</span></div>
-      </div>
+    <header class="tutorial-header"><button class="back-button" id="backFromTutorial" type="button" data-i18n="academy.header.back">← Beranda proyek</button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO <small data-i18n="academy.header.label">JALUR PEMBELAJARAN</small></span></div><div class="tutorial-header-right"><span class="tutorial-level-chip" data-i18n="academy.header.level">PEMULA → PEMBANGUN</span><button class="quiet-button" id="resetTutorialButton" type="button" data-i18n="academy.header.reset">Atur ulang progres</button></div></header>
+    <section class="tutorial-hero"><span class="section-kicker" data-i18n="academy.hero.kicker">KERNO ACADEMY / REKAYASA SISTEM OPERASI</span><h1><span data-i18n="academy.hero.title">Dari dasar hingga</span> <em data-i18n="academy.hero.title.accent">kernel pertama berhasil boot.</em></h1><p data-i18n="academy.hero.body">Kursus bertahap mulai dari memahami workspace hingga membangun dan memeriksa ISO bootable x86_64. Pelajari setiap tahap sesuai ritmemu.</p>
+      <div class="tutorial-progress-card"><div class="tutorial-progress-copy"><div><strong data-i18n="academy.progress.title">Progres belajar</strong><small id="tutorialProgressText" data-i18n="academy.progress.count">0 dari 9 tahap selesai</small></div><strong id="tutorialProgressPercent">0%</strong></div><div class="tutorial-progress-track"><span id="tutorialProgressFill"></span></div><div class="tutorial-progress-foot"><span data-i18n="academy.progress.start">MULAI DI SINI</span><span id="tutorialProgressNext" data-i18n="academy.progress.next">Berikutnya: Mengenal Kerno</span></div></div>
     </section>
-    <div class="tutorial-layout">
-      <aside class="tutorial-side">
-        <span class="section-kicker">COURSE CONTENTS</span>
-        <nav id="tutorialContents" aria-label="Tutorial stages">
-          <a href="#tutorial-stage-0">00 · Understand Kerno</a>
-          <a href="#tutorial-stage-1">01 · Prepare your PC</a>
-          <a href="#tutorial-stage-2">02 · Create a kernel project</a>
-          <a href="#tutorial-stage-3">03 · Understand the boot chain</a>
-          <a href="#tutorial-stage-4">04 · Read the kernel structure</a>
-          <a href="#tutorial-stage-5">05 · Memory & core modules</a>
-          <a href="#tutorial-stage-6">06 · Toolchain health</a>
-          <a href="#tutorial-stage-7">07 · Build and validate ISO</a>
-          <a href="#tutorial-stage-8">08 · Boot in QEMU</a>
-        </nav>
-        <div class="tutorial-side-note"><strong>One important rule</strong><p>A successful compiler exit is not enough. Kerno must also validate the kernel format, boot header, ISO layout and emulator launch.</p></div>
-      </aside>
-      <div class="tutorial-chapters" id="tutorialChapters">
-        <article class="tutorial-stage" id="tutorial-stage-0" data-tutorial-step="0">
-          <div class="tutorial-stage-number">00</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>FOUNDATION</span><span class="tutorial-time">5 MIN</span></div>
-            <h2>Understand what Kerno does</h2>
-            <p>Kerno has two parts. The website is the IDE you interact with. Kerno Local Service is the native companion that runs on your PC and invokes the compiler, GRUB and QEMU.</p>
-            <div class="tutorial-diagram"><div><b>01</b><strong>Kerno Web IDE</strong><small>Editor · project · settings</small></div><span>↔</span><div><b>02</b><strong>Local Agent</strong><small>Compiler · ISO · emulator</small></div><span>→</span><div><b>03</b><strong>Your OS</strong><small>Kernel ELF · bootable ISO</small></div></div>
-            <div class="tutorial-tip"><strong>Key concept</strong><p>The browser does not compile a kernel by itself. It sends a structured project manifest to the paired Local Agent, which runs native tools on your machine.</p></div>
-            <button class="tutorial-done-button" data-complete-step="0" type="button">Mark stage complete</button>
-          </div>
-        </article>
-        <article class="tutorial-stage" id="tutorial-stage-1" data-tutorial-step="1">
-          <div class="tutorial-stage-number">01</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>HOST SETUP</span><span class="tutorial-time">15–30 MIN</span></div>
-            <h2>Prepare your PC and connect the tools</h2>
-            <p>The first supported native target is x86_64 + BIOS + GRUB + Multiboot2. You need Python 3.10+, NASM, x86_64 C/C++ compilers, an ELF linker, GRUB ISO tooling, xorriso and QEMU.</p>
-            <ul class="tutorial-check-list"><li>Python 3.10 or newer</li><li>NASM assembler</li><li><code>x86_64-elf-gcc</code> and <code>x86_64-elf-g++</code></li><li><code>x86_64-elf-ld</code>, <code>grub-mkrescue</code> and <code>xorriso</code></li><li><code>qemu-system-x86_64</code></li></ul>
-            <div class="tutorial-tip"><strong>Windows</strong><p>Run <code>local-agent/start-local-agent.bat</code>. Copy the pairing token printed by the terminal into Settings → Advanced. Keep the service open while building.</p></div>
-            <div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="settings-toolchain" type="button">Open toolchain settings ↗</button><a href="https://github.com/Zarr-Dev/kerno/blob/main/local-agent/README.md" target="_blank" rel="noopener">Read Local Agent setup</a></div>
-            <button class="tutorial-done-button" data-complete-step="1" type="button">Mark stage complete</button>
-          </div>
-        </article>
-        <article class="tutorial-stage" id="tutorial-stage-2" data-tutorial-step="2">
-          <div class="tutorial-stage-number">02</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>PROJECT DESIGN</span><span class="tutorial-time">5–10 MIN</span></div>
-            <h2>Create your first kernel project</h2>
-            <p>Choose New Project, then select x86_64, BIOS, GRUB, and C or C++. Keep the initial RAM and vCPU settings modest. The generated scaffold includes the Multiboot2 entry, linker script, kernel source, serial console, memory helpers and starter IDT/PMM modules.</p>
-            <div class="tutorial-code-tree">boot/entry.asm
+    <div class="tutorial-layout"><aside class="tutorial-side"><span class="section-kicker" data-i18n="academy.contents">MATERI PEMBELAJARAN</span><nav id="tutorialContents" aria-label="Tahap tutorial">
+      <a href="#tutorial-stage-0" data-i18n="academy.stage0.nav">00 · Mengenal Kerno</a><a href="#tutorial-stage-1" data-i18n="academy.stage1.nav">01 · Menyiapkan komputer</a><a href="#tutorial-stage-2" data-i18n="academy.stage2.nav">02 · Membuat proyek kernel</a><a href="#tutorial-stage-3" data-i18n="academy.stage3.nav">03 · Memahami rantai boot</a><a href="#tutorial-stage-4" data-i18n="academy.stage4.nav">04 · Membaca tata letak kernel</a><a href="#tutorial-stage-5" data-i18n="academy.stage5.nav">05 · Mengenal subsistem inti</a><a href="#tutorial-stage-6" data-i18n="academy.stage6.nav">06 · Memeriksa toolchain</a><a href="#tutorial-stage-7" data-i18n="academy.stage7.nav">07 · Build dan validasi ISO</a><a href="#tutorial-stage-8" data-i18n="academy.stage8.nav">08 · Boot melalui QEMU</a>
+    </nav><div class="tutorial-side-note"><strong data-i18n="academy.side.note.title">Pisahkan setiap pemeriksaan</strong><p data-i18n="academy.side.note.body">Proses compiler yang berhasil belum cukup. Kerno juga memeriksa format kernel, header boot, struktur ISO, dan peluncuran emulator.</p></div></aside>
+    <div class="tutorial-chapters" id="tutorialChapters">
+      <article class="tutorial-stage" id="tutorial-stage-0" data-tutorial-step="0"><div class="tutorial-stage-number">00</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage0.category">DASAR</span><span class="tutorial-time">5 MIN</span></div><h2 data-i18n="academy.stage0.title">Memahami fungsi Kerno</h2><p data-i18n="academy.stage0.body">Kerno terdiri dari dua bagian. Situs ini adalah IDE berbasis browser untuk menyunting source dan mengatur proyek. Kerno Local Service adalah program terpisah di komputer yang menjalankan compiler native, tool GRUB, dan QEMU.</p>
+        <div class="tutorial-diagram"><div><b>01</b><strong data-i18n="academy.stage0.diagram.web">Kerno Browser IDE</strong><small data-i18n="academy.stage0.diagram.web.detail">Editor · proyek · pengaturan</small></div><span>↔</span><div><b>02</b><strong data-i18n="academy.stage0.diagram.local">Kerno Local Service</strong><small data-i18n="academy.stage0.diagram.local.detail">Compiler · ISO · emulator</small></div><span>→</span><div><b>03</b><strong data-i18n="academy.stage0.diagram.output">Citra sistem operasi</strong><small data-i18n="academy.stage0.diagram.output.detail">Kernel ELF · ISO bootable</small></div></div>
+        <div class="tutorial-tip"><strong data-i18n="academy.stage0.tip.title">Konsep utama</strong><p data-i18n="academy.stage0.tip.body">Browser tidak mengompilasi kernel dengan sendirinya. Browser mengirim manifest proyek terstruktur ke Local Service yang telah dipasangkan, lalu layanan itu menjalankan tool native di komputer.</p></div><button class="tutorial-done-button" data-complete-step="0" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+      <article class="tutorial-stage" id="tutorial-stage-1" data-tutorial-step="1"><div class="tutorial-stage-number">01</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage1.category">PERSIAPAN KOMPUTER</span><span class="tutorial-time">15–30 MIN</span></div><h2 data-i18n="academy.stage1.title">Siapkan komputer dan hubungkan tool</h2><p data-i18n="academy.stage1.body">Target native pertama yang didukung adalah x86_64 + BIOS + GRUB + Multiboot2. Siapkan Python 3.10+, NASM, cross-compiler C/C++ x86_64, linker ELF, tool ISO GRUB, xorriso, dan QEMU.</p>
+        <ul class="tutorial-check-list"><li>Python 3.10 atau lebih baru</li><li>Assembler NASM</li><li><code>x86_64-elf-gcc</code> dan <code>x86_64-elf-g++</code></li><li><code>x86_64-elf-ld</code>, <code>grub-mkrescue</code>, dan <code>xorriso</code></li><li><code>qemu-system-x86_64</code></li></ul>
+        <div class="tutorial-tip"><strong data-i18n="academy.stage1.tip.title">Pada Windows</strong><p data-i18n="academy.stage1.tip.body">Jalankan local-agent/start-local-agent.bat. Salin pairing token yang muncul di terminal ke Pengaturan → Lanjutan. Biarkan layanan tetap berjalan selama proses build atau pengujian.</p></div><div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="settings-toolchain" type="button" data-i18n="academy.stage1.action">Buka pengaturan toolchain ↗</button><a href="https://github.com/Zarr-Dev/kerno/blob/main/local-agent/README.md" target="_blank" rel="noopener" data-i18n="academy.stage1.docs">Baca panduan Kerno Local Service</a></div><button class="tutorial-done-button" data-complete-step="1" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+      <article class="tutorial-stage" id="tutorial-stage-2" data-tutorial-step="2"><div class="tutorial-stage-number">02</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage2.category">PENYIAPAN PROYEK</span><span class="tutorial-time">5–10 MIN</span></div><h2 data-i18n="academy.stage2.title">Buat proyek kernel pertamamu</h2><p data-i18n="academy.stage2.body">Pilih Proyek Baru, lalu tentukan x86_64, BIOS, GRUB, dan C atau C++. Template awal mencakup entry Multiboot2, linker script, source kernel, konsol serial, helper memori, serta modul awal IDT/PMM.</p><div class="tutorial-code-tree">boot/entry.asm
 boot/grub.cfg
 include/kernel/
 src/kernel.cpp
@@ -206,92 +131,24 @@ src/serial.cpp
 src/pmm.cpp
 src/interrupts.cpp
 linker.ld
-kerno.project.json</div>
-            <div class="tutorial-tip"><strong>Why the target matters</strong><p>Changing architecture metadata does not automatically convert boot assembly, ABI or linker layout. Only the x86_64 BIOS + GRUB + Multiboot2 path is currently enabled for native ISO builds.</p></div>
-            <div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="new-project" type="button">Create a new project ↗</button></div>
-            <button class="tutorial-done-button" data-complete-step="2" type="button">Mark stage complete</button>
-          </div>
-        </article>
-        <article class="tutorial-stage" id="tutorial-stage-3" data-tutorial-step="3">
-          <div class="tutorial-stage-number">03</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>BOOT ARCHITECTURE</span><span class="tutorial-time">15 MIN</span></div>
-            <h2>Understand the boot chain</h2>
-            <p>On the current BIOS target, firmware loads GRUB. GRUB recognises the Multiboot2 header and transfers control to the kernel entry point. The x86_64 entry stub begins in 32-bit protected mode, checks CPU capabilities, creates an identity map for the first 1 GiB, enables PAE and long mode, switches to 64-bit code and calls <code>kernel_main</code>.</p>
-            <div class="tutorial-chain"><span>BIOS</span><i>→</i><span>GRUB</span><i>→</i><span>Multiboot2</span><i>→</i><span>32-bit entry</span><i>→</i><span>Long mode</span><i>→</i><span>kernel_main</span></div>
-            <div class="tutorial-tip"><strong>What GRUB passes</strong><p>Multiboot2 provides a boot magic value and a pointer to boot information. Kerno's entry stub forwards these values to the kernel so it can inspect the memory map and other boot tags.</p></div>
-            <button class="tutorial-done-button" data-complete-step="3" type="button">Mark stage complete</button>
-          </div>
-        </article>
-        <article class="tutorial-stage" id="tutorial-stage-4" data-tutorial-step="4">
-          <div class="tutorial-stage-number">04</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>KERNEL SOURCE</span><span class="tutorial-time">20 MIN</span></div>
-            <h2>Read the source files and linker layout</h2>
-            <p>The assembly entry exports <code>_start</code>. The linker script places the Multiboot2 header early in the ELF image, then arranges text, read-only data, writable data and BSS at the configured kernel base. The kernel must be freestanding: no operating-system runtime or standard hosted startup is available.</p>
-            <ul class="tutorial-check-list"><li>Inspect <code>boot/entry.asm</code> and its handoff to 64-bit mode.</li><li>Inspect <code>linker.ld</code> and <code>ENTRY(_start)</code>.</li><li>Inspect <code>src/kernel.cpp</code> and the serial startup messages.</li><li>Keep compiler ABI, entry assembly and linker architecture consistent.</li></ul>
-            <div class="tutorial-tip"><strong>Freestanding compilation</strong><p>Kerno disables hosted assumptions such as built-in memory routines, stack protector, PIE and C++ exceptions/RTTI in its initial pipeline. New modules must still provide any required runtime primitives themselves.</p></div>
-            <button class="tutorial-done-button" data-complete-step="4" type="button">Mark stage complete</button>
-          </div>
-        </article>
-        <article class="tutorial-stage" id="tutorial-stage-5" data-tutorial-step="5">
-          <div class="tutorial-stage-number">05</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>LOW-LEVEL SUBSYSTEMS</span><span class="tutorial-time">20–40 MIN</span></div>
-            <h2>Understand memory, console and interrupts</h2>
-            <p>The starter PMM uses the Multiboot2 memory map to manage 4 KiB physical frames in the first 1 GiB identity-mapped region. Serial output uses COM1 for diagnostics; the text console uses legacy VGA text memory. The IDT installs a fail-stop default handler.</p>
-            <div class="tutorial-tip"><strong>Important limitation</strong><p>This is a learning kernel foundation, not a complete OS. It does not yet implement a general heap, complete virtual memory manager, interrupt controller/PIC/APIC, scheduler, drivers, filesystem or SMP. External interrupts remain disabled.</p></div>
-            <button class="tutorial-done-button" data-complete-step="5" type="button">Mark stage complete</button>
-          </div>
-        </article>
-        <article class="tutorial-stage" id="tutorial-stage-6" data-tutorial-step="6">
-          <div class="tutorial-stage-number">06</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>PRE-BUILD HEALTH</span><span class="tutorial-time">5 MIN</span></div>
-            <h2>Run the toolchain health check</h2>
-            <p>Open Settings → Toolchain and run the local scan. Ensure that assembler, both cross-compilers, linker, GRUB and xorriso are available. The QEMU executable is needed for the next stage. Confirm that both compiler targets report an x86_64 triple.</p>
-            <div class="tutorial-tip"><strong>Do not skip this</strong><p>A compiler found on PATH is not necessarily configured for the right target. Kerno checks compiler target triples before compiling.</p></div>
-            <div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="settings-toolchain" type="button">Run toolchain health check ↗</button></div>
-            <button class="tutorial-done-button" data-complete-step="6" type="button">Mark stage complete</button>
-          </div>
-        </article>
-        <article class="tutorial-stage tutorial-stage-iso" id="tutorial-stage-7" data-tutorial-step="7">
-          <div class="tutorial-stage-number">07</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>BOOTABLE IMAGE</span><span class="tutorial-time">5–15 MIN</span></div>
-            <h2>Build and validate the ISO</h2>
-            <p>Kerno's native pipeline is deliberately staged. A successful ISO is accepted only after its kernel and boot image pass independent health checks.</p>
-            <div class="iso-pipeline">
-              <div><span>01</span><strong>Assemble</strong><small>NASM → ELF64 objects</small></div>
-              <div><span>02</span><strong>Compile</strong><small>C/C++ → freestanding objects</small></div>
-              <div><span>03</span><strong>Link</strong><small>ELF64 x86_64 kernel</small></div>
-              <div><span>04</span><strong>Verify kernel</strong><small>Entry point + Multiboot2</small></div>
-              <div><span>05</span><strong>Stage ISO root</strong><small>/boot/kernel.elf + grub.cfg</small></div>
-              <div><span>06</span><strong>Package</strong><small>grub-mkrescue + xorriso</small></div>
-              <div><span>07</span><strong>Inspect ISO</strong><small>ISO9660 + El Torito + file paths</small></div>
-              <div><span>08</span><strong>Register artifact</strong><small>Only after every required check passes</small></div>
-            </div>
-            <div class="tutorial-tip"><strong>What an ISO contains</strong><p>The staging directory places the kernel at <code>/boot/kernel.elf</code> and GRUB's menu at <code>/boot/grub/grub.cfg</code>. The ISO must contain a valid ISO9660 volume descriptor and an El Torito boot catalog for legacy BIOS boot.</p></div>
-            <div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="build" type="button">Open Build workspace ↗</button></div>
-            <button class="tutorial-done-button" data-complete-step="7" type="button">Mark stage complete</button>
-          </div>
-        </article>
-        <article class="tutorial-stage tutorial-stage-final" id="tutorial-stage-8" data-tutorial-step="8">
-          <div class="tutorial-stage-number">08</div><div class="tutorial-stage-body">
-            <div class="tutorial-stage-meta"><span>FIRST BOOT</span><span class="tutorial-time">5–10 MIN</span></div>
-            <h2>Boot the ISO in QEMU and inspect output</h2>
-            <p>After the ISO is verified, start the QEMU guest with the matching x86_64 BIOS profile. Inspect the VGA display and COM1 serial output. A real kernel boot should reach the early kernel entry messages; a QEMU process merely staying open does not prove the kernel executed successfully.</p>
-            <ul class="tutorial-check-list"><li>QEMU process is running and its display is attached.</li><li>GRUB loads the kernel without a Multiboot error.</li><li>Serial output reports that kernel entry was reached.</li><li>Physical memory map and IDT initialization messages appear when enabled.</li></ul>
-            <div class="tutorial-tip"><strong>When it fails</strong><p>Use the build health report first. Then inspect QEMU process logs and serial output. A valid ISO can still contain a kernel with a runtime fault, so image validation and successful guest execution are separate checks.</p></div>
-            <div class="tutorial-finish"><span>✓</span><div><strong>That's your first kernel boot milestone.</strong><p>Save your project, export its source archive and keep the verified ISO with its build logs.</p></div></div>
-            <div class="tutorial-action-row"><button class="primary-button" id="tutorialFinishButton" type="button">Start a kernel project <span aria-hidden="true">↗</span></button><a href="https://github.com/Zarr-Dev/kerno" target="_blank" rel="noopener">Explore the source repository</a></div>
-            <button class="tutorial-done-button" data-complete-step="8" type="button">Mark course complete</button>
-          </div>
-        </article>
-      </div>
-    </div>
-    <footer class="tutorial-footer"><span>KERNO ACADEMY · LEARN BY BUILDING</span><button class="text-button" id="tutorialBackTopButton" type="button">Back to top ↑</button></footer>
+kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.stage2.tip.title">Mengapa target ini penting</strong><p data-i18n="academy.stage2.tip.body">Mengubah metadata arsitektur tidak otomatis mengubah boot assembly, ABI, atau tata letak linker. Jalur native ISO yang saat ini aktif hanya x86_64 + BIOS + GRUB + Multiboot2.</p></div><div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="new-project" type="button" data-i18n="academy.stage2.action">Buat proyek baru ↗</button></div><button class="tutorial-done-button" data-complete-step="2" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+      <article class="tutorial-stage" id="tutorial-stage-3" data-tutorial-step="3"><div class="tutorial-stage-number">03</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage3.category">ARSITEKTUR BOOT</span><span class="tutorial-time">15 MIN</span></div><h2 data-i18n="academy.stage3.title">Pahami rantai boot</h2><p data-i18n="academy.stage3.body">Pada target BIOS saat ini, firmware memuat GRUB. GRUB mengenali header Multiboot2 lalu memindahkan kontrol ke entry point kernel. Entry stub x86_64 dimulai dalam protected mode 32-bit, memeriksa kemampuan CPU, membuat identity map untuk 1 GiB pertama, mengaktifkan PAE dan long mode, lalu memanggil kernel_main.</p><div class="tutorial-chain"><span>BIOS</span><i>→</i><span>GRUB</span><i>→</i><span>Multiboot2</span><i>→</i><span>32-bit entry</span><i>→</i><span>Long mode</span><i>→</i><span>kernel_main</span></div><div class="tutorial-tip"><strong data-i18n="academy.stage3.tip.title">Informasi yang diberikan GRUB</strong><p data-i18n="academy.stage3.tip.body">Multiboot2 menyediakan nilai boot magic dan pointer ke informasi boot. Entry stub Kerno meneruskan nilai tersebut agar kernel dapat membaca memory map dan tag boot lainnya.</p></div><button class="tutorial-done-button" data-complete-step="3" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+      <article class="tutorial-stage" id="tutorial-stage-4" data-tutorial-step="4"><div class="tutorial-stage-number">04</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage4.category">SOURCE KERNEL</span><span class="tutorial-time">20 MIN</span></div><h2 data-i18n="academy.stage4.title">Baca berkas source dan tata letak linker</h2><p data-i18n="academy.stage4.body">Entry Assembly mengekspor simbol _start. Linker script menempatkan header Multiboot2 di bagian awal citra ELF, lalu mengatur bagian text, data read-only, data writable, dan BSS pada alamat dasar kernel. Kernel bersifat freestanding: kernel tidak dapat mengandalkan runtime sistem operasi atau kode startup standar.</p><div class="tutorial-tip"><strong data-i18n="academy.stage4.tip.title">Kompilasi freestanding</strong><p data-i18n="academy.stage4.tip.body">Pipeline awal menonaktifkan asumsi lingkungan hosted seperti fungsi memori bawaan, stack protector, PIE, serta exception/RTTI C++. Modul baru tetap harus menyediakan primitive runtime yang dibutuhkannya.</p></div><button class="tutorial-done-button" data-complete-step="4" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+      <article class="tutorial-stage" id="tutorial-stage-5" data-tutorial-step="5"><div class="tutorial-stage-number">05</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage5.category">SUBSISTEM LOW-LEVEL</span><span class="tutorial-time">20–40 MIN</span></div><h2 data-i18n="academy.stage5.title">Kenali memori, konsol, dan interrupt</h2><p data-i18n="academy.stage5.body">PMM awal menggunakan memory map Multiboot2 untuk mengelola frame fisik 4 KiB di dalam wilayah identity map 1 GiB pertama. Keluaran serial memakai COM1 untuk diagnostik; konsol teks memakai memori teks VGA lama. IDT memasang handler default fail-stop.</p><div class="tutorial-tip"><strong data-i18n="academy.stage5.tip.title">Batas implementasi saat ini</strong><p data-i18n="academy.stage5.tip.body">Ini adalah fondasi kernel untuk pembelajaran, bukan OS lengkap. Implementasi saat ini belum mencakup heap umum, virtual memory manager lengkap, interrupt controller/PIC/APIC, scheduler, driver, filesystem, atau SMP. Interrupt eksternal masih dinonaktifkan.</p></div><button class="tutorial-done-button" data-complete-step="5" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+      <article class="tutorial-stage" id="tutorial-stage-6" data-tutorial-step="6"><div class="tutorial-stage-number">06</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage6.category">PEMERIKSAAN SEBELUM BUILD</span><span class="tutorial-time">5 MIN</span></div><h2 data-i18n="academy.stage6.title">Jalankan pemeriksaan kesehatan toolchain</h2><p data-i18n="academy.stage6.body">Buka Pengaturan → Toolchain, lalu jalankan pemindaian lokal. Pastikan NASM, kedua cross-compiler, linker, GRUB, dan xorriso tersedia. QEMU dibutuhkan pada tahap akhir. Target kedua compiler harus menunjukkan triple x86_64.</p><div class="tutorial-tip"><strong data-i18n="academy.stage6.tip.title">Jangan lewatkan pemeriksaan ini</strong><p data-i18n="academy.stage6.tip.body">Compiler yang ditemukan melalui PATH belum tentu dikonfigurasi untuk target yang benar. Kerno memeriksa target triple compiler sebelum proses kompilasi.</p></div><div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="settings-toolchain" type="button" data-i18n="academy.stage6.action">Jalankan pemeriksaan toolchain ↗</button></div><button class="tutorial-done-button" data-complete-step="6" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+      <article class="tutorial-stage tutorial-stage-iso" id="tutorial-stage-7" data-tutorial-step="7"><div class="tutorial-stage-number">07</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage7.category">CITRA BOOTABLE</span><span class="tutorial-time">5–15 MIN</span></div><h2 data-i18n="academy.stage7.title">Build dan validasi ISO</h2><p data-i18n="academy.stage7.body">Pipeline native berjalan melalui beberapa tahap. Kerno hanya menerima ISO setelah kernel dan citra boot melewati seluruh pemeriksaan yang diwajibkan.</p>
+        <div class="iso-pipeline">
+          <div><span>01</span><strong data-i18n="academy.stage7.step1.title">Assemble</strong><small data-i18n="academy.stage7.step1.body">NASM → objek ELF64</small></div><div><span>02</span><strong data-i18n="academy.stage7.step2.title">Compile</strong><small data-i18n="academy.stage7.step2.body">C/C++ → objek freestanding</small></div><div><span>03</span><strong data-i18n="academy.stage7.step3.title">Link</strong><small data-i18n="academy.stage7.step3.body">Kernel ELF64 x86_64</small></div><div><span>04</span><strong data-i18n="academy.stage7.step4.title">Verifikasi kernel</strong><small data-i18n="academy.stage7.step4.body">Entry point + Multiboot2</small></div><div><span>05</span><strong data-i18n="academy.stage7.step5.title">Siapkan isi ISO</strong><small data-i18n="academy.stage7.step5.body">/boot/kernel.elf + grub.cfg</small></div><div><span>06</span><strong data-i18n="academy.stage7.step6.title">Paketkan ISO</strong><small data-i18n="academy.stage7.step6.body">grub-mkrescue + xorriso</small></div><div><span>07</span><strong data-i18n="academy.stage7.step7.title">Periksa ISO</strong><small data-i18n="academy.stage7.step7.body">ISO9660 + El Torito + path berkas</small></div><div><span>08</span><strong data-i18n="academy.stage7.step8.title">Daftarkan artefak</strong><small data-i18n="academy.stage7.step8.body">Hanya jika semua pemeriksaan wajib lolos</small></div>
+        </div><div class="tutorial-tip"><strong data-i18n="academy.stage7.tip.title">Isi di dalam ISO</strong><p data-i18n="academy.stage7.tip.body">Direktori staging menempatkan kernel di /boot/kernel.elf dan menu GRUB di /boot/grub/grub.cfg. Citra harus memiliki volume descriptor ISO9660 yang valid serta katalog boot El Torito untuk BIOS legacy.</p></div><div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="build" type="button" data-i18n="academy.stage7.action">Buka workspace Build ↗</button></div><button class="tutorial-done-button" data-complete-step="7" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+      <article class="tutorial-stage tutorial-stage-final" id="tutorial-stage-8" data-tutorial-step="8"><div class="tutorial-stage-number">08</div><div class="tutorial-stage-body"><div class="tutorial-stage-meta"><span data-i18n="academy.stage8.category">BOOT PERTAMA</span><span class="tutorial-time">5–10 MIN</span></div><h2 data-i18n="academy.stage8.title">Jalankan ISO di QEMU dan periksa keluarannya</h2><p data-i18n="academy.stage8.body">Setelah verifikasi, jalankan guest QEMU dengan profil BIOS x86_64 yang sesuai. Periksa tampilan VGA dan keluaran serial COM1. Proses QEMU yang tetap terbuka tidak otomatis membuktikan bahwa kernel berhasil dieksekusi.</p><div class="tutorial-tip"><strong data-i18n="academy.stage8.tip.title">Saat terjadi kegagalan</strong><p data-i18n="academy.stage8.tip.body">Mulai dari laporan kesehatan build, kemudian periksa log proses QEMU dan keluaran serial. ISO yang valid masih dapat berisi kernel dengan kesalahan runtime; validasi citra dan keberhasilan eksekusi guest adalah dua pemeriksaan berbeda.</p></div><div class="tutorial-finish"><span>✓</span><div><strong data-i18n="academy.stage8.finish.title">Tonggak boot kernel pertamamu</strong><p data-i18n="academy.stage8.finish.body">Simpan proyek, ekspor arsip source, dan simpan ISO yang telah diverifikasi bersama log build.</p></div></div><div class="tutorial-action-row"><button class="primary-button" id="tutorialFinishButton" type="button"><span data-i18n="academy.stage8.action">Mulai proyek kernel</span> <span aria-hidden="true">↗</span></button><a href="https://github.com/Zarr-Dev/kerno" target="_blank" rel="noopener" data-i18n="academy.stage8.repo">Lihat repositori source</a></div><button class="tutorial-done-button" data-complete-step="8" type="button" data-i18n="academy.complete">Tandai tahap selesai</button></div></article>
+    </div></div>
+    <footer class="tutorial-footer"><span data-i18n="academy.footer">KERNO ACADEMY · BELAJAR DENGAN MEMBANGUN</span><button class="text-button" id="tutorialBackTopButton" type="button" data-i18n="academy.footer.top">Kembali ke atas ↑</button></footer>
   </main>
 
   <main class="screen setup-screen hidden" id="newProjectScreen">
-    <header class="setup-header"><button class="back-button" id="backFromNewProject">← <span data-i18n="back">Back</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><span class="setup-step">NEW WORKSPACE / 01</span></header>
+    <header class="setup-header"><button class="back-button" id="backFromNewProject">← <span data-i18n="back">Back</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><span class="setup-step" data-i18n="wizard.step">WORKSPACE BARU / 01</span></header>
     <section class="setup-content">
-      <span class="section-kicker">PROJECT SCAFFOLDING</span>
+      <span class="section-kicker" data-i18n="wizard.kicker">PENYUSUNAN PROYEK</span>
       <h1 data-i18n="newOsWorkspace">New operating system workspace</h1>
       <p class="setup-lead" data-i18n="newOsLead">Choose the machine target and kernel foundation. Kerno will create the initial source tree and project configuration.</p>
       <div class="setup-grid">
@@ -319,7 +176,7 @@ kerno.project.json</div>
           <div class="setup-actions"><button class="quiet-button" id="cancelNewProject" data-i18n="cancel">Cancel</button><button class="primary-button" id="createProjectButton" data-i18n="createWorkspace">Create workspace</button></div>
         </section>
         <aside class="setup-aside">
-          <div class="aside-title">PROJECT STRUCTURE</div>
+          <div class="aside-title" data-i18n="wizard.aside">STRUKTUR PROYEK</div>
           <pre id="scaffoldPreview">My First OS/
 ├── boot/
 │   ├── entry.asm
@@ -339,7 +196,7 @@ kerno.project.json</div>
   </main>
 
   <main class="screen settings-screen hidden" id="settingsScreen">
-    <header class="settings-header"><button class="back-button" id="backFromSettings">← <span data-i18n="back">Back</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><div class="settings-heading"><span class="section-kicker">ENVIRONMENT CONTROL</span><strong data-i18n="settings">Settings</strong></div><button class="primary-button" id="saveSettingsButton" data-i18n="applySettings">Apply settings</button></header>
+    <header class="settings-header"><button class="back-button" id="backFromSettings">← <span data-i18n="back">Kembali</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><div class="settings-heading"><span class="section-kicker" data-i18n="settings.kicker">KONTROL LINGKUNGAN</span><strong data-i18n="settings">Pengaturan</strong></div><button class="primary-button" id="saveSettingsButton" data-i18n="applySettings">Terapkan pengaturan</button></header>
     <div class="settings-layout">
       <nav class="settings-nav" id="settingsNav">
         <button class="settings-nav-item active" data-category="general"><span>◈</span><b data-i18n="general">General</b></button>
@@ -357,7 +214,7 @@ kerno.project.json</div>
         <button class="settings-nav-item" data-category="accessibility"><span>◉</span><b data-i18n="accessibility">Accessibility</b></button>
         <button class="settings-nav-item" data-category="shortcuts"><span>⌨</span><b data-i18n="shortcuts">Keyboard & Shortcuts</b></button>
       </nav>
-      <section class="settings-content"><div class="settings-category-heading"><span class="section-kicker" id="settingsEyebrow">ENVIRONMENT</span><h1 id="settingsTitle">General</h1><p id="settingsDescription">Control how Kerno behaves across projects.</p></div><div id="settingsFields"></div></section>
+      <section class="settings-content"><div class="settings-category-heading"><span class="section-kicker" id="settingsEyebrow" data-i18n="settings.eyebrow">LINGKUNGAN</span><h1 id="settingsTitle">Umum</h1><p id="settingsDescription" data-i18n="settings.description">Atur perilaku Kerno untuk seluruh proyek.</p></div><div id="settingsFields"></div></section>
     </div>
   </main>
 
@@ -366,54 +223,54 @@ kerno.project.json</div>
       <div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div>
       <div class="app-project"><span class="project-dot"></span><strong id="activeProjectName">My OS</strong><span class="chip" id="activeTargetChip">x86_64 · GRUB</span></div>
       <nav class="workspace-nav"><button class="workspace-nav-item active" data-workspace="source" data-i18n="source">Source</button><button class="workspace-nav-item" data-workspace="machine" data-i18n="machine">Machine</button><button class="workspace-nav-item" data-workspace="build" data-i18n="build">Build</button></nav>
-      <div class="app-actions"><button class="icon-button" id="themeToggleApp" title="Cycle color theme" aria-label="Cycle color theme">◐</button><button class="icon-button" id="appSettingsButton" title="Settings">⚙</button><button class="tool-button" id="saveProjectButton">Save</button><button class="tool-button" id="importProjectFilesButton" data-i18n="importFiles">Import files</button><button class="tool-button" id="exportProjectButton" data-i18n="exportProject">Export project</button><button class="primary-button small-button" id="buildProjectButton" data-i18n="buildBoot">Build & Boot</button><button class="icon-button" id="backToWelcomeButton" title="Home">⌂</button></div>
+      <div class="app-actions"><button class="icon-button" id="themeToggleApp" title="Cycle color theme" aria-label="Cycle color theme">◐</button><button class="icon-button" id="appSettingsButton" title="Settings">⚙</button><button class="tool-button" id="saveProjectButton" data-i18n="workspace.save">Simpan</button><button class="tool-button" id="importProjectFilesButton" data-i18n="importFiles">Import files</button><button class="tool-button" id="exportProjectButton" data-i18n="exportProject">Export project</button><button class="primary-button small-button" id="buildProjectButton" data-i18n="buildBoot">Build & Boot</button><button class="icon-button" id="backToWelcomeButton" title="Home">⌂</button></div>
     </header>
 
     <section class="workspace-view" id="sourceWorkspace">
       <aside class="source-sidebar">
-        <div class="sidebar-top"><div><span class="section-kicker">PROJECT</span><strong data-i18n="projectFiles">Project files</strong></div><div><button class="mini-button" id="addSourceFileButton" title="New file">＋</button><button class="mini-button" id="importSourceFolderButton" title="Import folder">↥</button></div></div>
+        <div class="sidebar-top"><div><span class="section-kicker">PROJECT</span><strong data-i18n="projectFiles">Project files</strong></div><div><button class="mini-button" id="addSourceFileButton" title="Berkas baru" aria-label="Berkas baru">＋</button><button class="mini-button" id="importSourceFolderButton" title="Impor folder" aria-label="Impor folder">↥</button></div></div>
         <div class="source-tree" id="sourceTree"></div>
         <div class="sidebar-bottom"><span id="sourceCount">0 files</span><span id="projectStorageSize">0 KB</span></div>
       </aside>
       <section class="source-editor-area">
-        <div class="editor-toolbar"><div class="editor-breadcrumb" id="editorBreadcrumb">Select a source file</div><div class="editor-toolbar-actions"><button class="editor-tool" id="splitEditorButton">Split editor</button><button class="editor-tool" id="saveFileButton">Save file</button><button class="editor-tool" id="exportFileButton">Export file</button></div></div>
+        <div class="editor-toolbar"><div class="editor-breadcrumb" id="editorBreadcrumb" data-i18n="workspace.selectFile">Pilih berkas source</div><div class="editor-toolbar-actions"><button class="editor-tool" id="splitEditorButton" data-i18n="workspace.split">Editor terpisah</button><button class="editor-tool" id="saveFileButton" data-i18n="workspace.saveFile">Simpan berkas</button><button class="editor-tool" id="exportFileButton" data-i18n="workspace.exportFile">Ekspor berkas</button></div></div>
         <div class="source-tabs" id="sourceTabs"></div>
-        <div class="editor-container" id="editorContainer"><div class="monaco-pane" id="monacoPane"></div><textarea id="plainEditor" spellcheck="false" aria-label="Kernel source editor"></textarea><div class="editor-empty hidden" id="editorEmpty"><span>⌘</span><strong>No source file selected</strong><p>Choose a file from the project tree or create a new source module.</p><button class="quiet-button" id="emptyNewFileButton">Create source file</button></div><div class="split-editor-pane hidden" id="splitPane"><div class="split-pane-heading"><span>SECOND SOURCE</span><select id="splitFileSelect"></select><button class="mini-button" id="closeSplitButton">×</button></div><div id="splitMonacoPane"></div></div></div>
-        <footer class="editor-status"><span id="editorStatus">Workspace ready</span><span id="diagnosticSummary" class="diagnostic-summary">Quick check ready</span><span id="cursorPosition">Ln 1, Col 1</span><span id="languageMode">Plain Text</span><span id="encodingStatus">UTF-8 · LF</span></footer>
+        <div class="editor-container" id="editorContainer"><div class="monaco-pane" id="monacoPane"></div><textarea id="plainEditor" spellcheck="false" aria-label="Editor source kernel"></textarea><div class="editor-empty hidden" id="editorEmpty"><span>⌘</span><strong data-i18n="workspace.empty.title">Belum ada berkas source dipilih</strong><p data-i18n="workspace.empty.body">Pilih berkas dari penjelajah proyek atau buat modul source baru.</p><button class="quiet-button" id="emptyNewFileButton" data-i18n="workspace.empty.action">Buat berkas source</button></div><div class="split-editor-pane hidden" id="splitPane"><div class="split-pane-heading"><span data-i18n="workspace.secondSource">SOURCE KEDUA</span><select id="splitFileSelect"></select><button class="mini-button" id="closeSplitButton">×</button></div><div id="splitMonacoPane"></div></div></div>
+        <footer class="editor-status"><span id="editorStatus" data-i18n="workspace.ready">Workspace siap</span><span id="diagnosticSummary" class="diagnostic-summary" data-i18n="workspace.quickCheck">Pemeriksaan cepat siap</span><span id="cursorPosition">Ln 1, Col 1</span><span id="languageMode">Plain Text</span><span id="encodingStatus">UTF-8 · LF</span></footer>
       </section>
     </section>
 
     <section class="workspace-view hidden" id="machineWorkspace">
       <div class="machine-layout">
         <section class="machine-main">
-          <div class="machine-heading"><div><span class="section-kicker">VIRTUAL MACHINE OUTPUT</span><h1 data-i18n="machineDisplay">Machine display</h1><p data-i18n="machineDesc">Live guest output is streamed from the connected local QEMU service.</p></div><div class="machine-status"><i id="qemuStatusDot"></i><span id="qemuStatusText">QEMU not connected</span></div></div>
+          <div class="machine-heading"><div><span class="section-kicker" data-i18n="machine.kicker">KELUARAN MESIN VIRTUAL</span><h1 data-i18n="machineDisplay">Machine display</h1><p data-i18n="machineDesc">Live guest output is streamed from the connected local QEMU service.</p></div><div class="machine-status"><i id="qemuStatusDot"></i><span id="qemuStatusText" data-i18n="machine.notConnected">QEMU belum terhubung</span></div></div>
           <div class="machine-viewport" id="machineViewport"><div class="viewport-empty"><div class="monitor-glyph">▣</div><strong data-i18n="noMachineSession">No machine session</strong><p data-i18n="connectQemuPrompt">Connect Kerno Local Service to launch and display a QEMU guest.</p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div></div>
-          <div class="machine-console"><div class="console-head"><span>SERIAL / COM1</span><button class="mini-button" id="clearSerialButton">Clear</button></div><pre id="serialOutput">Serial output is unavailable until a real QEMU session is connected.</pre></div>
+          <div class="machine-console"><div class="console-head"><span data-i18n="machine.serial">SERIAL / COM1</span><button class="mini-button" id="clearSerialButton" data-i18n="machine.clear">Bersihkan</button></div><pre id="serialOutput">Serial output is unavailable until a real QEMU session is connected.</pre></div>
         </section>
         <aside class="machine-controls">
-          <span class="section-kicker">MACHINE PROFILE</span><h2>Virtual hardware</h2>
-          <div class="machine-spec"><span>Architecture</span><strong id="machineArchitecture">x86_64</strong></div>
-          <div class="machine-spec"><span>Machine type</span><strong id="machineType">q35</strong></div>
-          <div class="machine-spec"><span>Guest memory</span><strong id="machineMemory">512 MiB</strong></div>
-          <div class="machine-spec"><span>vCPU cores</span><strong id="machineCpus">2</strong></div>
-          <div class="machine-spec"><span>Display</span><strong id="machineDisplaySpec">std VGA</strong></div>
-          <div class="machine-spec"><span>CPU model</span><strong id="machineCpuModel">max</strong></div>
-          <div class="machine-spec"><span>Acceleration</span><strong id="machineAcceleration">Automatic</strong></div>
-          <div class="machine-spec"><span>Network</span><strong id="machineNetwork">Disabled</strong></div>
-          <div class="machine-spec"><span>Serial backend</span><strong id="machineSerialBackend">File capture</strong></div>
+          <span class="section-kicker" data-i18n="machine.profile">PROFIL MESIN</span><h2 data-i18n="machine.hardware">Perangkat keras virtual</h2>
+          <div class="machine-spec"><span data-i18n="machine.architecture">Arsitektur</span><strong id="machineArchitecture">x86_64</strong></div>
+          <div class="machine-spec"><span data-i18n="machine.type">Jenis mesin</span><strong id="machineType">q35</strong></div>
+          <div class="machine-spec"><span data-i18n="machine.memory">Memori guest</span><strong id="machineMemory">512 MiB</strong></div>
+          <div class="machine-spec"><span data-i18n="machine.cpus">Inti vCPU</span><strong id="machineCpus">2</strong></div>
+          <div class="machine-spec"><span data-i18n="machine.display">Tampilan</span><strong id="machineDisplaySpec">std VGA</strong></div>
+          <div class="machine-spec"><span data-i18n="machine.cpu">Model CPU</span><strong id="machineCpuModel">max</strong></div>
+          <div class="machine-spec"><span data-i18n="machine.acceleration">Akselerasi</span><strong id="machineAcceleration">Automatic</strong></div>
+          <div class="machine-spec"><span data-i18n="machine.network">Jaringan</span><strong id="machineNetwork">Disabled</strong></div>
+          <div class="machine-spec"><span data-i18n="machine.backend">Backend serial</span><strong id="machineSerialBackend">File capture</strong></div>
           <div class="control-divider"></div>
-          <button class="primary-button full-button" id="connectLocalServiceButton">Connect local service</button>
-          <button class="primary-button full-button" id="startQemuButton">Start QEMU</button>
-          <button class="quiet-button full-button" id="stopQemuButton" disabled>Stop machine</button>
-          <p class="control-note" id="machineControlNote">QEMU is managed by Kerno Local Service. The browser does not execute native emulator processes.</p>
+          <button class="primary-button full-button" id="connectLocalServiceButton" data-i18n="machine.connect">Hubungkan layanan lokal</button>
+          <button class="primary-button full-button" id="startQemuButton" data-i18n="machine.start">Jalankan QEMU</button>
+          <button class="quiet-button full-button" id="stopQemuButton" disabled data-i18n="machine.stop">Hentikan mesin</button>
+          <p class="control-note" id="machineControlNote" data-i18n="machine.note">QEMU dikelola oleh Kerno Local Service. Browser tidak menjalankan proses emulator native.</p>
         </aside>
       </div>
     </section>
 
     <section class="workspace-view hidden" id="buildWorkspace">
       <div class="build-layout">
-        <div class="build-overview"><span class="section-kicker">NATIVE TOOLCHAIN</span><h1 data-i18n="buildConfiguration">Build configuration</h1><p data-i18n="buildConfigurationDesc">Review the project target before invoking the connected native build service.</p><div class="build-config-grid"><div><span>Target</span><strong id="buildTarget">x86_64</strong></div><div><span>Bootloader</span><strong id="buildBootloader">GRUB</strong></div><div><span>Kernel language</span><strong id="buildLanguage">C++</strong></div><div><span>Output format</span><strong>ISO / ELF</strong></div></div><div class="build-actions"><button class="primary-button" id="runBuildButton">Run native build</button><button class="quiet-button" id="openSettingsFromBuild">Configure toolchain</button></div><p class="build-disclaimer">A build is only reported as successful after the local service returns a verified artifact and exit status.</p></div>
-        <div class="build-log-panel"><div class="log-heading"><strong>BUILD EVENTS</strong><span id="buildStateLabel">NO BUILD RUN</span></div><pre id="buildLog">No build has been requested.</pre><div id="buildHealthChecks" class="build-health-list" aria-live="polite"></div><div id="artifactDownloads" class="artifact-downloads"></div></div>
+        <div class="build-overview"><span class="section-kicker" data-i18n="build.kicker">TOOLCHAIN NATIVE</span><h1 data-i18n="buildConfiguration">Build configuration</h1><p data-i18n="buildConfigurationDesc">Review the project target before invoking the connected native build service.</p><div class="build-config-grid"><div><span data-i18n="build.target">Target</span><strong id="buildTarget">x86_64</strong></div><div><span data-i18n="build.bootloader">Bootloader</span><strong id="buildBootloader">GRUB</strong></div><div><span data-i18n="build.language">Bahasa kernel</span><strong id="buildLanguage">C++</strong></div><div><span data-i18n="build.output">Format keluaran</span><strong>ISO / ELF</strong></div></div><div class="build-actions"><button class="primary-button" id="runBuildButton" data-i18n="build.run">Jalankan build native</button><button class="quiet-button" id="openSettingsFromBuild" data-i18n="build.configure">Konfigurasi toolchain</button></div><p class="build-disclaimer" data-i18n="build.disclaimer">Build hanya dinyatakan berhasil setelah layanan lokal mengembalikan artefak yang telah diverifikasi dan status proses yang sukses.</p></div>
+        <div class="build-log-panel"><div class="log-heading"><strong data-i18n="build.events">AKTIVITAS BUILD</strong><span id="buildStateLabel" data-i18n="build.none">BELUM ADA BUILD</span></div><pre id="buildLog" data-i18n="build.empty">Belum ada build yang dijalankan.</pre><div id="buildHealthChecks" class="build-health-list" aria-live="polite"></div><div id="artifactDownloads" class="artifact-downloads"></div></div>
       </div>
     </section>
   </main>
