@@ -29,6 +29,27 @@ A local build service can run the configured assembler, C/C++ cross-compilers, l
 
 **Current native build gate:** x86_64 + BIOS + GRUB + Multiboot2. The i686, AArch64 and RISC-V selections remain editable scaffolds; they are not currently claimed to produce bootable images.
 
+## Kerno Academy
+
+The Project Hub now includes a guided Tutorial Center with nine stages: IDE orientation, host setup, project scaffolding, the BIOS/GRUB/Multiboot2 boot chain, kernel source and linker layout, low-level memory/console/interrupt modules, toolchain health, ISO validation, and QEMU boot inspection. Stage completion is saved locally in IndexedDB.
+
+The current course intentionally teaches the validated x86_64 + BIOS + GRUB + Multiboot2 target. The scaffold templates for other architectures are not yet validated native build paths.
+
+## Build health and ISO verification
+
+The Local Agent build pipeline reports explicit stages and health checks. Before registering an ISO artifact it validates:
+
+- ELF64 little-endian x86_64 executable type, program-header bounds, and an entry point inside an executable load segment.
+- Multiboot2 header alignment, magic, architecture field, length, checksum, and end tag.
+- ISO9660 primary volume descriptor and descriptor terminator.
+- El Torito boot record/catalog, validation entry checksum/signature, and bootable default entry.
+- Required ISO paths: `/boot/kernel.elf` and `/boot/grub/grub.cfg`.
+- SHA-256 digest of the generated ISO.
+
+QEMU start repeats the ISO structure and SHA-256 checks before creating a guest process. A running QEMU process is not treated as proof that the kernel executed: Kerno separately watches COM1 serial output for the scaffold's kernel-entry marker.
+
+A build or QEMU health report describes the checks actually performed. It does not prove the operating system is production-ready or that every subsystem is correct.
+
 ## Run the website
 
 Kerno uses no frontend framework or build step. Serve the repository root over HTTP:
@@ -64,7 +85,7 @@ Start the service:
 
 **Linux/macOS:** run `local-agent/start-local-agent.sh`.
 
-The service binds only to `127.0.0.1:8765). On startup it prints a pairing token. Copy that token into **Kerno Settings → Advanced → Pairing token**, keep the terminal service running, then use **Test local service** or **Connect local service** in Kerno.
+The service binds only to `127.0.0.1:8765`. On startup it prints a pairing token. Copy that token into **Kerno Settings → Advanced → Pairing token**, keep the terminal service running, then use **Test local service** or **Connect local service** in Kerno.
 
 The service stores its token and working files under `~/.kerno-local` (or the `KERNO_DATA_DIR` override). It exposes a loopback-only API, validates source paths and project-size limits, uses argument arrays rather than shell command strings, limits concurrent builds with a build lock, and manages QEMU process shutdown.
 
