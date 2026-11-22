@@ -287,7 +287,13 @@ const UI_COPY = {
     "build.disclaimer": "A build is only reported as successful after the local service returns a verified artifact and a successful process status.",
     "build.events": "BUILD EVENTS",
     "build.none": "NO BUILD RUN",
-    "build.empty": "No build has been requested."
+    "build.empty": "No build has been requested.",
+    "newOsWorkspace": "New operating system workspace",
+    "newOsLead": "Choose the machine target and kernel foundation. Kerno creates the initial source tree and project configuration.",
+    "scaffoldNote": "These are editable source files. A verified boot image still requires a matching native toolchain and boot protocol.",
+    "machineDesc": "Live guest output is streamed from the connected local QEMU service.",
+    "buildConfiguration": "Build configuration",
+    "buildConfigurationDesc": "Review the target before invoking the connected native build service."
   },
   "id": {
     "meta.title": "Kerno — Lingkungan Pengembangan Sistem Operasi",
@@ -520,7 +526,13 @@ const UI_COPY = {
     "build.disclaimer": "Build hanya dinyatakan berhasil setelah layanan lokal mengembalikan artefak yang telah diverifikasi dan status proses yang sukses.",
     "build.events": "AKTIVITAS BUILD",
     "build.none": "BELUM ADA BUILD",
-    "build.empty": "Belum ada build yang dijalankan."
+    "build.empty": "Belum ada build yang dijalankan.",
+    "newOsWorkspace": "Workspace sistem operasi baru",
+    "newOsLead": "Pilih target mesin dan fondasi kernel. Kerno akan membuat struktur kode sumber awal beserta konfigurasi proyek.",
+    "scaffoldNote": "Berkas kode sumber ini dapat disunting. Citra boot yang tervalidasi tetap memerlukan toolchain native dan protokol boot yang sesuai.",
+    "machineDesc": "Keluaran guest secara langsung dialirkan dari layanan QEMU lokal yang terhubung.",
+    "buildConfiguration": "Konfigurasi build",
+    "buildConfigurationDesc": "Periksa target proyek sebelum menjalankan layanan build native yang terhubung."
   }
 };
 
