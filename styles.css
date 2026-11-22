@@ -310,3 +310,157 @@ body.light-theme .tool-missing { color:#966333; }
 
 /* Scale the entire IDE canvas, not only inherited body typography. */
 body { zoom: var(--ui-scale, 1); }
+
+
+/* Kerno workspace polish: readable hierarchy, in-app dialogs and system diagnostics */
+:root{
+  --bg:#10151c;--surface:#171e27;--surface-2:#1c2631;--surface-3:#24313e;
+  --line:#2b3947;--text:#e5ebf2;--muted:#a3b0bf;--subtle:#728295;
+}
+html,body{font-size:14px}
+button,input,select,textarea{font-size:inherit}
+.section-kicker{font-size:10px;letter-spacing:1.45px}
+.field-label,.setting-row .setting-copy small,.setting-note{font-size:12px}
+.setting-row .setting-copy strong{font-size:13px}
+.setting-row select,.setting-row input{min-height:38px;font-size:13px}
+.primary-button,.tool-button,.editor-tool,.quiet-button,.text-button{font-size:12px}
+.welcome-content{padding-top:clamp(48px,7vh,82px)}
+.welcome-intro{position:relative}
+.welcome-intro::after{
+  content:"";position:absolute;right:-115px;top:-22px;width:245px;height:245px;pointer-events:none;
+  border:1px solid #527c6a44;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,#76b99e19 0 25%,transparent 26% 42%,#76b99e0d 43% 44%,transparent 45%);
+}
+.welcome-intro h1{max-width:720px;font-size:clamp(38px,5vw,58px);letter-spacing:-2px}
+.welcome-intro p{font-size:15px;line-height:1.85}
+.hero-proof{display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:24px;color:var(--muted);font-size:11px}
+.hero-proof span{display:flex;align-items:center;gap:8px}
+.hero-proof b{display:inline-grid;place-items:center;width:22px;height:22px;border:1px solid var(--line);border-radius:6px;color:var(--text);font:500 10px var(--mono)}
+.welcome-actions{margin-top:34px}
+.welcome-card{min-height:202px;padding:22px;gap:13px}
+.welcome-card strong{font-size:15px}
+.welcome-card>span:not(.action-icon){font-size:12px;line-height:1.7}
+.welcome-card b{font-size:11px}
+.welcome-footer{font-size:11px}
+.app-topbar{min-height:58px}
+.app-project strong{font-size:13px}
+.workspace-nav-item{font-size:12px}
+.editor-toolbar{min-height:44px}
+.source-tab{font-size:12px}
+.editor-status{font-size:11px}
+.settings-category-heading h1{font-size:27px}
+.settings-category-heading p{font-size:13px;line-height:1.7}
+.settings-group-heading h3{font-size:15px}
+.settings-group-heading p{font-size:12px}
+.setting-row{min-height:66px}
+.machine-heading h1,.build-overview h1{font-size:29px}
+.machine-heading p,.build-overview p{font-size:13px;line-height:1.7}
+.machine-spec{font-size:12px}
+.build-config-grid strong{font-size:15px}
+
+/* In-site modal surface: no native alert/confirm/prompt chrome */
+.modal-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:22px;background:#05090dcc;backdrop-filter:blur(8px)}
+.modal-overlay.hidden{display:none!important}
+.modal-card{width:min(470px,100%);padding:23px;border:1px solid #354652;border-radius:13px;background:linear-gradient(155deg,#1b2631,#111820);box-shadow:0 26px 90px #000a;color:var(--text);animation:modalIn .16s ease-out}
+.modal-topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:19px}
+.modal-mark{width:34px;height:34px;display:grid;place-items:center;border:1px solid #5c8d7b;border-radius:9px;background:#1d342d;color:#d7f1e4;font:800 15px var(--heading)}
+.modal-dismiss{width:31px;height:31px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--muted);font-size:20px}
+.modal-card h2{margin:8px 0;color:var(--text);font:700 22px/1.25 var(--heading)}
+.modal-card p{margin:0 0 18px;color:var(--muted);font-size:13px;line-height:1.7}
+.modal-input{width:100%;min-height:43px;margin:2px 0 12px;padding:10px 12px;border:1px solid #506070;border-radius:7px;background:#0d141c;color:var(--text);font:13px var(--body)}
+.modal-input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:21px}
+.modal-error{margin:8px 0;color:#e08b8b;font-size:12px}
+@keyframes modalIn{from{opacity:0;transform:translateY(9px) scale(.99)}to{opacity:1;transform:none}}
+
+/* Toast notifications stay inside the Kerno viewport and remain keyboard accessible */
+.toast-region{right:22px;bottom:22px;gap:9px;max-width:min(440px,calc(100vw - 28px))}
+.toast{display:flex;align-items:flex-start;gap:10px;min-width:260px;max-width:420px;padding:12px 13px;border-radius:9px;pointer-events:auto;font-size:12px}
+.toast-mark{flex:0 0 22px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:#234236;color:#aee0c5;font-size:12px;font-weight:800}
+.toast-copy{min-width:0;flex:1}
+.toast-copy strong{display:block;font-size:12px;line-height:1.4}
+.toast-copy small{margin-top:3px;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+.toast-dismiss{width:22px;height:22px;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:16px}
+.toast-dismiss:hover{background:var(--surface-3);color:var(--text)}
+.toast-error{border-color:#825858;background:#2a2022}
+.toast-error .toast-mark{background:#553232;color:#ffd1d1}
+.toast-success{border-color:#456756}
+@media(max-width:800px){
+  .welcome-intro::after{right:-60px;top:0;width:150px;height:150px;opacity:.45}
+  .hero-proof{gap:8px 12px}
+  .welcome-card{min-height:160px}
+}
+
+/* Neutral monochrome theme: all Kerno workspaces, controls and the Monaco editor */
+body.monochrome-theme{
+  color-scheme:dark;
+  --bg:#050505;--surface:#101010;--surface-2:#171717;--surface-3:#242424;
+  --line:#454545;--text:#f5f5f5;--muted:#c2c2c2;--subtle:#929292;
+  --accent:#f5f5f5;--accent-2:#d8d8d8;--accent-wash:#242424;
+  --blue:#dedede;--amber:#ededed;--red:#f0f0f0;
+  background:#050505;color:#f5f5f5;
+}
+body.monochrome-theme .welcome-screen{background:radial-gradient(ellipse at 78% 13%,#ffffff13 0%,transparent 36%),linear-gradient(145deg,#090909,#000 70%)}
+body.monochrome-theme .welcome-top,body.monochrome-theme .app-topbar,
+body.monochrome-theme .settings-header,body.monochrome-theme .editor-toolbar,
+body.monochrome-theme .source-tabs,body.monochrome-theme .source-sidebar,
+body.monochrome-theme .settings-nav,body.monochrome-theme .machine-controls,
+body.monochrome-theme .machine-console,body.monochrome-theme .editor-status{
+  background:#111!important;border-color:#444!important;color:#f5f5f5;
+}
+body.monochrome-theme .welcome-card,body.monochrome-theme .setup-form,
+body.monochrome-theme .setup-aside,body.monochrome-theme .settings-group,
+body.monochrome-theme .build-log-panel,body.monochrome-theme .machine-viewport{
+  background:#101010!important;border-color:#555!important;color:#f5f5f5;
+}
+body.monochrome-theme .welcome-card:hover{background:#1b1b1b!important;border-color:#ddd!important}
+body.monochrome-theme .welcome-card.primary-card{background:linear-gradient(145deg,#1b1b1b,#101010)!important}
+body.monochrome-theme .welcome-intro h1,body.monochrome-theme .setup-content h1,
+body.monochrome-theme .machine-heading h1,body.monochrome-theme .build-overview h1,
+body.monochrome-theme .settings-category-heading h1{color:#fff}
+body.monochrome-theme .welcome-intro p,body.monochrome-theme .setup-lead,
+body.monochrome-theme .settings-category-heading p,body.monochrome-theme .setting-copy small,
+body.monochrome-theme .welcome-footer,body.monochrome-theme .machine-heading p{color:#bbb}
+body.monochrome-theme .brand-symbol{background:#fff;color:#000;border-color:#fff}
+body.monochrome-theme .section-kicker,body.monochrome-theme .text-button,
+body.monochrome-theme .hero-proof b{color:#fff}
+body.monochrome-theme .hero-proof b{border-color:#777}
+body.monochrome-theme .primary-button{background:#fff!important;color:#000!important;border-color:#fff!important}
+body.monochrome-theme .primary-button:hover:not(:disabled){background:#ddd!important}
+body.monochrome-theme .quiet-button,body.monochrome-theme .text-button,
+body.monochrome-theme .back-button,body.monochrome-theme .icon-button{color:#ddd}
+body.monochrome-theme .quiet-button:hover,body.monochrome-theme .tool-button:hover,
+body.monochrome-theme .editor-tool:hover,body.monochrome-theme .icon-button:hover{background:#303030!important;color:#fff}
+body.monochrome-theme .tool-button,body.monochrome-theme .editor-tool,
+body.monochrome-theme .mini-button,body.monochrome-theme .modal-dismiss{
+  background:#181818!important;color:#eee!important;border-color:#666!important;
+}
+body.monochrome-theme input,body.monochrome-theme select,body.monochrome-theme textarea,
+body.monochrome-theme .text-field,body.monochrome-theme .setting-row select,
+body.monochrome-theme .setting-row input,body.monochrome-theme .modal-input{
+  background:#050505!important;color:#fff!important;border-color:#777!important;
+}
+body.monochrome-theme .editor-container,body.monochrome-theme #plainEditor,
+body.monochrome-theme .editor-empty,body.monochrome-theme .monaco-pane{background:#050505!important;color:#fff}
+body.monochrome-theme .source-tab{background:#151515;color:#ddd;border-color:#444}
+body.monochrome-theme .source-tab.active{background:#050505;color:#fff;border-color:#777}
+body.monochrome-theme .settings-nav-item{color:#ccc}
+body.monochrome-theme .settings-nav-item.active{background:#303030;color:#fff}
+body.monochrome-theme .settings-row,body.monochrome-theme .setting-row,
+body.monochrome-theme .machine-spec,body.monochrome-theme .shortcut-row{border-color:#444!important;color:#eee}
+body.monochrome-theme .setting-value,body.monochrome-theme .machine-spec strong,
+body.monochrome-theme .build-config-grid strong{color:#fff}
+body.monochrome-theme .memory-meter{background:#292929}
+body.monochrome-theme .memory-meter span{background:#fff}
+body.monochrome-theme .toast{background:#111!important;color:#fff;border-color:#777!important}
+body.monochrome-theme .toast-mark{background:#eee;color:#000}
+body.monochrome-theme .toast-error .toast-mark{background:#fff;color:#000}
+body.monochrome-theme .modal-overlay{background:#000e}
+body.monochrome-theme .modal-card{background:linear-gradient(155deg,#181818,#050505);border-color:#777;color:#fff}
+body.monochrome-theme .modal-card p,body.monochrome-theme .modal-card h2{color:#fff}
+body.monochrome-theme .editor-status{background:#171717;color:#eee}
+body.monochrome-theme .tree-file.active,body.monochrome-theme .tree-folder-head:hover{background:#292929;color:#fff}
+body.monochrome-theme .artifact-download-link{background:#fff;color:#000;border-color:#fff}
+body.monochrome-theme .machine-status.connected{color:#fff}
+body.monochrome-theme .welcome-intro::after{border-color:#777;background:radial-gradient(circle at 50% 50%,#ffffff12 0 25%,transparent 26% 42%,#ffffff08 43% 44%,transparent 45%)}
+body.monochrome-theme *{scrollbar-color:#555 #111}
