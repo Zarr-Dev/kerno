@@ -99,6 +99,35 @@
     });
   }
 
+  async function downloadArtifact(artifactId) {
+    if (!pairingToken) throw new Error("Pairing token is missing. Configure it in Settings → Advanced.");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(baseUrl + "/api/v1/artifacts/" + encodeURIComponent(artifactId), {
+        method: "GET",
+        headers: { "X-Kerno-Token": pairingToken },
+        cache: "no-store",
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        let message = "Artifact download failed with HTTP " + response.status;
+        try {
+          const body = await response.json();
+          message = body.message || message;
+        } catch (_) {}
+        throw new Error(message);
+      }
+      return await response.blob();
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("Artifact download timed out.");
+      if (error instanceof TypeError) throw new Error("Could not reach Kerno Local Service to download the ISO.");
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
   window.KernoLocalService = Object.freeze({
     defaultUrl: DEFAULT_URL,
     configure: configure,
@@ -109,6 +138,7 @@
     stopEmulator: stopEmulator,
     emulatorStatus: emulatorStatus,
     toolchain: toolchain,
-    resourceEstimate: resourceEstimate
+    resourceEstimate: resourceEstimate,
+    downloadArtifact: downloadArtifact
   });
 })();
