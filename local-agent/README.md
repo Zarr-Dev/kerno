@@ -66,6 +66,16 @@ All routes require the X-Kerno-Token header. Browser origins are restricted to t
 - POST /api/v1/emulator/stop
 - GET /api/v1/artifacts/{artifact_id}
 
+## Build health and ISO integrity (Local Agent 0.3.0)
+
+Each native build returns phase-by-phase health checks. The builder verifies the ELF64 x86_64 executable and entry segment, Multiboot2 header structure, GRUB compatibility when `grub-file` is available, the staged boot files, ISO9660 descriptors, El Torito validation/catalog entries, and an SHA-256 digest. An ISO is registered for download only after the required validations pass.
+
+Starting QEMU repeats the ISO9660/El Torito and SHA-256 checks. A changed or legacy artifact without a recorded SHA-256 must be rebuilt using the current Local Agent before it can be booted.
+
+After updating Kerno's repository, stop the previous Local Agent process and start it again from the updated `local-agent` folder. The running Python process does not update itself when the website is redeployed. Rebuild old projects to generate the new integrity metadata.
+
+The build health report is a validation gate for the supported packaging format, not a guarantee that all kernel runtime behavior is correct. QEMU boot and the expected serial entry marker are separate checks.
+
 ## Current support boundary
 
 The native ISO pipeline and QEMU boot profile currently support x86_64 + BIOS + GRUB + Multiboot2 only. Other architecture templates are source scaffolds and must not be treated as validated build targets.
