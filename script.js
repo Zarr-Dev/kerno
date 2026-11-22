@@ -54,8 +54,9 @@ const LANGUAGES = {
 };
 
 const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:""};
-function tr(k){return (LANGUAGES[state.settings.locale]&&LANGUAGES[state.settings.locale][k])||LANGUAGES.en[k]||k;}
-function translate(){ $$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=state.settings.locale;document.documentElement.dir=state.settings.locale==="ar"?"rtl":"ltr"; }
+function activeLocale(){if(state.settings.locale!=="auto")return state.settings.locale;const detected=String(navigator.language||"en").split("-")[0].toLowerCase();return LANGUAGES[detected]?detected:"en";}
+function tr(k){const locale=activeLocale();return (LANGUAGES[locale]&&LANGUAGES[locale][k])||LANGUAGES.en[k]||k;}
+function translate(){const locale=activeLocale();$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=locale;document.documentElement.dir=locale==="ar"?"rtl":"ltr";}
 function notify(title,detail,type){
   const region=$("#toastRegion");
   if(!region){console[type==="error"?"error":"log"]("[Kerno]",title,detail||"");return;}
@@ -704,7 +705,7 @@ async function renderSettings(category){
     :[["q35","q35 · modern PC"],["pc","pc · legacy PC"]];
   const displayItems=[["std","Standard VGA"],["virtio","Virtio GPU"],["none","Headless / serial only"]];
   const accelerationItems=[["auto","Automatic"],["kvm","KVM · Linux"],["whpx","WHPX · Windows"],["tcg","TCG · software"]];
-  const languageItems=[["en","English"],["id","Bahasa Indonesia"],["ms","Bahasa Melayu"],["zh","简体中文"],["ja","日本語"],["ko","한국어"],["de","Deutsch"],["fr","Français"],["es","Español"],["pt","Português"],["ru","Русский"],["tr","Türkçe"],["ar","العربية"],["hi","हिन्दी"],["it","Italiano"]];
+  const languageItems=[["auto","System default"],["en","English"],["id","Bahasa Indonesia"],["ms","Bahasa Melayu"],["zh","简体中文"],["ja","日本語"],["ko","한국어"],["de","Deutsch"],["fr","Français"],["es","Español"],["pt","Português"],["ru","Русский"],["tr","Türkçe"],["ar","العربية"],["hi","हिन्दी"],["it","Italiano"]];
   let html="";
 
   if(category==="general"){
@@ -820,6 +821,13 @@ async function renderSettings(category){
       row("readelf","ELF metadata inspection utility.",input("readelf","text"))
     );
     html+=group("Tool availability",'<div class="inline-actions">'+action("checkToolchainButton","Scan local toolchain")+'<span class="setting-note" id="toolchainResult">Not checked</span></div>');
+    html+=group("Host PC & Command Prompt",
+      '<div class="inline-actions">'+action("scanHostPcButton","Scan this PC")+
+      action("copyCmdChecksButton","Copy CMD checks")+
+      '<span class="setting-note" id="hostDiagnosticsStatus">Not scanned</span></div>'+
+      '<div id="hostDiagnosticsResult" class="host-diagnostics-panel"><p>Connect Kerno Local Service to inspect this computer safely.</p></div>'+
+      '<pre class="host-command-preview">where python\npython --version\nwhere nasm\nnasm --version\nwhere x86_64-elf-gcc\nwhere x86_64-elf-g++\nwhere x86_64-elf-ld\nwhere grub-mkrescue\nwhere xorriso\nwhere qemu-system-x86_64</pre>'
+    ,"Read-only diagnostics. Kerno checks system metadata and PATH-resolved tools; it does not run arbitrary Command Prompt commands or install software.");
     html+=note("The local service resolves executable names through PATH. Arbitrary shell command strings are not accepted.");
   }
 
@@ -889,7 +897,10 @@ async function renderSettings(category){
 
   if(category==="shortcuts"){
     const shortcuts=[
-      ["Save project","Ctrl / Cmd + S"],["Open project or import files","Ctrl / Cmd + O"],
+      ["Save project","Ctrl / Cmd + S"],["Close active editor file","Ctrl / Cmd + W"],
+      ["Create source file","Ctrl / Cmd + N"],["Quick open source file","Ctrl / Cmd + P"],
+      ["Next / previous editor tab","Ctrl / Cmd + Tab / Shift + Tab"],
+      ["Open project or import files","Ctrl / Cmd + O"],
       ["Export current source","Ctrl / Cmd + Shift + E"],["Export project archive","Ctrl / Cmd + Shift + S"],
       ["Build project","Ctrl / Cmd + B"],["Open Settings","Ctrl / Cmd + ,"],
       ["Switch source / machine / build","Ctrl / Cmd + 1 / 2 / 3"]
@@ -956,6 +967,8 @@ async function renderSettings(category){
   $("#estimateHostMemoryButton")&&$("#estimateHostMemoryButton").addEventListener("click",refreshHostMemoryEstimate);
   $("#testLocalServiceButton")&&$("#testLocalServiceButton").addEventListener("click",testService);
   $("#checkToolchainButton")&&$("#checkToolchainButton").addEventListener("click",checkToolchain);
+  $("#scanHostPcButton")&&$("#scanHostPcButton").addEventListener("click",scanHostPc);
+  $("#copyCmdChecksButton")&&$("#copyCmdChecksButton").addEventListener("click",copyCommandPromptChecks);
   $("#exportAllProjectsButton")&&$("#exportAllProjectsButton").addEventListener("click",exportAll);
   $("#clearProjectsButton")&&$("#clearProjectsButton").addEventListener("click",clearAllProjects);
 }
@@ -1166,7 +1179,7 @@ async function refreshHostMemoryEstimate(){
   }catch(error){host.textContent="Unavailable · "+error.message;}
 }
 async function exportAll(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
-async function clearAllProjects(){if(state.settings.confirmDestructive&&!confirm("Delete all locally stored projects? This cannot be undone."))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
+async function clearAllProjects(){if(state.settings.confirmDestructive&&!await confirmInApp("This permanently deletes every locally stored Kerno project in this browser profile.","Delete all local projects?"))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
 function renderMachine(){
   if(!state.project)return;
   const config=state.project.config;
@@ -1443,7 +1456,7 @@ function bindEvents(){
 $("#welcomeNewProject").onclick=()=>{syncWizardDefaults();show("newProject");};$("#welcomeLoadProject").onclick=()=>$("#loadProjectInput").click();$("#welcomeLoadFolder").onclick=()=>$("#projectFolderInput").click();$("#welcomeConfigure").onclick=()=>openSettings("welcome");$("#welcomeSettingsButton").onclick=()=>openSettings("welcome");
 $("#backFromNewProject").onclick=()=>show("welcome");$("#cancelNewProject").onclick=()=>show("welcome");$("#createProjectButton").onclick=createProject;
 $("#backFromSettings").onclick=()=>show(state.settingsReturn);$("#saveSettingsButton").onclick=applySettings;
-$("#clearRecentButton").onclick=async()=>{if(state.settings.confirmDestructive&&!confirm("Clear the recent project list? Saved projects will remain available in browser storage."))return;await put("meta",{key:"hiddenRecent",value:state.recent.map(p=>p.id)});await refreshRecent();};
+$("#clearRecentButton").onclick=async()=>{if(state.settings.confirmDestructive&&!await confirmInApp("Saved projects will remain available in browser storage.","Clear recent project list?"))return;await put("meta",{key:"hiddenRecent",value:state.recent.map(p=>p.id)});await refreshRecent();};
 $("#loadProjectInput").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{await loadArchive(f);}catch(err){state.project=null;show("welcome");notify("Project load failed",err.message);}};
 $("#projectFolderInput").onchange=async e=>{const files=Array.from(e.target.files||[]);e.target.value="";if(!files.length)return;disposeEditors();state.activeFile=null;state.tabs=[];$("#plainEditor").style.display="none";const name=files[0].webkitRelativePath.split("/")[0]||"Imported OS";state.project={id:makeId(),name,config:configFor(name),files:{},createdAt:Date.now(),updatedAt:Date.now()};await importMany(files,true);if(Object.keys(state.project.files).length){await saveProject(true);await openProject();}else{state.project=null;notify("No supported source files found");}};
 $("#importProjectFilesButton").onclick=()=>$("#sourceImportInput").click();$("#sourceImportInput").onchange=e=>{importMany(e.target.files,false);e.target.value="";};$("#sourceFolderInput").onchange=e=>{importMany(e.target.files,true);e.target.value="";};
@@ -1471,7 +1484,7 @@ document.addEventListener("keydown",e=>{
 }
 function plainCursor(){const el=$("#plainEditor"),lines=el.value.slice(0,el.selectionStart).split("\n");$("#cursorPosition").textContent="Ln "+lines.length+", Col "+(lines[lines.length-1].length+1);}
 async function exportAllProjects(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
-async function clearProjects(){if(state.settings.confirmDestructive&&!confirm("Delete all Kerno projects from this browser?"))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
+async function clearProjects(){if(state.settings.confirmDestructive&&!await confirmInApp("This permanently deletes every Kerno project stored in this browser.","Delete all projects?"))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
 async function renderStorage(){if($("#storedProjectCount"))$("#storedProjectCount").textContent=(await all("projects")).length;if($("#browserStorageEstimate")){if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();$("#browserStorageEstimate").textContent=formatBytes(e.usage||0)+" / "+formatBytes(e.quota||0);}else $("#browserStorageEstimate").textContent="Unavailable";}}
 async function boot(){bindEvents();try{database=await dbOpen();}catch(e){notify("IndexedDB unavailable",e.message);}await loadSettings();applyStartup();refreshRecent();}
 boot();
