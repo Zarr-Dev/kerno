@@ -2,6 +2,7 @@
   "use strict";
   const DEFAULT_URL = "http://127.0.0.1:8765";
   let baseUrl = DEFAULT_URL;
+  let pairingToken = "";
 
   function normalizeBase(value) {
     const url = new URL(value || DEFAULT_URL);
@@ -12,8 +13,9 @@
     return url.origin;
   }
 
-  function configure(url) {
+  function configure(url, token) {
     baseUrl = normalizeBase(url || DEFAULT_URL);
+    pairingToken = String(token || "").trim();
     return baseUrl;
   }
 
@@ -22,6 +24,7 @@
     const timeout = window.setTimeout(() => controller.abort(), (options && options.timeout) || 5000);
     const init = Object.assign({ method: "GET", headers: { "Accept": "application/json" } }, options || {});
     delete init.timeout;
+    init.headers = Object.assign({}, init.headers || {}, { "X-Kerno-Token": pairingToken });
     init.signal = controller.signal;
     if (init.body && typeof init.body !== "string") {
       init.headers = Object.assign({}, init.headers, { "Content-Type": "application/json" });
@@ -48,6 +51,7 @@
   }
 
   async function health() {
+    if (!pairingToken) throw new Error("Pairing token is missing. Paste the token shown by Kerno Local Service in Settings → Advanced.");
     const result = await request("/api/v1/health", { method: "GET", timeout: 3500 });
     if (result.service && result.service !== "kerno-local-agent") {
       throw new Error("Unexpected local service identity.");
@@ -58,7 +62,7 @@
   async function build(project, settings) {
     return request("/api/v1/build", {
       method: "POST",
-      timeout: 15000,
+      timeout: 180000,
       body: { project: project, settings: settings }
     });
   }
@@ -79,8 +83,12 @@
     return request("/api/v1/emulator/status", { method: "GET", timeout: 3500 });
   }
 
-  async function toolchain() {
-    return request("/api/v1/toolchain", { method: "GET", timeout: 5000 });
+  async function toolchain(settings) {
+    return request("/api/v1/toolchain", {
+      method: "POST",
+      timeout: 8000,
+      body: { settings: settings || {} }
+    });
   }
 
   async function resourceEstimate(project, settings) {
