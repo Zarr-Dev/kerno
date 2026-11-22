@@ -847,6 +847,18 @@ async function applySettings(){
       serialBackend:state.settings.serialBackend,
       retainBuildLogs:!!state.settings.retainBuildLogs
     });
+    if(state.project.files["linker.ld"]){
+      const linkerLines=state.project.files["linker.ld"].split(/\r?\n/);
+      let foundLinkBase=false;
+      const updatedLinker=linkerLines.map(line=>{
+        if(/^\s*\.\s*=\s*0x[0-9a-fA-F]+\s*;/.test(line)){
+          foundLinkBase=true;
+          return "    . = "+config.memory.kernelBase+";";
+        }
+        return line;
+      });
+      if(foundLinkBase)state.project.files["linker.ld"]=updatedLinker.join("\n");
+    }
     if(config.bootloader==="grub"&&state.project.files["boot/grub.cfg"]){
       const lines=state.project.files["boot/grub.cfg"].split(/\r?\n/);
       const updated=lines.map(line=>{
