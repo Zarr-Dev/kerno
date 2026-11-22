@@ -53,7 +53,7 @@ const LANGUAGES = {
   it:{settings:"Impostazioni",back:"Indietro",welcomeTitle:"Costruisci il tuo sistema operativo.",welcomeSubtitle:"Ambiente dedicato a kernel, macchina, memoria ed emulazione.",newProject:"Nuovo progetto",newProjectDesc:"Crea un workspace OS da un modello kernel.",loadProject:"Carica progetto",loadProjectDesc:"Apri un archivio Kerno o una cartella sorgente.",configureIDE:"Configura IDE",configureDesc:"Imposta lingua, aspetto e strumenti locali.",recentProjects:"Progetti recenti",noRecent:"Nessun progetto recente",noRecentDesc:"Crea o carica un progetto OS.",createWorkspace:"Crea workspace",projectName:"Nome progetto",starterTemplate:"Modello iniziale",architecture:"Architettura",firmware:"Firmware",kernelLanguage:"Linguaggio kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtuali",applySettings:"Applica impostazioni",general:"Generale",appearance:"Aspetto",language:"Lingua",editor:"Editor",osArchitecture:"OS e Architettura",memory:"Memoria",emulator:"QEMU ed emulatore",toolchain:"Toolchain",storage:"Archiviazione e dati",advanced:"Avanzate",source:"Sorgente",machine:"Macchina",build:"Build",importFiles:"Importa file",exportProject:"Esporta progetto",buildBoot:"Build & Boot",projectFiles:"File progetto",cancel:"Annulla",machineDisplay:"Display macchina",noMachineSession:"Nessuna sessione",connectQemuPrompt:"Connetti Kerno Local Service per avviare QEMU."}
 };
 
-const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
 function activeLocale(){if(state.settings.locale!=="auto")return state.settings.locale;const detected=String(navigator.language||"en").split("-")[0].toLowerCase();return LANGUAGES[detected]?detected:"en";}
 function tr(k){const locale=activeLocale();return (LANGUAGES[locale]&&LANGUAGES[locale][k])||LANGUAGES.en[k]||k;}
 function translate(){const locale=activeLocale();$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=locale;document.documentElement.dir=locale==="ar"?"rtl":"ltr";}
@@ -1312,6 +1312,15 @@ async function pollQemuStatus(){
         state.lastSerialOutput=serial;
         $("#serialOutput").textContent=serial||"Waiting for serial output…";
         const consolePanel=$("#serialOutput");if(consolePanel)consolePanel.scrollTop=consolePanel.scrollHeight;
+        verifyBootMarker(serial);
+      }
+      if(!state.kernelEntryConfirmed){
+        const serialEnabled=((state.project&&state.project.config&&state.project.config.diagnostics)||{}).serialBackend!=="null";
+        if(serialEnabled&&state.qemuStartedAt&&Date.now()-state.qemuStartedAt>30000&&!state.qemuBootTimeoutShown){
+          state.qemuBootTimeoutShown=true;
+          $("#buildStateLabel").textContent="KERNEL ENTRY NOT CONFIRMED";
+          notify("Kernel entry not confirmed","QEMU is running but the expected serial marker has not appeared. Inspect GRUB and COM1 output.","error");
+        }
       }
       $("#stopQemuButton").disabled=false;
       $("#startQemuButton").disabled=true;
@@ -1386,13 +1395,18 @@ async function startQemu(){
   try{
     const result=await KernoLocalService.startEmulator(payload(),state.settings);
     if(result.status!=="running"&&!result.displayUrl)throw Error(result.message||"The service did not confirm a running QEMU guest.");
-    setServiceStatus(true,"QEMU running");
+    state.kernelEntryConfirmed=false;
+    state.qemuStartedAt=Date.now();
+    state.qemuBootTimeoutShown=false;
+    setServiceStatus(true,"QEMU process running · awaiting kernel entry");
     if(result.displayUrl)showDisplay(result.displayUrl);
     state.lastSerialOutput=String(result.serialOutput||"");
+    verifyBootMarker(state.lastSerialOutput);
     $("#serialOutput").textContent=state.lastSerialOutput||"Waiting for serial output…";
     $("#stopQemuButton").disabled=false;
+    if(Array.isArray(result.healthChecks))renderBuildHealth(result.healthChecks,false);
     startQemuPolling();
-    notify("QEMU session started","The local service confirmed the guest process.");
+    notify("QEMU session started","Process confirmed. Kerno will verify kernel entry using the serial marker.");
   }catch(error){
     $("#startQemuButton").disabled=false;
     notify("QEMU could not start",error.message);
@@ -1408,6 +1422,9 @@ async function stopQemu(){
     if(window.KernoNoVNC)window.KernoNoVNC.disconnect();
     state.currentDisplayUrl="";
     state.lastSerialOutput="";
+    state.kernelEntryConfirmed=false;
+    state.qemuStartedAt=0;
+    state.qemuBootTimeoutShown=false;
     $("#serialOutput").textContent="QEMU stopped. Serial output is closed.";
     renderMachineEmpty("QEMU was stopped by Kerno Local Service.");
     setServiceStatus(true,"Service connected · machine stopped");
