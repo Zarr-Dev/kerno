@@ -12,14 +12,27 @@ let monacoLoad = null;
 const DEFAULTS = {
   locale:"en", theme:"dark", accent:"sage", density:"balanced",
   autosave:true, confirmDestructive:true, startScreen:"welcome",
-  editorFontSize:13, tabSize:4, wordWrap:"off", lineNumbers:true, minimap:false,
+  editorFontSize:14, editorFontFamily:"DM Mono", tabSize:4, wordWrap:"off", lineNumbers:true, minimap:false,
+  cursorStyle:"line", smoothScrolling:true, bracketPairColorization:true, renderWhitespace:"selection",
+  autoSaveDelayMs:800, defaultTemplate:"kernel-text", uiScale:100, reduceMotion:false,
+  debugSymbols:true, warningsAsErrors:false, kernelLogLevel:"info", retainBuildLogs:true,
+  grubTimeout:3, grubDefault:0, kernelCommandLine:"", qemuCpuModel:"max", qemuNetwork:"none", serialBackend:"file",
+  cCompiler:"x86_64-elf-gcc", objcopy:"x86_64-elf-objcopy", readelf:"x86_64-elf-readelf",
+  projectArchitecture:"x86_64", projectFirmware:"bios", projectBootloader:"grub",
+  projectKernelLanguage:"cpp", projectOptimization:"debug",
+  projectGuestMemoryMiB:512, projectHeapReserveMiB:16, projectStackReserveKiB:512,
+  projectPageSize:"4KiB", projectKernelBase:"0x00100000",
+  projectQemuBinary:"qemu-system-x86_64", projectQemuMachine:"q35", projectQemuDisplay:"std",
+  projectQemuVcpus:2, projectQemuVncPort:5901, projectQemuAcceleration:"auto",
+  projectQemuCpuModel:"max", projectQemuNetwork:"none",
+  projectGrubTimeout:3, projectGrubDefault:0, projectKernelCommandLine:"",
   defaultArchitecture:"x86_64", defaultFirmware:"bios", defaultBootloader:"grub",
   defaultKernelLanguage:"cpp", optimization:"debug",
   guestMemoryMiB:512, heapReserveMiB:16, stackReserveKiB:512, pageSize:"4KiB", kernelBase:"0x00100000",
-  qemuBinary:"qemu-system-x86_64", qemuMachine:"q35", qemuDisplay:"std", qemuVcpus:2,
+  qemuBinary:"qemu-system-x86_64", qemuMachine:"q35", qemuDisplay:"std", qemuVcpus:2, qemuCpuModel:"max", qemuNetwork:"none",
   qemuVncPort:5901, qemuAcceleration:"auto",
   localServiceUrl:"http://127.0.0.1:8765", localServiceToken:"",
-  assembler:"nasm", crossCompiler:"x86_64-elf-g++", linker:"x86_64-elf-ld", isoBuilder:"grub-mkrescue"
+  assembler:"nasm", crossCompiler:"x86_64-elf-g++", cCompiler:"x86_64-elf-gcc", linker:"x86_64-elf-ld", isoBuilder:"grub-mkrescue", objcopy:"x86_64-elf-objcopy", readelf:"x86_64-elf-readelf"
 };
 
 const LANGUAGES = {
@@ -73,7 +86,14 @@ function fileBadge(p){const x=langOf(p);return x==="kerno-asm"?["A","mark-asm"]:
 function show(name){state.screen=name;["welcome","newProject","settings","app"].forEach(x=>$("#"+x+"Screen").classList.toggle("hidden",x!==name));if(name==="welcome")refreshRecent();}
 function emptyRecent(){const d=document.createElement("div");d.className="recent-empty";d.innerHTML="<span>⌁</span><div><strong></strong><p></p></div>";$("strong",d).textContent=tr("noRecent");$("p",d).textContent=tr("noRecentDesc");return d;}
 async function refreshRecent(){try{const hidden=await get("meta","hiddenRecent");const hiddenIds=new Set(hidden&&hidden.value||[]);state.recent=(await all("projects")).filter(p=>!hiddenIds.has(p.id)).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,12);}catch(_){state.recent=[];}const host=$("#recentProjects");host.innerHTML="";if(!state.recent.length){host.append(emptyRecent());return;}state.recent.forEach(p=>{const b=document.createElement("button");b.className="recent-item";b.innerHTML='<span class="recent-icon">K</span><span class="recent-copy"><strong></strong><small></small></span><span class="recent-open">OPEN →</span>';$("strong",b).textContent=p.name;$("small",b).textContent=(p.config.architecture||"unknown")+" · "+Object.keys(p.files).length+" files · "+new Date(p.updatedAt).toLocaleDateString();b.onclick=()=>loadProject(p.id);host.append(b);});}
-function configFor(name){const s=state.settings;return {name:name,architecture:s.defaultArchitecture,firmware:s.defaultFirmware,bootloader:s.defaultBootloader,kernelLanguage:s.defaultKernelLanguage,optimization:s.optimization,memory:{guestMiB:s.guestMemoryMiB,heapReserveMiB:s.heapReserveMiB,stackReserveKiB:s.stackReserveKiB,pageSize:s.pageSize,kernelBase:s.kernelBase},qemu:{binary:s.qemuBinary,machine:s.qemuMachine,display:s.qemuDisplay,vcpus:s.qemuVcpus,vncPort:s.qemuVncPort,acceleration:s.qemuAcceleration}};}
+function configFor(name){const s=state.settings;return {
+  name:name,architecture:s.defaultArchitecture,firmware:s.defaultFirmware,bootloader:s.defaultBootloader,
+  kernelLanguage:s.defaultKernelLanguage,optimization:s.optimization,
+  memory:{guestMiB:s.guestMemoryMiB,heapReserveMiB:s.heapReserveMiB,stackReserveKiB:s.stackReserveKiB,pageSize:s.pageSize,kernelBase:s.kernelBase},
+  qemu:{binary:s.qemuBinary,machine:s.qemuMachine,display:s.qemuDisplay,vcpus:s.qemuVcpus,vncPort:s.qemuVncPort,acceleration:s.qemuAcceleration,cpuModel:s.qemuCpuModel,network:s.qemuNetwork},
+  boot:{grubTimeout:s.grubTimeout,grubDefault:s.grubDefault,kernelCommandLine:s.kernelCommandLine},
+  diagnostics:{debugSymbols:s.debugSymbols,warningsAsErrors:s.warningsAsErrors,logLevel:s.kernelLogLevel,serialBackend:s.serialBackend}
+};}
 function scaffold(c,template){
 const ext=c.kernelLanguage==="c"?"c":"cpp";
 const f={};
@@ -242,8 +262,8 @@ f["boot/interrupts.asm"]=[
 ].join("\n");
 if(c.bootloader==="grub"){
 f["boot/grub.cfg"]=x86?[
-"set timeout=3","set default=0","","menuentry '"+c.name+"' {",
-"    multiboot2 /boot/kernel.elf","    boot","}",""
+"set timeout="+Number((c.boot||{}).grubTimeout??3),"set default="+Number((c.boot||{}).grubDefault??0),"","menuentry '"+c.name+"' {",
+"    multiboot2 /boot/kernel.elf"+(((c.boot||{}).kernelCommandLine||"").trim()?" "+String(c.boot.kernelCommandLine).trim():""),"    boot","}",""
 ].join("\n"):[
 "# Kerno scaffold only: this target does not yet have a validated GRUB handoff.",
 "# Do not treat this template as a bootable image."
@@ -487,9 +507,35 @@ m.languages.setMonarchTokensProvider("kerno-linker",{tokenizer:{root:[
 ]}});
 }
 function defineThemes(m){m.editor.defineTheme("kerno-dark",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"778B9B",fontStyle:"italic"},{token:"keyword",foreground:"C5A4DF"},{token:"string",foreground:"A8D3B3"},{token:"number",foreground:"DDB77B"},{token:"type",foreground:"8CB9ED"},{token:"variable",foreground:"8DC8B2"}],colors:{"editor.background":"#0E141B","editor.foreground":"#E1E9F0","editorLineNumber.foreground":"#526476","editorLineNumber.activeForeground":"#C7D2DC","editor.lineHighlightBackground":"#17212A","editor.selectionBackground":"#3A586F88","editorCursor.foreground":"#A4D4BE","editorIndentGuide.background1":"#263440","editorIndentGuide.activeBackground1":"#557C6B","editorWidget.background":"#1C2833"}});m.editor.defineTheme("kerno-light",{base:"vs",inherit:true,rules:[{token:"comment",foreground:"788A96",fontStyle:"italic"},{token:"keyword",foreground:"8C50A8"},{token:"string",foreground:"357A51"},{token:"number",foreground:"9B641B"},{token:"type",foreground:"2767A5"}],colors:{"editor.background":"#FFFFFF","editor.foreground":"#263540","editorLineNumber.foreground":"#9BA8B2","editorLineNumber.activeForeground":"#526372","editor.lineHighlightBackground":"#F1F6F5","editorCursor.foreground":"#26795E"}});}
-function monacoOptions(model){return {model,theme:state.settings.theme==="light"?"kerno-light":"kerno-dark",automaticLayout:true,fontFamily:"'DM Mono',Consolas,monospace",fontSize:Number(state.settings.editorFontSize),lineHeight:22,minimap:{enabled:!!state.settings.minimap},padding:{top:15,bottom:18},scrollBeyondLastLine:false,renderLineHighlight:"line",cursorBlinking:"smooth",smoothScrolling:true,tabSize:Number(state.settings.tabSize),wordWrap:state.settings.wordWrap,lineNumbers:state.settings.lineNumbers?"on":"off",glyphMargin:false,folding:true,bracketPairColorization:{enabled:true},guides:{indentation:true}};}
+function monacoOptions(model){return {
+  model,theme:state.settings.theme==="light"?"kerno-light":"kerno-dark",automaticLayout:true,
+  fontFamily:(state.settings.editorFontFamily||"DM Mono")+", Consolas, monospace",
+  fontSize:Number(state.settings.editorFontSize),lineHeight:Math.max(20,Math.round(Number(state.settings.editorFontSize)*1.65)),
+  minimap:{enabled:!!state.settings.minimap},padding:{top:17,bottom:20},scrollBeyondLastLine:false,
+  renderLineHighlight:"line",renderWhitespace:state.settings.renderWhitespace||"selection",
+  cursorBlinking:"smooth",cursorStyle:state.settings.cursorStyle||"line",
+  smoothScrolling:!!state.settings.smoothScrolling,tabSize:Number(state.settings.tabSize),
+  wordWrap:state.settings.wordWrap,lineNumbers:state.settings.lineNumbers?"on":"off",
+  glyphMargin:false,folding:true,bracketPairColorization:{enabled:!!state.settings.bracketPairColorization},
+  guides:{indentation:true},autoClosingBrackets:"always"
+};}
 async function initMonaco(){if(!state.project)return;try{if(!monacoLoad)monacoLoad=new Promise((resolve,reject)=>{if(!window.require){reject(Error("Monaco loader unavailable"));return;}window.require.config({paths:{vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"}});window.MonacoEnvironment={getWorkerUrl:()=> "data:text/javascript;charset=utf-8,"+encodeURIComponent("self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/'};importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/base/worker/workerMain.js');")};window.require(["vs/editor/editor.main"],()=>resolve(window.monaco),reject);});const m=await monacoLoad;defineLanguages(m);defineThemes(m);Object.keys(state.project.files).forEach(ensureModel);if(!state.editor){state.editor=m.editor.create($("#monacoPane"),monacoOptions(ensureModel(state.activeFile)));state.editor.onDidChangeCursorPosition(e=>$("#cursorPosition").textContent="Ln "+e.position.lineNumber+", Col "+e.position.column);}else if(state.activeFile)state.editor.setModel(ensureModel(state.activeFile));$("#plainEditor").style.display="none";if(!$("#splitPane").classList.contains("hidden"))openSplit();applyEditorSettings();}catch(e){$("#plainEditor").style.display=state.activeFile?"block":"none";if(state.activeFile)$("#plainEditor").value=state.project.files[state.activeFile];$("#editorStatus").textContent="Basic editor active · Monaco unavailable";}}
-function applyEditorSettings(){[state.editor,state.splitEditor].forEach(e=>{if(e)e.updateOptions({fontSize:Number(state.settings.editorFontSize),tabSize:Number(state.settings.tabSize),wordWrap:state.settings.wordWrap,lineNumbers:state.settings.lineNumbers?"on":"off",minimap:{enabled:!!state.settings.minimap}});});if(window.monaco&&state.editor)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":"kerno-dark");}
+function applyEditorSettings(){
+  const options={
+    fontFamily:(state.settings.editorFontFamily||"DM Mono")+", Consolas, monospace",
+    fontSize:Number(state.settings.editorFontSize),
+    lineHeight:Math.max(20,Math.round(Number(state.settings.editorFontSize)*1.65)),
+    tabSize:Number(state.settings.tabSize),wordWrap:state.settings.wordWrap,
+    lineNumbers:state.settings.lineNumbers?"on":"off",
+    minimap:{enabled:!!state.settings.minimap},
+    cursorStyle:state.settings.cursorStyle||"line",
+    smoothScrolling:!!state.settings.smoothScrolling,
+    renderWhitespace:state.settings.renderWhitespace||"selection",
+    bracketPairColorization:{enabled:!!state.settings.bracketPairColorization}
+  };
+  [state.editor,state.splitEditor].forEach(e=>{if(e)e.updateOptions(options);});
+  if(window.monaco&&state.editor)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":"kerno-dark");
+}
 function openSplit(){if(!window.monaco||!state.editor)return;$("#splitPane").classList.remove("hidden");const paths=Object.keys(state.project.files);state.splitFile=state.splitFile&&state.project.files[state.splitFile]!==undefined?state.splitFile:(paths.find(x=>x!==state.activeFile)||state.activeFile);const sel=$("#splitFileSelect");sel.innerHTML="";paths.forEach(path=>{const o=document.createElement("option");o.value=path;o.textContent=path;o.selected=path===state.splitFile;sel.append(o);});if(!state.splitEditor)state.splitEditor=window.monaco.editor.create($("#splitMonacoPane"),monacoOptions(ensureModel(state.splitFile)));else state.splitEditor.setModel(ensureModel(state.splitFile));}
 function toggleSplit(){if($("#splitPane").classList.contains("hidden"))openSplit();else $("#splitPane").classList.add("hidden");}
 async function openProject(){show("app");$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();$("#plainEditor").style.display="none";state.activeFile=null;disposeEditors();state.tabs=[];state.activeFile=Object.keys(state.project.files).find(x=>/kernel\.(c|cpp)$/.test(x))||Object.keys(state.project.files)[0]||null;state.tabs=state.activeFile?[state.activeFile]:[];state.splitFile=Object.keys(state.project.files).find(x=>x!==state.activeFile)||state.activeFile;renderTree();renderTabs();renderEditor();renderMachine();renderBuild();renderMemory();initMonaco();await saveProject(true);}
