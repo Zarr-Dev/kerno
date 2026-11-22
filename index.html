@@ -25,11 +25,13 @@
         <strong id="projectNameLabel">My First OS</strong>
         <span class="target-chip"><span class="target-dot"></span>x86_64 <b>·</b> GRUB</span>
       </div>
+      <button class="command-trigger" id="commandButton" title="Search files and commands (Ctrl+Shift+P)">⌕ <span>Search files and actions</span><kbd>Ctrl ⇧ P</kbd></button>
       <div class="top-actions">
         <button class="tool-button" id="importButton" title="Import source files or a Kerno ZIP project"><span class="button-icon">⇧</span> Import</button>
         <button class="tool-button" id="exportFileButton" title="Export the active source file"><span class="button-icon">↓</span> Export file</button>
         <button class="tool-button secondary" id="exportProjectButton" title="Export the complete project as a ZIP archive"><span class="button-icon">▣</span> Export project</button>
         <span class="top-separator"></span>
+        <button class="icon-button" id="themeButton" title="Toggle editor theme" aria-label="Toggle theme">◐</button>
         <button class="build-button" id="buildButton"><span>▶</span> Build &amp; Boot</button>
         <button class="icon-button" id="focusButton" title="Toggle focus mode" aria-label="Toggle focus mode">⛶</button>
       </div>
@@ -57,7 +59,7 @@
           </div>
           <div class="tree-toolbar">
             <span>PROJECT FILES</span>
-            <div><button class="mini-action" id="newFileButton" title="New file">＋</button><button class="mini-action" id="refreshTreeButton" title="Refresh file map">↻</button></div>
+            <div><button class="mini-action" id="newFileButton" title="New file">＋</button><button class="mini-action" id="importFolderButton" title="Import a source folder">⇧</button><button class="mini-action" id="refreshTreeButton" title="Refresh file map">↻</button></div>
           </div>
           <div class="file-tree" id="fileTree" aria-label="Project source files"></div>
           <div class="panel-footnote"><span class="footnote-mark">i</span><span>Starter code is editable. Save locally or export a project archive.</span></div>
