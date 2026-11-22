@@ -53,7 +53,7 @@ const LANGUAGES = {
   it:{settings:"Impostazioni",back:"Indietro",welcomeTitle:"Costruisci il tuo sistema operativo.",welcomeSubtitle:"Ambiente dedicato a kernel, macchina, memoria ed emulazione.",newProject:"Nuovo progetto",newProjectDesc:"Crea un workspace OS da un modello kernel.",loadProject:"Carica progetto",loadProjectDesc:"Apri un archivio Kerno o una cartella sorgente.",configureIDE:"Configura IDE",configureDesc:"Imposta lingua, aspetto e strumenti locali.",recentProjects:"Progetti recenti",noRecent:"Nessun progetto recente",noRecentDesc:"Crea o carica un progetto OS.",createWorkspace:"Crea workspace",projectName:"Nome progetto",starterTemplate:"Modello iniziale",architecture:"Architettura",firmware:"Firmware",kernelLanguage:"Linguaggio kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtuali",applySettings:"Applica impostazioni",general:"Generale",appearance:"Aspetto",language:"Lingua",editor:"Editor",osArchitecture:"OS e Architettura",memory:"Memoria",emulator:"QEMU ed emulatore",toolchain:"Toolchain",storage:"Archiviazione e dati",advanced:"Avanzate",source:"Sorgente",machine:"Macchina",build:"Build",importFiles:"Importa file",exportProject:"Esporta progetto",buildBoot:"Build & Boot",projectFiles:"File progetto",cancel:"Annulla",machineDisplay:"Display macchina",noMachineSession:"Nessuna sessione",connectQemuPrompt:"Connetti Kerno Local Service per avviare QEMU."}
 };
 
-const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:""};
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
 function activeLocale(){if(state.settings.locale!=="auto")return state.settings.locale;const detected=String(navigator.language||"en").split("-")[0].toLowerCase();return LANGUAGES[detected]?detected:"en";}
 function tr(k){const locale=activeLocale();return (LANGUAGES[locale]&&LANGUAGES[locale][k])||LANGUAGES.en[k]||k;}
 function translate(){const locale=activeLocale();$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=locale;document.documentElement.dir=locale==="ar"?"rtl":"ltr";}
@@ -160,7 +160,103 @@ function langOf(path){
 }
 function langLabel(p){return ({"kerno-asm":"Assembly / NASM","kerno-gas":"Assembly / GNU AS",cpp:"C++",c:"C","kerno-linker":"Linker Script",json:"JSON",markdown:"Markdown",ini:"GRUB Config",plaintext:"Text"})[langOf(p)]||"Text";}
 function fileBadge(p){const x=langOf(p);return x==="kerno-asm"?["A","mark-asm"]:x==="cpp"||x==="c"?["C","mark-cpp"]:x==="json"?["{}","mark-json"]:x==="ini"?["≡","mark-config"]:x==="kerno-linker"?["L","mark-linker"]:["·","mark-doc"];}
-function show(name){state.screen=name;["welcome","newProject","settings","app"].forEach(x=>$("#"+x+"Screen").classList.toggle("hidden",x!==name));if(name==="welcome")refreshRecent();}
+function show(name){state.screen=name;["welcome","newProject","settings","app","tutorial"].forEach(x=>{const screen=$("#"+x+"Screen");if(screen)screen.classList.toggle("hidden",x!==name);});const active=$("#"+name+"Screen");if(active){active.scrollTop=0;active.classList.remove("screen-enter");requestAnimationFrame(()=>active.classList.add("screen-enter"));}if(name==="welcome"){refreshRecent();setupLandingReveal();}if(name==="tutorial"){renderTutorialProgress();setupTutorialObserver();}}
+
+const TUTORIAL_STAGES=[
+  "Understand Kerno","Prepare your PC","Create a kernel project","Understand the boot chain",
+  "Read the kernel structure","Memory and core modules","Toolchain health","Build and validate ISO","Boot in QEMU"
+];
+async function loadTutorialProgress(){
+  try{
+    const saved=await get("meta","tutorialCompleted");
+    state.tutorialCompleted=Array.isArray(saved&&saved.value)?saved.value.filter(n=>Number.isInteger(n)&&n>=0&&n<TUTORIAL_STAGES.length):[];
+  }catch(_){state.tutorialCompleted=[];}
+  renderTutorialProgress();
+}
+async function saveTutorialProgress(){
+  state.tutorialCompleted=[...new Set(state.tutorialCompleted)].sort((a,b)=>a-b);
+  try{await put("meta",{key:"tutorialCompleted",value:state.tutorialCompleted});}
+  catch(error){notify("Tutorial progress could not be saved",error.message,"error");}
+  renderTutorialProgress();
+}
+function renderTutorialProgress(){
+  const completed=new Set(state.tutorialCompleted||[]);
+  const total=TUTORIAL_STAGES.length,done=completed.size,percent=Math.round(done/total*100);
+  const fill=$("#tutorialProgressFill"),text=$("#tutorialProgressText"),pct=$("#tutorialProgressPercent"),next=$("#tutorialProgressNext");
+  if(fill)fill.style.width=percent+"%";
+  if(text)text.textContent=done+" of "+total+" stages completed";
+  if(pct)pct.textContent=percent+"%";
+  const nextIndex=TUTORIAL_STAGES.findIndex((_,index)=>!completed.has(index));
+  if(next)next.textContent=nextIndex<0?"All stages completed":("Next: "+TUTORIAL_STAGES[nextIndex]);
+  $("[data-tutorial-step]").forEach(card=>{
+    const index=Number(card.dataset.tutorialStep),isDone=completed.has(index);
+    card.classList.toggle("completed",isDone);
+    const button=$('[data-complete-step="'+index+'"]',card);
+    if(button){button.textContent=isDone?"Completed ✓ · Undo":"Mark stage complete";button.setAttribute("aria-pressed",String(isDone));}
+  });
+  $("#tutorialContents a").forEach((link,index)=>link.classList.toggle("completed",completed.has(index)));
+}
+async function toggleTutorialStep(index){
+  if(!Number.isInteger(index)||index<0||index>=TUTORIAL_STAGES.length)return;
+  const completed=new Set(state.tutorialCompleted);
+  if(completed.has(index))completed.delete(index);else completed.add(index);
+  state.tutorialCompleted=[...completed];
+  await saveTutorialProgress();
+  const isDone=completed.has(index);
+  notify(isDone?"Stage completed":"Stage reopened",TUTORIAL_STAGES[index]);
+  if(completed.size===TUTORIAL_STAGES.length)notify("Learning path completed","You have checked off every Kerno tutorial stage.");
+}
+function openTutorial(){
+  show("tutorial");
+  const screen=$("#tutorialScreen");if(screen)screen.scrollTop=0;
+}
+function setupTutorialObserver(){
+  if(state.tutorialObserver){state.tutorialObserver.disconnect();state.tutorialObserver=null;}
+  if(!("IntersectionObserver" in window))return;
+  const screen=$("#tutorialScreen");
+  const links=$("#tutorialContents a");
+  const observer=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        const index=Number(entry.target.dataset.tutorialStep);
+        links.forEach((link,i)=>link.classList.toggle("active",i===index));
+      }
+    });
+  },{root:screen,rootMargin:"-15% 0px -70% 0px",threshold:0});
+  $("[data-tutorial-step]").forEach(card=>observer.observe(card));
+  state.tutorialObserver=observer;
+}
+function setupLandingReveal(){
+  if(state.settings.reduceMotion||!("IntersectionObserver" in window)){
+    $("#welcomeScreen .landing-section,#welcomeScreen .recent-section").forEach(el=>el.classList.add("is-visible"));
+    return;
+  }
+  if(state.landingRevealObserver)state.landingRevealObserver.disconnect();
+  const screen=$("#welcomeScreen"),targets=$(".landing-section,.recent-section",screen);
+  document.body.classList.add("reveal-ready");
+  const observer=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add("is-visible");observer.unobserve(entry.target);}});
+  },{root:screen,rootMargin:"0px 0px -7% 0px",threshold:.08});
+  targets.forEach(el=>observer.observe(el));
+  state.landingRevealObserver=observer;
+}
+function scrollLandingTo(id){
+  const target=$("#"+id);
+  if(target)target.scrollIntoView({behavior:state.settings.reduceMotion?"auto":"smooth",block:"start"});
+}
+async function handleTutorialAction(action){
+  if(action==="settings-toolchain"){
+    state.category="toolchain";openSettings("tutorial");return;
+  }
+  if(action==="new-project"){
+    syncWizardDefaults();show("newProject");return;
+  }
+  if(action==="build"){
+    if(!state.project){notify("Create a project first","The Build workspace needs a kernel project.");syncWizardDefaults();show("newProject");return;}
+    show("app");switchWorkspace("build");return;
+  }
+}
+
 function emptyRecent(){const d=document.createElement("div");d.className="recent-empty";d.innerHTML="<span>⌁</span><div><strong></strong><p></p></div>";$("strong",d).textContent=tr("noRecent");$("p",d).textContent=tr("noRecentDesc");return d;}
 async function refreshRecent(){try{const hidden=await get("meta","hiddenRecent");const hiddenIds=new Set(hidden&&hidden.value||[]);state.recent=(await all("projects")).filter(p=>!hiddenIds.has(p.id)).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,12);}catch(_){state.recent=[];}const host=$("#recentProjects");host.innerHTML="";if(!state.recent.length){host.append(emptyRecent());return;}state.recent.forEach(p=>{const b=document.createElement("button");b.className="recent-item";b.innerHTML='<span class="recent-icon">K</span><span class="recent-copy"><strong></strong><small></small></span><span class="recent-open">OPEN →</span>';$("strong",b).textContent=p.name;$("small",b).textContent=(p.config.architecture||"unknown")+" · "+Object.keys(p.files).length+" files · "+new Date(p.updatedAt).toLocaleDateString();b.onclick=()=>loadProject(p.id);host.append(b);});}
 function configFor(name){const s=state.settings;return {
