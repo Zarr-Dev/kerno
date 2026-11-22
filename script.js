@@ -547,18 +547,252 @@ async function importMany(list,strip){const files=Array.from(list||[]);let n=0,s
 function exportFile(){if(!state.project||!state.activeFile)return;syncEditor();download(new Blob([state.project.files[state.activeFile]],{type:"text/plain;charset=utf-8"}),state.activeFile.split("/").pop());notify("Source file exported",state.activeFile);}
 async function exportProject(){if(!state.project)return;syncEditor();const manifest={format:"kerno-project",version:1,id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files,createdAt:state.project.createdAt,exportedAt:new Date().toISOString()};if(!window.JSZip){download(new Blob([JSON.stringify(manifest,null,2)],{type:"application/json"}),safeName(state.project.name)+".kerno-project.json");return;}const z=new JSZip();Object.entries(state.project.files).forEach(([p,v])=>z.file(p,v));z.file("KernoProject.json",JSON.stringify(manifest,null,2));download(await z.generateAsync({type:"blob",compression:"DEFLATE"}),safeName(state.project.name)+".kerno.zip");notify("Project archive exported",Object.keys(state.project.files).length+" files included.");}
 function cleanProjectFiles(files){const out={};let size=0;Object.entries(files).forEach(([raw,text])=>{const p=normalizePath(raw);if(!p||binaryPath(p)||typeof text!=="string")return;const n=new Blob([text]).size;if(n>FILE_LIMIT||size+n>PROJECT_LIMIT)return;size+=n;out[p]=text;});return out;}
-async function renderSettings(category){state.category=category;$$(".settings-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.category===category));$("#settingsTitle").textContent=tr(category==="architecture"?"osArchitecture":category);$("#settingsEyebrow").textContent=category.toUpperCase();$("#settingsDescription").textContent=catDesc[category]||"";const host=$("#settingsFields");const option=(k,v,label)=>'<option value="'+v+'" '+(state.settings[k]===v?"selected":"")+'>'+label+'</option>';const select=(k,arr)=>'<select data-setting="'+k+'">'+arr.map(x=>option(k,x[0],x[1])).join("")+'</select>';const escAttr=v=>String(v??"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");const input=(k,type,min,max,step)=>'<input data-setting="'+k+'" type="'+type+'" value="'+escAttr(state.settings[k])+'" '+(min!==undefined?'min="'+min+'"':"")+' '+(max!==undefined?'max="'+max+'"':"")+' '+(step!==undefined?'step="'+step+'"':"")+'/>';const check=k=>'<input data-setting="'+k+'" type="checkbox" '+(state.settings[k]?"checked":"")+'/>';const row=(label,desc,control)=>'<div class="setting-row"><div class="setting-copy"><strong>'+label+'</strong><small>'+desc+'</small></div>'+control+'</div>';const group=(title,content)=>'<section class="settings-group"><h3>'+title+'</h3>'+content+'</section>';let html="";
-if(category==="general")html=group("Workspace behavior",row("Auto-save","Persist source edits to browser storage after a short idle period.",check("autosave"))+row("Confirm destructive actions","Ask before clearing stored project data.",check("confirmDestructive"))+row("Startup screen","Choose how Kerno opens.",select("startScreen",[["welcome","Welcome / project picker"],["lastProject","Resume last project"]])));
-if(category==="appearance")html=group("Interface appearance",row("Theme","Apply to the complete IDE and editor.",select("theme",[["dark","Dark"],["light","Light"]]))+row("Accent color","Focus, active states and status highlights.",select("accent",[["sage","Sage green"],["cyan","Cyan"],["blue","Blue"],["amber","Amber"]]))+row("UI density","Spacing for menus, panels and forms.",select("density",[["compact","Compact"],["balanced","Balanced"],["comfortable","Comfortable"]])));
-if(category==="language"){const langs=[["en","English"],["id","Bahasa Indonesia"],["ms","Bahasa Melayu"],["zh","简体中文"],["ja","日本語"],["ko","한국어"],["de","Deutsch"],["fr","Français"],["es","Español"],["pt","Português"],["ru","Русский"],["tr","Türkçe"],["ar","العربية"],["hi","हिन्दी"],["it","Italiano"]];html=group("Global language",row("Interface language","Change common Kerno navigation and workspace labels.",select("locale",langs)))+'<p class="setting-note">Source code and native compiler output are not translated.</p>';}
-if(category==="editor")html=group("Editor preferences",row("Font size","Monaco editor font size.",input("editorFontSize","number",10,22,1))+row("Tab width","Spaces inserted when pressing Tab.",select("tabSize",[[2,"2 spaces"],[4,"4 spaces"],[8,"8 spaces"]]))+row("Word wrap","Wrap long source lines.",select("wordWrap",[["off","Off"],["on","On"]]))+row("Line numbers","Show line numbering.",check("lineNumbers"))+row("Minimap","Show source overview.",check("minimap")));
-if(category==="architecture")html=group("Default OS target",row("Architecture","Target CPU for new projects.",select("defaultArchitecture",[["x86_64","x86_64"],["i686","i686"],["aarch64","AArch64"],["riscv64","RISC-V 64"]]))+row("Firmware","Boot firmware target.",select("defaultFirmware",[["bios","BIOS / legacy"],["uefi","UEFI"]]))+row("Bootloader","Boot handoff layer.",select("defaultBootloader",[["grub","GRUB"],["uefi-app","UEFI application"],["custom","Custom boot stage"]]))+row("Kernel language","Primary kernel language.",select("defaultKernelLanguage",[["cpp","C++"],["c","C"]]))+row("Optimization profile","Requested compiler profile.",select("optimization",[["debug","Debug (-O0)"],["size","Size (-Os)"],["speed","Speed (-O2)"]])));
-if(category==="memory")html=group("Guest memory plan",row("Guest RAM (MiB)","RAM assigned to the VM, not physical host memory.",input("guestMemoryMiB","number",64,32768,64))+row("Kernel heap reserve (MiB)","Planning budget for dynamic allocations.",input("heapReserveMiB","number",1,8192,1))+row("Initial stack reserve (KiB)","Planning budget for boot stack.",input("stackReserveKiB","number",64,1048576,64))+row("Page size target","Page-table granularity target.",select("pageSize",[["4KiB","4 KiB"],["2MiB","2 MiB"],["1GiB","1 GiB"]]))+row("Kernel link base","Hexadecimal linker base address.",input("kernelBase","text")) )+'<section class="settings-group"><h3>Reservation summary</h3><div class="memory-meter"><span id="memoryMeterFill"></span></div><div class="memory-readout"><span id="memoryReservedLabel"></span><span id="memoryAvailableLabel"></span></div><p class="setting-note" id="memoryPlanNote">Guest plan only. This does not allocate host RAM or implement a kernel allocator.</p><div class="inline-actions"><button class="tool-button" id="estimateHostMemoryButton">Check host capacity</button><span class="setting-note" id="hostMemoryEstimate">Not checked</span></div></section>';
-if(category==="emulator")html=group("QEMU profile",row("QEMU executable","Binary name resolved by local service.",input("qemuBinary","text"))+row("Machine model","Virtual board.",select("qemuMachine",[["q35","q35 · modern x86"],["pc","pc · legacy x86"],["virt","virt · ARM / RISC-V"]]))+row("Display","Virtual graphics backend.",select("qemuDisplay",[["std","Standard VGA"],["virtio","Virtio GPU"],["none","Headless"]]))+row("vCPU count","Virtual processor cores.",input("qemuVcpus","number",1,32,1))+row("VNC port","Local VNC display port.",input("qemuVncPort","number",5900,5999,1))+row("Acceleration","Host acceleration policy.",select("qemuAcceleration",[["auto","Automatic"],["kvm","KVM · Linux"],["whpx","WHPX · Windows"],["tcg","TCG · software"]])) )+'<p class="setting-note">The browser does not execute QEMU. The local service validates and manages the emulator process.</p>';
-if(category==="toolchain")html=group("Native tools",row("Assembler","NASM executable.",input("assembler","text"))+row("Cross compiler","Target C/C++ compiler.",input("crossCompiler","text"))+row("Linker","Target linker.",input("linker","text"))+row("ISO packager","GRUB rescue or xorriso integration.",input("isoBuilder","text")))+'<div class="inline-actions"><button class="tool-button" id="checkToolchainButton">Check local toolchain</button><span class="setting-note" id="toolchainResult">Not checked</span></div>';
-if(category==="storage")html=group("Browser-local data",'<div class="setting-row"><div class="setting-copy"><strong>Storage engine</strong><small>Project source is stored in this browser profile.</small></div><b>IndexedDB</b></div><div class="setting-row"><div class="setting-copy"><strong>Saved projects</strong><small>Local Kerno workspace count.</small></div><b id="storedProjectCount">—</b></div><div class="setting-row"><div class="setting-copy"><strong>Storage estimate</strong><small>Browser-provided quota estimate.</small></div><b id="browserStorageEstimate">Checking…</b></div>')+'<div class="inline-actions"><button class="tool-button" id="exportAllProjectsButton">Export all projects</button><button class="tool-button danger-button" id="clearProjectsButton">Delete all local projects</button></div><p class="setting-note">Export backups before clearing local project data.</p>';
-if(category==="advanced")html=group("Local execution bridge",row("Service endpoint","Loopback URL for Kerno Local Service API.",input("localServiceUrl","url"))+row("Pairing token","Token printed when Kerno Local Service starts. Stored in browser settings.",input("localServiceToken","password")))+'<div class="inline-actions"><button class="tool-button" id="testLocalServiceButton">Test connection</button><span class="setting-note" id="localServiceResult">Not connected</span></div>'+group("Security boundaries",'<p class="setting-note">The browser never runs shell commands directly. The local service must validate paths and options, use an allow-listed toolchain, isolate build directories, cap resource use and terminate child processes on cancellation.</p>');
-host.innerHTML=html;host.onchange=settingChanged;host.oninput=settingChanged;if(category==="memory")renderMemory();if(category==="storage")renderStorageSettings();$("#estimateHostMemoryButton")&&$("#estimateHostMemoryButton").addEventListener("click",refreshHostMemoryEstimate);$("#testLocalServiceButton")&&$("#testLocalServiceButton").addEventListener("click",testService);$("#checkToolchainButton")&&$("#checkToolchainButton").addEventListener("click",checkToolchain);$("#exportAllProjectsButton")&&$("#exportAllProjectsButton").addEventListener("click",exportAll);$("#clearProjectsButton")&&$("#clearProjectsButton").addEventListener("click",clearAllProjects);}
+async function renderSettings(category){
+  state.category=category;
+  $$(".settings-nav-item").forEach(button=>button.classList.toggle("active",button.dataset.category===category));
+  const titleKeys={architecture:"osArchitecture",boot:"bootSettings",diagnostics:"diagnostics",accessibility:"accessibility",shortcuts:"shortcuts"};
+  $("#settingsTitle").textContent=tr(titleKeys[category]||category);
+  $("#settingsEyebrow").textContent=(category==="osArchitecture"?"OS & ARCHITECTURE":category).replace(/-/g," ").toUpperCase();
+  const descriptions={
+    general:"Workspace lifecycle, project defaults and save behavior.",
+    appearance:"Typography, theme, accent, density and interface scaling.",
+    language:"Choose the language used by Kerno's interface.",
+    editor:"Monaco behavior, code presentation and editing ergonomics.",
+    architecture:"Set the default target for new OS projects and the active workspace target.",
+    memory:"Plan guest RAM, kernel reservations, page granularity and linker placement.",
+    emulator:"Configure QEMU machine, display, processor, network and runtime behavior.",
+    toolchain:"Select native compiler, assembler, linker and image packaging executables.",
+    storage:"Inspect browser-local storage and manage project backups.",
+    advanced:"Pair the local execution service and review its security boundary.",
+    boot:"Configure firmware, GRUB menu behavior and kernel command-line defaults.",
+    diagnostics:"Control compiler diagnostics, kernel logging and serial output.",
+    accessibility:"Make the interface more readable and reduce visual motion.",
+    shortcuts:"Keyboard commands available throughout Kernel Studio."
+  };
+  $("#settingsDescription").textContent=descriptions[category]||"Configure the Kerno development environment.";
+  const host=$("#settingsFields");
+  const s=state.settings;
+  const esc=value=>String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  const option=(key,value,label)=>'<option value="'+esc(value)+'" '+(String(s[key])===String(value)?"selected":"")+'>'+esc(label)+'</option>';
+  const select=(key,items)=>'<select data-setting="'+key+'">'+items.map(item=>option(key,item[0],item[1])).join("")+'</select>';
+  const input=(key,type,min,max,step,placeholder)=>'<input data-setting="'+key+'" type="'+type+'" value="'+esc(s[key])+'" '+(min!==undefined?'min="'+min+'"':"")+' '+(max!==undefined?'max="'+max+'"':"")+' '+(step!==undefined?'step="'+step+'"':"")+' '+(placeholder?'placeholder="'+esc(placeholder)+'"':"")+'/>';
+  const check=key=>'<input data-setting="'+key+'" type="checkbox" '+(s[key]?"checked":"")+'/>';
+  const row=(label,description,control)=>'<div class="setting-row"><div class="setting-copy"><strong>'+label+'</strong><small>'+description+'</small></div><div class="setting-control">'+control+'</div></div>';
+  const group=(title,content,subtitle="")=>'<section class="settings-group"><div class="settings-group-heading"><h3>'+title+'</h3>'+(subtitle?'<p>'+subtitle+'</p>':"")+'</div>'+content+'</section>';
+  const note=(text)=>'<p class="setting-note">'+text+'</p>';
+  const action=(id,label)=>'<button class="tool-button" id="'+id+'">'+label+'</button>';
+  const activeOrDefault=(active,defaultKey)=>state.project?active:defaultKey;
+  const archItems=[["x86_64","x86_64 · 64-bit PC"],["i686","i686 · 32-bit x86"],["aarch64","AArch64 · ARM 64-bit"],["riscv64","RISC-V 64-bit"]];
+  const firmwareItems=[["bios","BIOS / legacy"],["uefi","UEFI"]];
+  const bootItems=[["grub","GRUB / Multiboot2"],["uefi-app","UEFI application"],["custom","Custom boot stage"]];
+  const qemuMachines=[["q35","q35 · modern PC"],["pc","pc · legacy PC"],["virt","virt · generic ARM/RISC-V"]];
+  const displayItems=[["std","Standard VGA"],["virtio","Virtio GPU"],["none","Headless / serial only"]];
+  const accelerationItems=[["auto","Automatic"],["kvm","KVM · Linux"],["whpx","WHPX · Windows"],["tcg","TCG · software"]];
+  const languageItems=[["en","English"],["id","Bahasa Indonesia"],["ms","Bahasa Melayu"],["zh","简体中文"],["ja","日本語"],["ko","한국어"],["de","Deutsch"],["fr","Français"],["es","Español"],["pt","Português"],["ru","Русский"],["tr","Türkçe"],["ar","العربية"],["hi","हिन्दी"],["it","Italiano"]];
+  let html="";
+
+  if(category==="general"){
+    html=group("Workspace behavior",
+      row("Automatic save","Save source changes after the selected idle delay.",check("autosave"))+
+      row("Save delay","Debounce interval before writing changes to IndexedDB.",input("autoSaveDelayMs","number",250,5000,50))+
+      row("Confirm destructive actions","Ask before deleting projects or clearing local data.",check("confirmDestructive"))+
+      row("Startup screen","Choose what opens after Kerno starts.",select("startScreen",[["welcome","Project Hub"],["lastProject","Resume most recent project"]]))+
+      row("Default project template","Used when opening the New Project wizard.",select("defaultTemplate",[["kernel-text","Bare-metal text kernel"],["kernel-framebuffer","Framebuffer kernel"],["kernel-minimal","Minimal kernel foundation"]]))
+    ,"These defaults apply to new workspaces. Existing project files are never silently replaced.");
+    html+=group("Project limits",
+      row("Maximum source size","The local execution bridge accepts up to 20 MiB of text source per project.",'<strong class="setting-value">20 MiB</strong>')+
+      row("Per-file limit","Large binary artifacts are kept out of the source editor.",'<strong class="setting-value">2 MiB</strong>')+
+      row("Storage engine","Projects and settings remain in this browser profile.",'<strong class="setting-value">IndexedDB</strong>')
+    );
+  }
+
+  if(category==="appearance"){
+    html=group("Interface appearance",
+      row("Color theme","Applied across the Project Hub, settings, workspace and source editor.",select("theme",[["dark","Dark"],["light","Light"]]))+
+      row("Accent color","Used for selection, focus and active controls.",select("accent",[["sage","Sage green"],["cyan","Cyan"],["blue","Blue"],["amber","Amber"]]))+
+      row("Interface density","Controls vertical spacing in panels and settings.",select("density",[["compact","Compact"],["balanced","Balanced"],["comfortable","Comfortable"]]))+
+      row("Interface scale","Increase text and controls together.",select("uiScale",[["90","90%"],["100","100%"],["110","110%"],["120","120%"]]))+
+      row("Reduce motion","Reduce transitions and animated interface movement.",check("reduceMotion"))
+    );
+  }
+
+  if(category==="language"){
+    html=group("Global language",
+      row("Interface language","Changes the main navigation and the supported interface labels.",select("locale",languageItems))+
+      row("Code language","Programming syntax and compiler diagnostics are never translated.",'<strong class="setting-value">Source-defined</strong>')
+    , "English and Bahasa Indonesia have the broadest interface coverage in this build. Technical identifiers, compiler output and some advanced descriptions remain in English.");
+  }
+
+  if(category==="editor"){
+    html=group("Typography and layout",
+      row("Editor font family","Choose an installed monospaced font.",select("editorFontFamily",[["DM Mono","DM Mono"],["Cascadia Code","Cascadia Code"],["Consolas","Consolas"],["Courier New","Courier New"]]))+
+      row("Editor font size","Changes the source editor and split editor.",input("editorFontSize","number",10,24,1))+
+      row("Tab width","Spaces inserted by the Tab key.",select("tabSize",[[2,"2 spaces"],[4,"4 spaces"],[8,"8 spaces"]]))+
+      row("Word wrap","Wrap long source lines without changing file content.",select("wordWrap",[["off","Off"],["on","On"]]))+
+      row("Line numbers","Show line numbers in the source editor.",check("lineNumbers"))+
+      row("Minimap","Show a compact overview of the open source file.",check("minimap"))
+    );
+    html+=group("Editing behavior",
+      row("Cursor style","Choose the insertion cursor shape.",select("cursorStyle",[["line","Line"],["block","Block"],["underline","Underline"]]))+
+      row("Smooth scrolling","Interpolate scrolling in the source editor.",check("smoothScrolling"))+
+      row("Bracket pair colors","Colorize matching bracket pairs.",check("bracketPairColorization"))+
+      row("Whitespace marks","Control when spaces and tabs are visible.",select("renderWhitespace",[["none","Hidden"],["selection","On selection"],["boundary","At boundaries"],["all","Always"]]))
+    );
+  }
+
+  if(category==="architecture"){
+    html=group(state.project?"Current project target":"Default OS target",
+      row("CPU architecture","Architecture selected for this project.",select(activeOrDefault("projectArchitecture","defaultArchitecture"),archItems))+
+      row("Firmware","Boot firmware for the target machine.",select(activeOrDefault("projectFirmware","defaultFirmware"),firmwareItems))+
+      row("Bootloader","Boot protocol and handoff layer.",select(activeOrDefault("projectBootloader","defaultBootloader"),bootItems))+
+      row("Kernel language","Primary freestanding kernel implementation language.",select(activeOrDefault("projectKernelLanguage","defaultKernelLanguage"),[["cpp","C++"],["c","C"]]))+
+      row("Optimization profile","Native compiler optimization level.",select(activeOrDefault("projectOptimization","optimization"),[["debug","Debug · -O0"],["size","Size · -Os"],["speed","Speed · -O2"]]))
+    , state.project?"Applies only to the open project. New-project defaults remain unchanged.":"Used as the initial target when creating a new workspace.");
+    if(state.project){
+      html+=group("New project defaults",
+        row("Default architecture","Used the next time you create a project.",select("defaultArchitecture",archItems))+
+        row("Default firmware","Initial firmware selection for new projects.",select("defaultFirmware",firmwareItems))+
+        row("Default bootloader","Initial bootloader selection for new projects.",select("defaultBootloader",bootItems))
+      );
+    }
+    html+=note("Native ISO generation is currently gated to x86_64 + BIOS + GRUB / Multiboot2. Other architecture options create editable scaffolds and are not marked bootable.");
+  }
+
+  if(category==="memory"){
+    const ramKey=activeOrDefault("projectGuestMemoryMiB","guestMemoryMiB");
+    const heapKey=activeOrDefault("projectHeapReserveMiB","heapReserveMiB");
+    const stackKey=activeOrDefault("projectStackReserveKiB","stackReserveKiB");
+    const pageKey=activeOrDefault("projectPageSize","pageSize");
+    const baseKey=activeOrDefault("projectKernelBase","kernelBase");
+    html=group(state.project?"Current project memory plan":"Default memory plan",
+      row("Guest RAM (MiB)","Memory assigned to the QEMU guest, not physical host memory.",input(ramKey,"number",64,32768,64))+
+      row("Kernel heap budget (MiB)","Planning budget for future dynamic allocation.",input(heapKey,"number",1,8192,1))+
+      row("Initial stack budget (KiB)","Budget for early boot stacks.",input(stackKey,"number",64,1048576,64))+
+      row("Page size target","Target granularity for paging configuration.",select(pageKey,[["4KiB","4 KiB"],["2MiB","2 MiB"],["1GiB","1 GiB"]]))+
+      row("Kernel link base","Hexadecimal physical/virtual link base.",input(baseKey,"text",undefined,undefined,undefined,"0x00100000"))
+    );
+    html+=group("Reservation estimate",
+      '<div class="memory-meter"><span id="memoryMeterFill"></span></div><div class="memory-readout"><span id="memoryReservedLabel"></span><span id="memoryAvailableLabel"></span></div>'+
+      note("This is a configuration estimate only. It does not allocate host RAM. The generated physical-frame allocator currently manages a capped identity-mapped region; it is separate from the guest RAM slider.")+
+      '<div class="inline-actions">'+action("estimateHostMemoryButton","Estimate host capacity")+'<span class="setting-note" id="hostMemoryEstimate">Not checked</span></div>'
+    );
+  }
+
+  if(category==="emulator"){
+    const key=(active,def)=>state.project?active:def;
+    html=group(state.project?"Current project QEMU profile":"Default QEMU profile",
+      row("QEMU executable","Native QEMU binary resolved by the local service.",input(key("projectQemuBinary","qemuBinary"),"text"))+
+      row("Machine model","Virtual motherboard or platform.",select(key("projectQemuMachine","qemuMachine"),qemuMachines))+
+      row("CPU model","Virtual CPU feature model.",select(key("projectQemuCpuModel","qemuCpuModel"),[["max","max · expose supported features"],["qemu64","qemu64 · compatibility"],["Nehalem","Nehalem · legacy x86-64"]]))+
+      row("Display adapter","Guest display device.",select(key("projectQemuDisplay","qemuDisplay"),displayItems))+
+      row("Virtual CPUs","Number of guest processor cores.",input(key("projectQemuVcpus","qemuVcpus"),"number",1,32,1))+
+      row("VNC port","Loopback VNC display port.",input(key("projectQemuVncPort","qemuVncPort"),"number",5900,5999,1))+
+      row("Acceleration","Host acceleration backend.",select(key("projectQemuAcceleration","qemuAcceleration"),accelerationItems))+
+      row("Network adapter","Network exposure for the guest.",select(key("projectQemuNetwork","qemuNetwork"),[["none","Disabled"],["user","User-mode NAT"]]))
+    , "QEMU starts only from the local Kerno service. The browser does not execute emulator binaries.");
+    if(state.project)html+=note("Default QEMU preferences for future projects remain in the OS & Architecture and project defaults settings.");
+  }
+
+  if(category==="toolchain"){
+    html=group("Native toolchain executables",
+      row("NASM assembler","Assembler used for x86 assembly entry files.",input("assembler","text"))+
+      row("C++ cross compiler","Compiler target must report x86_64-elf.",input("crossCompiler","text"))+
+      row("C cross compiler","Separate C compiler for .c translation units.",input("cCompiler","text"))+
+      row("Linker","Target ELF linker.",input("linker","text"))+
+      row("GRUB ISO builder","Usually grub-mkrescue.",input("isoBuilder","text"))+
+      row("objcopy","Optional ELF conversion and inspection tool.",input("objcopy","text"))+
+      row("readelf","ELF metadata inspection utility.",input("readelf","text"))
+    );
+    html+=group("Tool availability",'<div class="inline-actions">'+action("checkToolchainButton","Scan local toolchain")+'<span class="setting-note" id="toolchainResult">Not checked</span></div>');
+    html+=note("The local service resolves executable names through PATH. Arbitrary shell command strings are not accepted.");
+  }
+
+  if(category==="boot"){
+    const timeoutKey=state.project?"projectGrubTimeout":"grubTimeout";
+    const defaultKey=state.project?"projectGrubDefault":"grubDefault";
+    const cmdKey=state.project?"projectKernelCommandLine":"kernelCommandLine";
+    html=group(state.project?"Current project boot profile":"Default boot profile",
+      row("GRUB menu timeout","Seconds before the default menu entry starts.",input(timeoutKey,"number",0,30,1))+
+      row("Default GRUB entry","Zero-based menu entry index.",input(defaultKey,"number",0,20,1))+
+      row("Kernel command line","Plain arguments appended to the Multiboot2 kernel entry.",input(cmdKey,"text",undefined,undefined,undefined,"loglevel=info"))
+    );
+    html+=group("Firmware and boot support",
+      row("Firmware default","New projects use this firmware selection.",select("defaultFirmware",firmwareItems))+
+      row("Bootloader default","New projects use this bootloader selection.",select("defaultBootloader",bootItems))
+    );
+    html+=note("Boot settings update the generated GRUB menu when the current project uses GRUB. Custom boot stages and UEFI application handoff need their own boot configuration.");
+  }
+
+  if(category==="diagnostics"){
+    html=group("Kernel diagnostics",
+      row("Kernel log level","Default verbosity for the generated kernel configuration.",select("kernelLogLevel",[["quiet","Quiet"],["error","Error"],["warn","Warning"],["info","Information"],["debug","Debug"]]))+
+      row("Serial backend","Configure whether the QEMU serial output is captured.",select("serialBackend",[["file","Capture to serial.log"],["null","Disable serial capture"]]))+
+      row("Retain build logs","Keep build and emulator logs in the local service data folder.",check("retainBuildLogs"))
+    );
+    html+=group("Compiler diagnostics",
+      row("Debug symbols","Include debug information in native object files.",check("debugSymbols"))+
+      row("Warnings as errors","Treat compiler warnings as build errors.",check("warningsAsErrors"))
+    );
+    html+=note("Compiler diagnostics are applied by the local native builder. Kernel runtime log verbosity is a project configuration value; it does not automatically implement a full logging subsystem.");
+  }
+
+  if(category==="storage"){
+    html=group("Browser-local storage",
+      '<div class="setting-row"><div class="setting-copy"><strong>Storage engine</strong><small>Project source is stored in this browser profile.</small></div><div class="setting-control"><strong class="setting-value">IndexedDB</strong></div></div>'+
+      '<div class="setting-row"><div class="setting-copy"><strong>Saved projects</strong><small>Local Kerno workspace count.</small></div><div class="setting-control"><strong class="setting-value" id="storedProjectCount">—</strong></div></div>'+
+      '<div class="setting-row"><div class="setting-copy"><strong>Storage estimate</strong><small>Browser-provided quota and usage.</small></div><div class="setting-control"><strong class="setting-value" id="browserStorageEstimate">Checking…</strong></div></div>'
+    );
+    html+=group("Backup and maintenance",
+      '<div class="inline-actions">'+action("exportAllProjectsButton","Export all projects")+'<button class="tool-button danger-button" id="clearProjectsButton">Delete all local projects</button></div>'+
+      note("Export a backup before deleting browser-local project data. This action does not delete files exported to your computer.")
+    );
+  }
+
+  if(category==="advanced"){
+    html=group("Local execution bridge",
+      row("Service endpoint","Loopback URL for Kerno Local Service API.",input("localServiceUrl","url"))+
+      row("Pairing token","Token printed when the local service starts. Stored in this browser's settings.",input("localServiceToken","password"))
+    );
+    html+=group("Connection status",
+      '<div class="inline-actions">'+action("testLocalServiceButton","Test local service")+'<span class="setting-note" id="localServiceResult">Not connected</span></div>'
+    );
+    html+=group("Execution and security boundary",
+      note("Kerno sends a structured project manifest to a loopback-only service. The service validates relative paths, applies per-file and project limits, avoids shell execution, serializes builds with a build lock, and controls QEMU process lifetime.")+
+      note("The pairing token is a local capability credential. Do not paste it into source files, commit it to Git, or share it in screenshots.")
+    );
+  }
+
+  if(category==="accessibility"){
+    html=group("Readable interface",
+      row("Interface scale","Use a larger global scale for labels, navigation and controls.",select("uiScale",[["90","90%"],["100","100%"],["110","110%"],["120","120%"]]))+
+      row("Reduce motion","Reduce non-essential transitions.",check("reduceMotion"))+
+      row("High contrast focus","Increase the visibility of keyboard focus indicators.",check("highContrastFocus"))
+    );
+    html+=note("Use the browser zoom alongside these controls when a larger viewport scale is needed.");
+  }
+
+  if(category==="shortcuts"){
+    const shortcuts=[
+      ["Save project","Ctrl / Cmd + S"],["Open project or import files","Ctrl / Cmd + O"],
+      ["Export current source","Ctrl / Cmd + Shift + E"],["Export project archive","Ctrl / Cmd + Shift + S"],
+      ["Build project","Ctrl / Cmd + B"],["Open Settings","Ctrl / Cmd + ,"],
+      ["Switch source / machine / build","Ctrl / Cmd + 1 / 2 / 3"]
+    ];
+    html=group("Keyboard shortcuts",shortcuts.map(item=>'<div class="shortcut-row"><span>'+item[0]+'</span><kbd>'+item[1]+'</kbd></div>').join(""));
+    html+=note("Shortcut actions are handled by the Kerno workspace while the browser page is focused.");
+  }
+
+  host.innerHTML=html;
+  host.onchange=settingChanged;
+  host.oninput=settingChanged;
+  if(category==="memory")renderMemory();
+  if(category==="storage")renderStorageSettings();
+  $("#estimateHostMemoryButton")&&$("#estimateHostMemoryButton").addEventListener("click",refreshHostMemoryEstimate);
+  $("#testLocalServiceButton")&&$("#testLocalServiceButton").addEventListener("click",testService);
+  $("#checkToolchainButton")&&$("#checkToolchainButton").addEventListener("click",checkToolchain);
+  $("#exportAllProjectsButton")&&$("#exportAllProjectsButton").addEventListener("click",exportAll);
+  $("#clearProjectsButton")&&$("#clearProjectsButton").addEventListener("click",clearAllProjects);
+}
 function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale")translate();if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density")applyDensity();if(["editorFontSize","tabSize","wordWrap","lineNumbers","minimap"].includes(k))applyEditorSettings();if(["guestMemoryMiB","heapReserveMiB","stackReserveKiB"].includes(k))renderMemory();}
 function validateSettings(){const s=state.settings;for(const [k,min,max] of [["editorFontSize",10,22],["guestMemoryMiB",64,32768],["heapReserveMiB",1,8192],["stackReserveKiB",64,1048576],["qemuVcpus",1,32],["qemuVncPort",5900,5999]])if(!Number.isInteger(Number(s[k]))||s[k]<min||s[k]>max)throw Error(k+" is outside the permitted range.");if(s.heapReserveMiB+s.stackReserveKiB/1024+1>=s.guestMemoryMiB)throw Error("Kernel reservations exceed guest RAM.");if(!/^0x[0-9a-fA-F]{6,16}$/.test(s.kernelBase))throw Error("Kernel base must be hexadecimal, e.g. 0x00100000.");KernoLocalService.configure(s.localServiceUrl);}
 async function applySettings(){try{validateSettings();}catch(e){notify("Settings need attention",e.message);return;}await saveSettings();applyTheme();applyAccent();applyDensity();translate();applyEditorSettings();if(state.project){const c=state.project.config;c.architecture=state.settings.defaultArchitecture;c.firmware=state.settings.defaultFirmware;c.bootloader=state.settings.defaultBootloader;c.kernelLanguage=state.settings.defaultKernelLanguage;c.optimization=state.settings.optimization;c.memory=Object.assign(c.memory,{guestMiB:state.settings.guestMemoryMiB,heapReserveMiB:state.settings.heapReserveMiB,stackReserveKiB:state.settings.stackReserveKiB,pageSize:state.settings.pageSize,kernelBase:state.settings.kernelBase});c.qemu=Object.assign(c.qemu,{binary:state.settings.qemuBinary,machine:state.settings.qemuMachine,display:state.settings.qemuDisplay,vcpus:state.settings.qemuVcpus,vncPort:state.settings.qemuVncPort,acceleration:state.settings.qemuAcceleration});await saveProject(true);updateProjectHeader();renderMachine();renderBuild();}notify("Settings applied","IDE preferences and OS target updated.");show(state.settingsReturn);}
