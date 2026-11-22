@@ -176,14 +176,18 @@ def probe_tool(value: object, fallback: str) -> dict:
     if not found:
         return {"available": False, "command": candidate, "path": None, "version": None}
     version = ""
-    try:
-        result = subprocess.run(
-            [found, "--version"], capture_output=True, text=True,
-            timeout=3, check=False, encoding="utf-8", errors="replace"
-        )
-        version = (result.stdout or result.stderr).splitlines()[0][:180] if (result.stdout or result.stderr) else ""
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+    for flag in ("--version", "-v"):
+        try:
+            result = subprocess.run(
+                [found, flag], capture_output=True, text=True,
+                timeout=3, check=False, encoding="utf-8", errors="replace"
+            )
+            output = (result.stdout or result.stderr or "").strip()
+            if output:
+                version = output.splitlines()[0][:180]
+                break
+        except (OSError, subprocess.TimeoutExpired):
+            continue
     return {"available": True, "command": candidate, "path": found, "version": version}
 
 
@@ -221,6 +225,7 @@ def host_memory() -> dict:
 
 
 def toolchain_report(settings: dict) -> dict:
+    settings = settings if isinstance(settings, dict) else {}
     return {
         "assembler": probe_tool(settings.get("assembler"), "nasm"),
         "crossCompiler": probe_tool(settings.get("crossCompiler"), "x86_64-elf-g++"),
@@ -232,6 +237,28 @@ def toolchain_report(settings: dict) -> dict:
         "readelf": probe_tool(settings.get("readelf"), "x86_64-elf-readelf"),
         "make": probe_tool("make", "make"),
         "qemu": probe_tool(settings.get("qemuBinary"), "qemu-system-x86_64"),
+    }
+
+
+def host_diagnostics(settings: dict | None = None) -> dict:
+    memory = host_memory()
+    shell_name = "cmd.exe" if os.name == "nt" else ("zsh" if os.environ.get("SHELL", "").endswith("zsh") else "bash/sh")
+    shell_path = shutil.which("cmd.exe" if os.name == "nt" else "bash") or shutil.which("sh")
+    return {
+        "platform": platform.platform(),
+        "system": platform.system(),
+        "release": platform.release(),
+        "machine": platform.machine(),
+        "processor": platform.processor() or "Not reported by host",
+        "logicalCpus": os.cpu_count() or 1,
+        "pythonVersion": platform.python_version(),
+        "pythonExecutable": sys.executable,
+        "commandPrompt": shell_name,
+        "commandPromptPath": shell_path,
+        "memory": memory,
+        "toolchain": toolchain_report(settings or {}),
+        "dataDirectory": str(ROOT),
+        "note": "Host diagnostics only. Kerno does not allocate host RAM or execute arbitrary commands from the browser."
     }
 
 
@@ -629,8 +656,11 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("Origin", "").rstrip("/")
 
     def valid_host_header(self) -> bool:
-        host = self.headers.get("Host", "").split(":")[0].strip("[]").lower()
-        return host in ("127.0.0.1", "localhost")
+        try:
+            host = urlparse("//" + self.headers.get("Host", "")).hostname
+        except ValueError:
+            host = None
+        return (host or "").lower() in ("127.0.0.1", "localhost", "::1")
 
     def send_cors(self) -> None:
         origin = self.request_origin()
@@ -702,8 +732,10 @@ class Handler(BaseHTTPRequestHandler):
             })
             return
         if path == "/api/v1/toolchain":
-            query = {}
-            self.send_json(200, {"tools": toolchain_report(query)})
+            self.send_json(200, {"tools": toolchain_report({})})
+            return
+        if path == "/api/v1/host/diagnostics":
+            self.send_json(200, host_diagnostics({}))
             return
         if path == "/api/v1/emulator/status":
             self.send_json(200, emulator_status())
@@ -740,6 +772,10 @@ class Handler(BaseHTTPRequestHandler):
                 settings = data.get("settings") or {}
                 self.send_json(200, {"tools": toolchain_report(settings)})
                 return
+            if path == "/api/v1/host/diagnostics":
+                settings = data.get("settings") or {}
+                self.send_json(200, host_diagnostics(settings))
+                return
             if path == "/api/v1/build":
                 result = build_project(data)
                 self.send_json(200, result)
@@ -759,6 +795,12 @@ class Handler(BaseHTTPRequestHandler):
                 requested = int(memory.get("guestMiB", (data.get("settings") or {}).get("guestMemoryMiB", 512)))
                 heap = int(memory.get("heapReserveMiB", (data.get("settings") or {}).get("heapReserveMiB", 16)))
                 stack_kib = int(memory.get("stackReserveKiB", (data.get("settings") or {}).get("stackReserveKiB", 512)))
+                if not 64 <= requested <= 32768:
+                    raise ValueError("Guest RAM must be between 64 and 32768 MiB.")
+                if not 1 <= heap <= 8192 or not 64 <= stack_kib <= 1048576:
+                    raise ValueError("Kernel heap or stack planning value is outside the supported range.")
+                if heap + stack_kib / 1024 + 1 >= requested:
+                    raise ValueError("Kernel heap and stack reservations must remain below guest RAM.")
                 host = host_memory()
                 source_bytes = 0
                 files = project.get("files") or {}
@@ -779,9 +821,9 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as error:
             self.send_json(400, {"status": "failed", "message": str(error)})
         except FileNotFoundError as error:
-            self.send_json(200, {"status": "failed", "message": str(error)})
+            self.send_json(503, {"status": "failed", "message": str(error)})
         except RuntimeError as error:
-            self.send_json(200, {"status": "failed", "message": str(error)})
+            self.send_json(409, {"status": "failed", "message": str(error)})
         except Exception as error:
             self.send_json(500, {"status": "failed", "message": "Local service error: " + str(error)})
 
