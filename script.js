@@ -597,7 +597,10 @@ async function renderSettings(category){
   const archItems=[["x86_64","x86_64 · 64-bit PC"],["i686","i686 · 32-bit x86"],["aarch64","AArch64 · ARM 64-bit"],["riscv64","RISC-V 64-bit"]];
   const firmwareItems=[["bios","BIOS / legacy"],["uefi","UEFI"]];
   const bootItems=[["grub","GRUB / Multiboot2"],["uefi-app","UEFI application"],["custom","Custom boot stage"]];
-  const qemuMachines=[["q35","q35 · modern PC"],["pc","pc · legacy PC"],["virt","virt · generic ARM/RISC-V"]];
+  const selectedArchitecture=state.project?(state.settings.projectArchitecture||state.project.config.architecture):state.settings.defaultArchitecture;
+  const qemuMachines=["aarch64","riscv64"].includes(selectedArchitecture)
+    ?[["virt","virt · generic ARM/RISC-V"]]
+    :[["q35","q35 · modern PC"],["pc","pc · legacy PC"]];
   const displayItems=[["std","Standard VGA"],["virtio","Virtio GPU"],["none","Headless / serial only"]];
   const accelerationItems=[["auto","Automatic"],["kvm","KVM · Linux"],["whpx","WHPX · Windows"],["tcg","TCG · software"]];
   const languageItems=[["en","English"],["id","Bahasa Indonesia"],["ms","Bahasa Melayu"],["zh","简体中文"],["ja","日本語"],["ko","한국어"],["de","Deutsch"],["fr","Français"],["es","Español"],["pt","Português"],["ru","Русский"],["tr","Türkçe"],["ar","العربية"],["hi","हिन्दी"],["it","Italiano"]];
@@ -667,7 +670,7 @@ async function renderSettings(category){
         row("Default bootloader","Initial bootloader selection for new projects.",select("defaultBootloader",bootItems))
       );
     }
-    html+=note("Native ISO generation is currently gated to x86_64 + BIOS + GRUB / Multiboot2. Other architecture options create editable scaffolds and are not marked bootable.");
+    html+=note("Changing a project's architecture, firmware or bootloader updates target metadata. The boot entry, compiler ABI and linker layout must also match; Kerno does not silently rewrite custom kernel code. Native ISO generation is currently gated to x86_64 + BIOS + GRUB / Multiboot2. Other architecture choices remain editable scaffolds.");
   }
 
   if(category==="memory"){
@@ -794,6 +797,56 @@ async function renderSettings(category){
     html+=note("Shortcut actions are handled by the Kerno workspace while the browser page is focused.");
   }
 
+  if(state.settings.locale==="id"){
+    const dictionary={
+      "Workspace behavior":"Perilaku workspace","Automatic save":"Simpan otomatis","Save delay":"Jeda penyimpanan",
+      "Confirm destructive actions":"Konfirmasi tindakan destruktif","Startup screen":"Tampilan awal",
+      "Default project template":"Template proyek default","Project limits":"Batas proyek",
+      "Maximum source size":"Ukuran maksimum source","Per-file limit":"Batas per file",
+      "Storage engine":"Mesin penyimpanan","Interface appearance":"Tampilan antarmuka",
+      "Color theme":"Tema warna","Accent color":"Warna aksen","Interface density":"Kepadatan antarmuka",
+      "Interface scale":"Skala antarmuka","Reduce motion":"Kurangi animasi",
+      "Global language":"Bahasa global","Editor preferences":"Preferensi editor",
+      "Typography and layout":"Tipografi dan tata letak","Editing behavior":"Perilaku penyuntingan",
+      "Editor font family":"Keluarga font editor","Editor font size":"Ukuran font editor",
+      "Tab width":"Lebar tab","Word wrap":"Pembungkusan baris","Line numbers":"Nomor baris",
+      "Minimap":"Minimap","Cursor style":"Gaya kursor","Smooth scrolling":"Pengguliran halus",
+      "Bracket pair colors":"Warna pasangan kurung","Whitespace marks":"Penanda whitespace",
+      "Current project target":"Target proyek aktif","Default OS target":"Target OS default",
+      "CPU architecture":"Arsitektur CPU","Architecture selected for this project.":"Arsitektur CPU proyek ini.",
+      "Firmware":"Firmware","Bootloader":"Bootloader","Kernel language":"Bahasa kernel",
+      "Optimization profile":"Profil optimisasi","New project defaults":"Default proyek baru",
+      "Default architecture":"Arsitektur default","Default firmware":"Firmware default",
+      "Default bootloader":"Bootloader default","Guest RAM (MiB)":"RAM guest (MiB)",
+      "Kernel heap budget (MiB)":"Anggaran heap kernel (MiB)",
+      "Initial stack budget (KiB)":"Anggaran stack awal (KiB)",
+      "Page size target":"Target ukuran halaman","Kernel link base":"Alamat dasar linker kernel",
+      "Reservation estimate":"Estimasi reservasi","QEMU profile":"Profil QEMU",
+      "Machine model":"Model mesin","CPU model":"Model CPU","Display adapter":"Adaptor tampilan",
+      "Virtual CPUs":"CPU virtual","VNC port":"Port VNC","Acceleration":"Akselerasi",
+      "Network adapter":"Adaptor jaringan","Native toolchain executables":"Executable toolchain native",
+      "NASM assembler":"Assembler NASM","C++ cross compiler":"Cross compiler C++",
+      "C cross compiler":"Cross compiler C","Linker":"Linker","GRUB ISO builder":"Pembuat ISO GRUB",
+      "Tool availability":"Ketersediaan tool","Scan local toolchain":"Pindai toolchain lokal",
+      "Boot profile":"Profil boot","GRUB menu timeout":"Waktu tunggu menu GRUB",
+      "Default GRUB entry":"Entri GRUB default","Kernel command line":"Baris perintah kernel",
+      "Kernel diagnostics":"Diagnostik kernel","Compiler diagnostics":"Diagnostik compiler",
+      "Kernel log level":"Level log kernel","Serial backend":"Backend serial",
+      "Retain build logs":"Simpan log build","Debug symbols":"Simbol debug",
+      "Warnings as errors":"Peringatan sebagai error","Browser-local storage":"Penyimpanan lokal browser",
+      "Backup and maintenance":"Cadangan dan pemeliharaan","Export all projects":"Ekspor semua proyek",
+      "Delete all local projects":"Hapus semua proyek lokal","Local execution bridge":"Jembatan eksekusi lokal",
+      "Service endpoint":"Endpoint layanan","Pairing token":"Token pairing",
+      "Test local service":"Uji layanan lokal","Readable interface":"Antarmuka yang mudah dibaca",
+      "High contrast focus":"Fokus kontras tinggi","Keyboard shortcuts":"Pintasan keyboard",
+      "Keyboard Shortcuts":"Pintasan Keyboard","Open source project or import files":"Buka proyek atau impor file",
+      "Apply settings":"Terapkan pengaturan","Dark":"Gelap","Light":"Terang",
+      "Automatic":"Otomatis","Disabled":"Dinonaktifkan","Headless / serial only":"Headless / serial saja",
+      "Check host capacity":"Periksa kapasitas host","Estimate host capacity":"Estimasi kapasitas host",
+      "Source code and compiler output are not translated.":"Kode sumber dan output compiler tidak diterjemahkan."
+    };
+    for(const [english,indonesian] of Object.entries(dictionary))html=html.split(english).join(indonesian);
+  }
   host.innerHTML=html;
   host.onchange=settingChanged;
   host.oninput=settingChanged;
