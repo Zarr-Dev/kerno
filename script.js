@@ -92,7 +92,7 @@ function configFor(name){const s=state.settings;return {
   memory:{guestMiB:s.guestMemoryMiB,heapReserveMiB:s.heapReserveMiB,stackReserveKiB:s.stackReserveKiB,pageSize:s.pageSize,kernelBase:s.kernelBase},
   qemu:{binary:s.qemuBinary,machine:s.qemuMachine,display:s.qemuDisplay,vcpus:s.qemuVcpus,vncPort:s.qemuVncPort,acceleration:s.qemuAcceleration,cpuModel:s.qemuCpuModel,network:s.qemuNetwork},
   boot:{grubTimeout:s.grubTimeout,grubDefault:s.grubDefault,kernelCommandLine:s.kernelCommandLine},
-  diagnostics:{debugSymbols:s.debugSymbols,warningsAsErrors:s.warningsAsErrors,logLevel:s.kernelLogLevel,serialBackend:s.serialBackend}
+  diagnostics:{debugSymbols:s.debugSymbols,warningsAsErrors:s.warningsAsErrors,logLevel:s.kernelLogLevel,serialBackend:s.serialBackend,retainBuildLogs:s.retainBuildLogs}
 };}
 function scaffold(c,template){
 const ext=c.kernelLanguage==="c"?"c":"cpp";
@@ -310,21 +310,31 @@ f["src/kernel."+ext]=[
 "void kernel_main(uint32_t boot_magic, uintptr_t boot_info) {",
 "    kerno_serial_initialize();",
 "    kerno_console_initialize();",
+"#if KERNO_KERNEL_LOG_LEVEL >= 3",
 "    kerno_console_write(\"KERNO kernel entry reached.\\n\");",
 "    kerno_serial_write(\"KERNO: kernel entry reached.\\r\\n\");",
+"#endif",
 "    if (boot_magic != KERNO_MULTIBOOT2_BOOT_MAGIC) {",
+"#if KERNO_KERNEL_LOG_LEVEL >= 1",
 "        kerno_serial_write(\"KERNO: invalid Multiboot2 boot magic.\\r\\n\");",
+"#endif",
 "        for (;;) { __asm__ volatile (\"hlt\"); }",
 "    }",
 "    if (kerno_pmm_initialize(boot_magic, boot_info)) {",
+"#if KERNO_KERNEL_LOG_LEVEL >= 3",
 "        kerno_serial_write(\"KERNO: physical memory map initialized.\\r\\n\");",
 "        kerno_console_write(\"Physical memory map initialized.\\n\");",
+"#endif",
 "    } else {",
+"#if KERNO_KERNEL_LOG_LEVEL >= 2",
 "        kerno_serial_write(\"KERNO: memory map unavailable; PMM is offline.\\r\\n\");",
 "        kerno_console_write(\"Memory map unavailable; PMM offline.\\n\");",
+"#endif",
 "    }",
 "    kerno_interrupts_initialize();",
+"#if KERNO_KERNEL_LOG_LEVEL >= 3",
 "    kerno_serial_write(\"KERNO: IDT installed; external interrupts remain disabled.\\r\\n\");",
+"#endif",
 "    for (;;) { __asm__ volatile (\"hlt\"); }",
 "}",""
 ].join("\n");
