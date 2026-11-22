@@ -41,10 +41,10 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
           const html = fs.readFileSync('index.html', 'utf8');
-          const ids = [...html.matchAll(/\\bid="([^"]+)"/g)].map(match => match[1]);
+          const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
           const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
           if (duplicates.length) throw new Error('Duplicate HTML IDs: ' + [...new Set(duplicates)].join(', '));
-          const stages = [...html.matchAll(/data-tutorial-step="(\\d+)"/g)].map(match => Number(match[1]));
+          const stages = [...html.matchAll(/data-tutorial-step="(\d+)"/g)].map(match => Number(match[1]));
           if (stages.length !== 9 || stages.some((stage, index) => stage !== index)) {
             throw new Error('Tutorial must contain nine ordered stages (0–8).');
           }
