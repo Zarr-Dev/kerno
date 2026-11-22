@@ -252,12 +252,10 @@ def host_diagnostics(settings: dict | None = None) -> dict:
         "processor": platform.processor() or "Not reported by host",
         "logicalCpus": os.cpu_count() or 1,
         "pythonVersion": platform.python_version(),
-        "pythonExecutable": sys.executable,
         "commandPrompt": shell_name,
         "commandPromptPath": shell_path,
         "memory": memory,
         "toolchain": toolchain_report(settings or {}),
-        "dataDirectory": str(ROOT),
         "note": "Host diagnostics only. Kerno does not allocate host RAM or execute arbitrary commands from the browser."
     }
 
