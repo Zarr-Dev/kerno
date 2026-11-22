@@ -100,7 +100,7 @@
         <div class="section-heading"><div><span class="section-kicker" data-i18n="workspaceHistory">WORKSPACE HISTORY</span><h2 data-i18n="recentProjects">Recent projects</h2></div><button class="text-button" id="clearRecentButton" data-i18n="clearHistory">Clear history</button></div>
         <div class="recent-list" id="recentProjects"><div class="recent-empty"><span>⌁</span><strong data-i18n="noRecent">No recent projects</strong><p data-i18n="noRecentDesc">Create or load an OS project to begin.</p></div></div>
       </section>
-      <footer class="welcome-footer"><span>KERNO <b>0.4.0</b></span><span data-i18n="noAccount">No account required · Project data stays in this browser until exported</span></footer>
+      <footer class="welcome-footer"><span>KERNO <b>0.5.0</b></span><span data-i18n="noAccount">No account required · Project data stays in this browser until exported</span></footer>
     </section>
   </main>
 
@@ -378,7 +378,7 @@ kerno.project.json</div>
     <section class="workspace-view hidden" id="buildWorkspace">
       <div class="build-layout">
         <div class="build-overview"><span class="section-kicker">NATIVE TOOLCHAIN</span><h1 data-i18n="buildConfiguration">Build configuration</h1><p data-i18n="buildConfigurationDesc">Review the project target before invoking the connected native build service.</p><div class="build-config-grid"><div><span>Target</span><strong id="buildTarget">x86_64</strong></div><div><span>Bootloader</span><strong id="buildBootloader">GRUB</strong></div><div><span>Kernel language</span><strong id="buildLanguage">C++</strong></div><div><span>Output format</span><strong>ISO / ELF</strong></div></div><div class="build-actions"><button class="primary-button" id="runBuildButton">Run native build</button><button class="quiet-button" id="openSettingsFromBuild">Configure toolchain</button></div><p class="build-disclaimer">A build is only reported as successful after the local service returns a verified artifact and exit status.</p></div>
-        <div class="build-log-panel"><div class="log-heading"><strong>BUILD EVENTS</strong><span id="buildStateLabel">NO BUILD RUN</span></div><pre id="buildLog">No build has been requested.</pre><div id="artifactDownloads" class="artifact-downloads"></div></div>
+        <div class="build-log-panel"><div class="log-heading"><strong>BUILD EVENTS</strong><span id="buildStateLabel">NO BUILD RUN</span></div><pre id="buildLog">No build has been requested.</pre><div id="buildHealthChecks" class="build-health-list" aria-live="polite"></div><div id="artifactDownloads" class="artifact-downloads"></div></div>
       </div>
     </section>
   </main>
