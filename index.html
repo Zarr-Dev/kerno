@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111318">
+  <meta name="description" content="Kerno — an all-in-one operating system builder IDE.">
+  <title>Kerno — OS Builder IDE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <header class="titlebar">
+      <div class="brand-lockup">
+        <div class="brand-mark"><span></span><span></span><span></span></div>
+        <span class="brand-name">kerno</span>
+        <span class="brand-divider"></span>
+        <span class="workspace-name">My First OS</span>
+        <span class="branch-pill"><span class="tiny-dot"></span> main</span>
+      </div>
+      <div class="titlebar-center">
+        <button class="command-trigger" id="commandTrigger" title="Open Command Palette (Ctrl+Shift+P)">
+          <span class="search-glyph">⌕</span><span>Search commands, files...</span><kbd>Ctrl ⇧ P</kbd>
+        </button>
+      </div>
+      <div class="titlebar-actions">
+        <button class="icon-button" id="themeButton" title="Toggle theme" aria-label="Toggle theme">◐</button>
+        <button class="icon-button" id="layoutButton" title="Toggle bottom panel" aria-label="Toggle bottom panel">▤</button>
+        <button class="window-dot minimize" aria-label="Minimize"></button>
+        <button class="window-dot maximize" aria-label="Maximize"></button>
+        <button class="window-dot close" aria-label="Close"></button>
+      </div>
+    </header>
+
+    <div class="main-layout">
+      <nav class="activity-bar" aria-label="Primary navigation">
+        <div class="activity-group">
+          <button class="activity-button active" data-view="explorer" title="Explorer" aria-label="Explorer"><svg viewBox="0 0 24 24"><path d="M3.5 6.5h6l2 2h9v10.8a1.2 1.2 0 0 1-1.2 1.2H4.7a1.2 1.2 0 0 1-1.2-1.2z"/><path d="M3.5 8.5h17"/></svg></button>
+          <button class="activity-button" data-view="search" title="Search" aria-label="Search"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4.2 4.2"/></svg></button>
+          <button class="activity-button" data-view="templates" title="Templates" aria-label="Templates"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg></button>
+          <button class="activity-button" data-view="config" title="OS Configuration" aria-label="OS Configuration"><svg viewBox="0 0 24 24"><path d="M12 3.5v3m0 11v3m8.5-8.5h-3m-11 0h-3M18 6l-2.1 2.1M8.1 15.9 6 18m12 0-2.1-2.1M8.1 8.1 6 6"/><circle cx="12" cy="12" r="4.2"/></svg></button>
+        </div>
+        <div class="activity-spacer"></div>
+        <div class="activity-group">
+          <button class="activity-button" id="helpButton" title="Help" aria-label="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9a2.4 2.4 0 1 1 4.2 1.6c-1 .9-1.9 1.2-1.9 2.7m0 3.1h.01"/></svg></button>
+          <button class="activity-button" id="settingsButton" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 13.5 1.1.9-1.1 1.9-1.4-.5a7.8 7.8 0 0 1-1.6.9l-.2 1.5h-2.2l-.3-1.5a7.8 7.8 0 0 1-1.7-.9l-1.4.5-1.1-1.9 1.1-.9a7 7 0 0 1 0-1.9l-1.1-.9 1.1-1.9 1.4.5a7.8 7.8 0 0 1 1.7-.9l.3-1.5h2.2l.2 1.5a7.8 7.8 0 0 1 1.6.9l1.4-.5 1.1 1.9-1.1.9a7 7 0 0 1 0 1.9Z" transform="translate(-1 -1)"/></svg></button>
+        </div>
+      </nav>
+
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-heading"><span id="sidebarTitle">EXPLORER</span><button class="subtle-icon" id="sidebarMore" aria-label="More actions">···</button></div>
+        <div class="sidebar-content" id="sidebarContent">
+          <div class="section-heading"><span>▾</span> MY FIRST OS <button class="subtle-icon" id="newFileButton" title="New file">＋</button></div>
+          <div class="file-tree" id="fileTree">
+            <button class="tree-row folder-row"><span class="tree-chevron">⌄</span><span class="tree-icon folder-icon">▰</span><span>boot</span></button>
+            <button class="tree-row file-row" data-file="grub.cfg"><span class="tree-indent"></span><span class="file-type config-type">≡</span><span>grub.cfg</span></button>
+            <button class="tree-row folder-row"><span class="tree-chevron">⌄</span><span class="tree-icon folder-icon">▰</span><span>src</span></button>
+            <button class="tree-row file-row selected" data-file="kernel.cpp"><span class="tree-indent"></span><span class="file-type cpp-type">C</span><span>kernel.cpp</span><span class="dirty-dot"></span></button>
+            <button class="tree-row file-row" data-file="boot.asm"><span class="tree-indent"></span><span class="file-type asm-type">A</span><span>boot.asm</span></button>
+            <button class="tree-row folder-row"><span class="tree-chevron">›</span><span class="tree-icon folder-icon">▰</span><span>include</span></button>
+            <button class="tree-row file-row" data-file="linker.ld"><span class="tree-indent"></span><span class="file-type ld-type">L</span><span>linker.ld</span></button>
+            <button class="tree-row folder-row"><span class="tree-chevron">›</span><span class="tree-icon folder-icon">▰</span><span>build</span></button>
+            <div class="tree-separator"></div>
+            <button class="tree-row file-row muted-row" data-file="kerno.config.json"><span class="file-type json-type">{ }</span><span>kerno.config.json</span></button>
+          </div>
+          <div class="sidebar-hint"><span class="hint-icon">✳</span><div><strong>Workspace ready</strong><p>Your OS project is loaded. Select a file to start editing.</p></div></div>
+        </div>
+      </aside>
+
+      <div class="sidebar-resizer" id="sidebarResizer" role="separator" aria-orientation="vertical" aria-label="Resize sidebar"></div>
+
+      <main class="workbench">
+        <div class="editor-tabs" id="editorTabs">
+          <button class="editor-tab active" data-file="kernel.cpp"><span class="file-type cpp-type">C</span> kernel.cpp <span class="tab-close">×</span></button>
+          <button class="editor-tab" data-file="boot.asm"><span class="file-type asm-type">A</span> boot.asm <span class="tab-close">×</span></button>
+          <button class="editor-tab" data-file="grub.cfg"><span class="file-type config-type">≡</span> grub.cfg <span class="tab-close">×</span></button>
+          <div class="tabs-spacer"></div>
+          <button class="subtle-icon" id="splitButton" title="Split editor">▥</button>
+          <button class="subtle-icon" id="editorMore" title="Editor actions">···</button>
+        </div>
+        <div class="breadcrumb"><span>My First OS</span><span class="crumb-sep">›</span><span>src</span><span class="crumb-sep">›</span><strong id="breadcrumbFile">kernel.cpp</strong><span class="crumb-spacer"></span><span class="language-chip" id="languageChip">C++</span></div>
+
+        <section class="editor-area" id="editorArea">
+          <div id="monacoHost" aria-label="Code editor"></div>
+          <textarea id="fallbackEditor" spellcheck="false" aria-label="Code editor fallback"></textarea>
+          <div class="editor-watermark" id="editorWatermark"><span class="watermark-mark">K</span><span>KERNO</span><small>OS DEVELOPMENT ENVIRONMENT</small></div>
+        </section>
+
+        <div class="panel-resizer" id="panelResizer" role="separator" aria-orientation="horizontal" aria-label="Resize bottom panel"></div>
+        <section class="bottom-panel" id="bottomPanel">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" data-panel="problems">PROBLEMS <span class="count-pill">0</span></button>
+              <button class="panel-tab" data-panel="output">OUTPUT</button>
+              <button class="panel-tab" data-panel="build">BUILD LOG</button>
+              <button class="panel-tab" data-panel="serial">SERIAL MONITOR</button>
+              <button class="panel-tab" data-panel="terminal">TERMINAL</button>
+            </div>
+            <div class="panel-actions"><button class="subtle-icon" id="clearPanel" title="Clear panel">⌫</button><button class="subtle-icon" id="maximizePanel" title="Maximize panel">⌃</button><button class="subtle-icon" id="closePanel" title="Hide panel">×</button></div>
+          </div>
+          <div class="panel-body" id="panelBody">
+            <div class="empty-state"><span class="empty-check">✓</span><div><strong>No problems detected</strong><p>Diagnostics will appear here when language services are connected.</p></div></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="statusbar">
+      <div class="status-left"><span class="status-item"><span class="status-dot"></span> Ready</span><span class="status-item">⌁ main</span><span class="status-item">0 errors · 0 warnings</span></div>
+      <div class="status-right"><span class="status-item">x86_64</span><span class="status-item" id="statusLanguage">C++</span><span class="status-item">UTF-8</span><span class="status-item">LF</span><span class="status-item">Ln 1, Col 1</span><span class="status-item">Kerno Preview</span></div>
+    </footer>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+
+  <div class="modal-backdrop hidden" id="projectModal">
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-heading"><div><span class="eyebrow">GET STARTED</span><h2 id="modalTitle">Create a project</h2><p>Choose a starting point for your operating system.</p></div><button class="icon-button" id="closeModal" aria-label="Close">×</button></div>
+      <label class="field-label" for="projectName">Project name</label><input class="text-field" id="projectName" value="My First OS" maxlength="32">
+      <div class="field-label">Starter template</div>
+      <div class="template-options">
+        <button class="template-option selected" data-template="text"><span class="template-symbol">⌘</span><strong>Blank Text Kernel</strong><small>Minimal bootable kernel foundation</small><span class="option-check">✓</span></button>
+        <button class="template-option" data-template="framebuffer"><span class="template-symbol">▦</span><strong>Graphical Framebuffer</strong><small>Kernel with a basic graphics surface</small><span class="option-check">✓</span></button>
+      </div>
+      <div class="modal-footer"><span class="modal-note">Demo only · Project files are not saved yet</span><button class="primary-button" id="createProjectButton">Create project <span>→</span></button></div>
+    </section>
+  </div>
+
+  <div class="command-backdrop hidden" id="commandBackdrop">
+    <div class="command-box"><div class="command-input-row"><span>⌕</span><input id="commandInput" placeholder="Type a command or search files..." autocomplete="off"><kbd>ESC</kbd></div><div class="command-list" id="commandList"></div><div class="command-footer">↑↓ to navigate <span>↵ to select</span></div></div>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
