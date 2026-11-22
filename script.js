@@ -1605,7 +1605,31 @@ function openSettings(from){
 }
 function applyStartup(){applyTheme();applyAccent();applyDensity();translate();if(state.settings.startScreen==="lastProject"){all("projects").then(list=>{list.sort((a,b)=>b.updatedAt-a.updatedAt);if(list[0]){state.project=list[0];openProject();}else show("welcome");}).catch(()=>show("welcome"));}else show("welcome");}
 function bindEvents(){
-$("#welcomeNewProject").onclick=()=>{syncWizardDefaults();show("newProject");};$("#themeToggleWelcome").onclick=cycleTheme;$("#themeToggleApp").onclick=cycleTheme;$("#welcomeLoadProject").onclick=()=>$("#loadProjectInput").click();$("#welcomeLoadFolder").onclick=()=>$("#projectFolderInput").click();$("#welcomeConfigure").onclick=()=>openSettings("welcome");$("#welcomeSettingsButton").onclick=()=>openSettings("welcome");
+$("#welcomeNewProject").onclick=()=>{syncWizardDefaults();show("newProject");};$("#landingFeaturesButton").onclick=()=>scrollLandingTo("platformSection");
+$("#landingWorkflowButton").onclick=()=>scrollLandingTo("workflowSection");
+$("#landingTutorialButton").onclick=openTutorial;
+$("#heroStartButton").onclick=()=>{syncWizardDefaults();show("newProject");};
+$("#heroTutorialButton").onclick=openTutorial;
+$("#workflowTutorialButton").onclick=openTutorial;
+$("#isoTutorialButton").onclick=()=>{openTutorial();requestAnimationFrame(()=>$("#tutorial-stage-7").scrollIntoView({behavior:"smooth",block:"start"}));};
+$("#backFromTutorial").onclick=()=>show("welcome");
+$("#tutorialFinishButton").onclick=()=>{syncWizardDefaults();show("newProject");};
+$("#tutorialBackTopButton").onclick=()=>$("#tutorialScreen").scrollTo({top:0,behavior:state.settings.reduceMotion?"auto":"smooth"});
+$("#resetTutorialButton").onclick=async()=>{if(!state.tutorialCompleted.length){notify("No tutorial progress to reset");return;}if(!await confirmInApp("This clears the completion markers for all nine tutorial stages. The tutorial text remains available.","Reset tutorial progress?"))return;state.tutorialCompleted=[];await saveTutorialProgress();notify("Tutorial progress reset");};
+$("#tutorialChapters").addEventListener("click",async event=>{
+  const complete=event.target.closest("[data-complete-step]");
+  if(complete){await toggleTutorialStep(Number(complete.dataset.completeStep));return;}
+  const action=event.target.closest("[data-tutorial-action]");
+  if(action){await handleTutorialAction(action.dataset.tutorialAction);return;}
+});
+$("#tutorialContents").addEventListener("click",event=>{
+  const link=event.target.closest("a[href^='#tutorial-stage-']");
+  if(!link)return;
+  event.preventDefault();
+  const target=$(link.getAttribute("href"));
+  if(target)target.scrollIntoView({behavior:state.settings.reduceMotion?"auto":"smooth",block:"start"});
+});
+$("#themeToggleWelcome").onclick=cycleTheme;$("#themeToggleApp").onclick=cycleTheme;$("#welcomeLoadProject").onclick=()=>$("#loadProjectInput").click();$("#welcomeLoadFolder").onclick=()=>$("#projectFolderInput").click();$("#welcomeConfigure").onclick=()=>openSettings("welcome");$("#welcomeSettingsButton").onclick=()=>openSettings("welcome");
 $("#backFromNewProject").onclick=()=>show("welcome");$("#cancelNewProject").onclick=()=>show("welcome");$("#createProjectButton").onclick=createProject;
 $("#backFromSettings").onclick=()=>show(state.settingsReturn);$("#saveSettingsButton").onclick=applySettings;
 $("#clearRecentButton").onclick=async()=>{if(state.settings.confirmDestructive&&!await confirmInApp("Saved projects will remain available in browser storage.","Clear recent project list?"))return;await put("meta",{key:"hiddenRecent",value:state.recent.map(p=>p.id)});await refreshRecent();};
@@ -1660,6 +1684,6 @@ function plainCursor(){const el=$("#plainEditor"),lines=el.value.slice(0,el.sele
 async function exportAllProjects(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
 async function clearProjects(){if(state.settings.confirmDestructive&&!await confirmInApp("This permanently deletes every Kerno project stored in this browser.","Delete all projects?"))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
 async function renderStorage(){if($("#storedProjectCount"))$("#storedProjectCount").textContent=(await all("projects")).length;if($("#browserStorageEstimate")){if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();$("#browserStorageEstimate").textContent=formatBytes(e.usage||0)+" / "+formatBytes(e.quota||0);}else $("#browserStorageEstimate").textContent="Unavailable";}}
-async function boot(){bindEvents();try{database=await dbOpen();}catch(e){notify("IndexedDB unavailable",e.message);}await loadSettings();applyStartup();refreshRecent();}
+async function boot(){bindEvents();try{database=await dbOpen();}catch(e){notify("IndexedDB unavailable",e.message);}await loadSettings();await loadTutorialProgress();applyStartup();refreshRecent();setupLandingReveal();}
 boot();
 })();
