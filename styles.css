@@ -464,3 +464,24 @@ body.monochrome-theme .artifact-download-link{background:#fff;color:#000;border-
 body.monochrome-theme .machine-status.connected{color:#fff}
 body.monochrome-theme .welcome-intro::after{border-color:#777;background:radial-gradient(circle at 50% 50%,#ffffff12 0 25%,transparent 26% 42%,#ffffff08 43% 44%,transparent 45%)}
 body.monochrome-theme *{scrollbar-color:#555 #111}
+
+/* Local host diagnostics and Command Prompt setup panel */
+.host-diagnostics-panel{margin-top:13px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+.host-diagnostics-panel>p{margin:0;color:var(--muted);font-size:12px;line-height:1.7}
+.host-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.host-summary-card{min-width:0;padding:11px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}
+.host-summary-card small{display:block;margin-bottom:6px;color:var(--muted);font-size:10px}
+.host-summary-card strong{display:block;color:var(--text);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.host-tools-heading{margin:15px 0 9px;color:var(--text);font:700 12px var(--heading)}
+.host-tool-chips{display:flex;flex-wrap:wrap;gap:7px}
+.host-tool-chip{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:10px}
+.host-tool-chip.available{background:#193127;color:#a7d9bc;border-color:#426b55}
+.host-tool-chip.missing{background:#322922;color:#e4bf94;border-color:#71563d}
+.host-command-preview{max-height:170px;overflow:auto;margin:13px 0 0;padding:13px;border:1px solid var(--line);border-radius:7px;background:#0b1118;color:#b9c9d7;font:11px/1.7 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+body.light-theme .host-diagnostics-panel,body.light-theme .host-summary-card{background:#fff}
+body.light-theme .host-command-preview{background:#f2f5f4;color:#35484a}
+body.monochrome-theme .host-diagnostics-panel,body.monochrome-theme .host-summary-card{background:#101010;border-color:#555}
+body.monochrome-theme .host-summary-card strong,body.monochrome-theme .host-tools-heading{color:#fff}
+body.monochrome-theme .host-tool-chip.available,body.monochrome-theme .host-tool-chip.missing{background:#181818;color:#fff;border-color:#777}
+body.monochrome-theme .host-command-preview{background:#050505;color:#eee;border-color:#666}
+@media(max-width:620px){.host-summary-grid{grid-template-columns:1fr}.host-summary-card{padding:10px}}
