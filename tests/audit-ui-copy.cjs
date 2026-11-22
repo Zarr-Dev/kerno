@@ -8,9 +8,14 @@ const stages=[...html.matchAll(/data-tutorial-step="(\d+)"/g)].map(m=>Number(m[1
 if(stages.length!==9||stages.some((stage,index)=>stage!==index))throw new Error("Academy must contain nine ordered stages (0–8).");
 const match=script.match(/const UI_COPY = ([\s\S]*?);\n\nconst state=/);
 if(!match)throw new Error("UI_COPY dictionary is missing.");
-const copy=Function("return ("+match[1]+")")();
+const copy=JSON.parse(match[1]);
 const required=[...html.matchAll(/data-i18n="((?:landing|academy|wizard|settings|workspace|machine|build)\.[^"]+)"/g)].map(m=>m[1]);
 for(const locale of ["en","id"])for(const key of required)if(typeof copy[locale]?.[key]!=="string"||!copy[locale][key].trim())throw new Error("Missing "+locale+" translation: "+key);
+const requiredHeader=["landing.brand.aria","landing.brand.tagline","landing.nav.aria","landing.nav.platform","landing.nav.workflow","landing.nav.academy","landing.nav.openFolder","landing.nav.theme","landing.nav.themeTitle"];
+for(const locale of ["en","id"])for(const key of requiredHeader)if(typeof copy[locale]?.[key]!=="string")throw new Error("Missing "+locale+" header translation: "+key);
 for(const id of ["welcomeScreen","tutorialScreen","newProjectScreen","settingsScreen","appScreen","buildHealthChecks"])if(!ids.includes(id))throw new Error("Missing UI element: "+id);
 if(!html.includes("x86_64 · BIOS · GRUB · Multiboot2"))throw new Error("The supported native target must be stated.");
-console.log("UI audit passed: "+ids.length+" IDs, nine Academy stages and "+required.length+" bilingual interface strings.");
+if(!/locale:"id"/.test(script))throw new Error("Bahasa Indonesia must be the default locale.");
+if(!/\["auto","Deteksi otomatis"\],\["id","Bahasa Indonesia"\],\["en","English"\]/.test(script))throw new Error("Only complete UI locales should be offered.");
+if(!script.includes('$$("[data-i18n-title]")'))throw new Error("Localized title attributes are not handled.");
+console.log("UI audit passed: "+ids.length+" IDs, nine Academy stages, "+required.length+" translated interface strings and a complete bilingual header.");
