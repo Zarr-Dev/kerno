@@ -375,13 +375,14 @@ f["src/pmm."+ext]=[
 "#define KERNO_BITMAP_BYTES (KERNO_FRAME_COUNT/8ULL)",
 "extern uint8_t __kernel_start;","extern uint8_t __kernel_end;",
 "static uint8_t frame_bitmap[KERNO_BITMAP_BYTES];",
+"static uint8_t allocation_bitmap[KERNO_BITMAP_BYTES];",
 "static uint32_t free_frame_count=0;",
 "static int pmm_ready=0;",
 "static void frame_mark(uint64_t frame,int used){uint8_t mask=(uint8_t)(1u<<(frame&7u));uint8_t* cell=&frame_bitmap[frame>>3u];if(used){if(!(*cell&mask)){*cell|=mask;if(free_frame_count) --free_frame_count;}}else{if(*cell&mask){*cell&=(uint8_t)~mask;++free_frame_count;}}}",
 "static void reserve_range(uint64_t start,uint64_t end){if(end>KERNO_PMM_LIMIT)end=KERNO_PMM_LIMIT;if(start>=end)return;uint64_t first=start/KERNO_FRAME_SIZE;uint64_t last=(end+KERNO_FRAME_SIZE-1u)/KERNO_FRAME_SIZE;for(uint64_t frame=first;frame<last&&frame<KERNO_FRAME_COUNT;++frame)frame_mark(frame,1);}",
 "int kerno_pmm_initialize(uint32_t boot_magic,uintptr_t boot_info){",
 "    if(boot_magic!=KERNO_MULTIBOOT2_BOOT_MAGIC||!boot_info)return 0;",
-"    kerno_memset(frame_bitmap,0xFF,(size_t)KERNO_BITMAP_BYTES);free_frame_count=0;",
+"    pmm_ready=0;kerno_memset(frame_bitmap,0xFF,(size_t)KERNO_BITMAP_BYTES);kerno_memset(allocation_bitmap,0,(size_t)KERNO_BITMAP_BYTES);free_frame_count=0;",
 "    const kerno_mb2_info_t* info=(const kerno_mb2_info_t*)boot_info;",
 "    if(info->total_size<16u||info->total_size>1024u*1024u)return 0;",
 "    const uint8_t* cursor=(const uint8_t*)boot_info+8u;const uint8_t* limit=(const uint8_t*)boot_info+info->total_size;int found=0;",
@@ -391,8 +392,8 @@ f["src/pmm."+ext]=[
 "    }",
 "    if(!found)return 0;reserve_range(0,0x100000ULL);reserve_range((uintptr_t)&__kernel_start,(uintptr_t)&__kernel_end);pmm_ready=1;return 1;",
 "}",
-"uintptr_t kerno_pmm_allocate_frame(void){if(!pmm_ready)return 0;for(uint64_t frame=256u;frame<KERNO_FRAME_COUNT;++frame){if(!(frame_bitmap[frame>>3u]&(uint8_t)(1u<<(frame&7u)))){frame_mark(frame,1);return (uintptr_t)(frame*KERNO_FRAME_SIZE);}}return 0;}",
-"int kerno_pmm_release_frame(uintptr_t address){if(!pmm_ready||address<0x100000u||(address&(KERNO_FRAME_SIZE-1u))||address>=KERNO_PMM_LIMIT)return 0;uint64_t frame=(uint64_t)address/KERNO_FRAME_SIZE;if(!(frame_bitmap[frame>>3u]&(uint8_t)(1u<<(frame&7u))))return 0;frame_mark(frame,0);return 1;}",
+"uintptr_t kerno_pmm_allocate_frame(void){if(!pmm_ready)return 0;for(uint64_t frame=256u;frame<KERNO_FRAME_COUNT;++frame){uint8_t mask=(uint8_t)(1u<<(frame&7u));if(!(frame_bitmap[frame>>3u]&mask)){frame_mark(frame,1);allocation_bitmap[frame>>3u]|=mask;return (uintptr_t)(frame*KERNO_FRAME_SIZE);}}return 0;}",
+"int kerno_pmm_release_frame(uintptr_t address){if(!pmm_ready||address<0x100000u||(address&(KERNO_FRAME_SIZE-1u))||address>=KERNO_PMM_LIMIT)return 0;uint64_t frame=(uint64_t)address/KERNO_FRAME_SIZE;uint8_t mask=(uint8_t)(1u<<(frame&7u));uint8_t* allocated=&allocation_bitmap[frame>>3u];if(!(*allocated&mask))return 0;*allocated&=(uint8_t)~mask;frame_mark(frame,0);return 1;}",
 "uint32_t kerno_pmm_free_frames(void){return free_frame_count;}",
 ""
 ].join("\n");
@@ -843,7 +844,8 @@ async function applySettings(){
       debugSymbols:!!state.settings.debugSymbols,
       warningsAsErrors:!!state.settings.warningsAsErrors,
       logLevel:state.settings.kernelLogLevel,
-      serialBackend:state.settings.serialBackend
+      serialBackend:state.settings.serialBackend,
+      retainBuildLogs:!!state.settings.retainBuildLogs
     });
     if(config.bootloader==="grub"&&state.project.files["boot/grub.cfg"]){
       const lines=state.project.files["boot/grub.cfg"].split(/\r?\n/);
@@ -1172,7 +1174,7 @@ $("#addSourceFileButton").onclick=createSourceFile;$("#importSourceFolderButton"
 $("#saveProjectButton").onclick=()=>saveProject(false);$("#saveFileButton").onclick=()=>saveProject(false);$("#exportFileButton").onclick=exportFile;$("#exportProjectButton").onclick=exportProject;
 $("#appSettingsButton").onclick=()=>openSettings("app");$("#backToWelcomeButton").onclick=async()=>{await saveProject(true);disposeEditors();state.project=null;state.activeFile=null;state.tabs=[];show("welcome");};
 $("#splitEditorButton").onclick=toggleSplit;$("#closeSplitButton").onclick=()=>$("#splitPane").classList.add("hidden");$("#splitFileSelect").onchange=e=>{state.splitFile=e.target.value;if(state.splitEditor)state.splitEditor.setModel(ensureModel(state.splitFile));};
-$("#plainEditor").oninput=()=>{if(state.activeFile){state.project.files[state.activeFile]=$("#plainEditor").value;if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),900);}}};
+$("#plainEditor").oninput=()=>{if(state.activeFile){state.project.files[state.activeFile]=$("#plainEditor").value;if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),Math.max(250,Math.min(5000,Number(state.settings.autoSaveDelayMs)||800)));}}};
 $("#plainEditor").onkeyup=plainCursor;$("#plainEditor").onclick=plainCursor;
 $$(".workspace-nav-item").forEach(b=>b.onclick=()=>switchWorkspace(b.dataset.workspace));
 $("#connectLocalServiceButton").onclick=connectService;$("#startQemuButton").onclick=startQemu;$("#stopQemuButton").onclick=stopQemu;$("#clearSerialButton").onclick=()=>$("#serialOutput").textContent="";
