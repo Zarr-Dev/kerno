@@ -1400,7 +1400,6 @@ void framebuffer_initialize(const Framebuffer& framebuffer) {
       state.splitFile = event.target.value;
       if (state.splitEditor) state.splitEditor.setModel(ensureModel(state.splitFile));
     });
-    $("#newFileButton").addEventListener("click", createFile);
     $("#sideActionButton").addEventListener("click", () => {
       if (state.activeView === "settings") {
         state.settings = { fontSize: 13, tabSize: 4, wordWrap: "off" };
