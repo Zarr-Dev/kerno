@@ -361,14 +361,14 @@ def build_project(payload: dict) -> dict:
             selected_compiler = c_compiler if is_c_source else cpp_compiler
             args = [
                 selected_compiler, "-m64", "-mcmodel=kernel", "-mno-red-zone", "-ffreestanding",
-                "-fno-exceptions", "-fno-rtti", "-fno-stack-protector", "-fno-pic", "-fno-pie",
-                "-fno-builtin", "-mno-mmx", "-mno-sse", "-mno-sse2", opt_flag,
+                "-fno-stack-protector", "-fno-pic", "-fno-pie", "-fno-builtin",
+                "-mno-mmx", "-mno-sse", "-mno-sse2", opt_flag,
                 "-Wall", "-Wextra", "-I", str(workspace / "include"), "-c", str(source), "-o", str(object_path)
             ]
             if is_c_source:
                 args[1:1] = ["-std=c11"]
             else:
-                args[1:1] = ["-std=c++20"]
+                args[1:1] = ["-std=c++20", "-fno-exceptions", "-fno-rtti"]
             if bool(diagnostics.get("debugSymbols", settings.get("debugSymbols", True))):
                 args.append("-g")
             if bool(diagnostics.get("warningsAsErrors", settings.get("warningsAsErrors", False))):
