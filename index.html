@@ -104,6 +104,155 @@
     </section>
   </main>
 
+  <main class="screen tutorial-screen hidden" id="tutorialScreen">
+    <header class="tutorial-header">
+      <button class="back-button" id="backFromTutorial" type="button">← Project Hub</button>
+      <div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO <small>LEARNING PATH</small></span></div>
+      <div class="tutorial-header-right"><span class="tutorial-level-chip">BEGINNER → BUILDER</span><button class="quiet-button" id="resetTutorialButton" type="button">Reset progress</button></div>
+    </header>
+    <section class="tutorial-hero">
+      <span class="section-kicker">KERNO ACADEMY / OS ENGINEERING</span>
+      <h1>From zero to your <span>first bootable kernel.</span></h1>
+      <p>A guided course from understanding the IDE to producing and testing a validated x86_64 bootable ISO. Complete each stage at your own pace.</p>
+      <div class="tutorial-progress-card">
+        <div class="tutorial-progress-copy"><div><strong>Your learning progress</strong><small id="tutorialProgressText">0 of 9 stages completed</small></div><strong id="tutorialProgressPercent">0%</strong></div>
+        <div class="tutorial-progress-track"><span id="tutorialProgressFill"></span></div>
+        <div class="tutorial-progress-foot"><span>START HERE</span><span id="tutorialProgressNext">Next: Understand Kerno</span></div>
+      </div>
+    </section>
+    <div class="tutorial-layout">
+      <aside class="tutorial-side">
+        <span class="section-kicker">COURSE CONTENTS</span>
+        <nav id="tutorialContents" aria-label="Tutorial stages">
+          <a href="#tutorial-stage-0">00 · Understand Kerno</a>
+          <a href="#tutorial-stage-1">01 · Prepare your PC</a>
+          <a href="#tutorial-stage-2">02 · Create a kernel project</a>
+          <a href="#tutorial-stage-3">03 · Understand the boot chain</a>
+          <a href="#tutorial-stage-4">04 · Read the kernel structure</a>
+          <a href="#tutorial-stage-5">05 · Memory & core modules</a>
+          <a href="#tutorial-stage-6">06 · Toolchain health</a>
+          <a href="#tutorial-stage-7">07 · Build and validate ISO</a>
+          <a href="#tutorial-stage-8">08 · Boot in QEMU</a>
+        </nav>
+        <div class="tutorial-side-note"><strong>One important rule</strong><p>A successful compiler exit is not enough. Kerno must also validate the kernel format, boot header, ISO layout and emulator launch.</p></div>
+      </aside>
+      <div class="tutorial-chapters" id="tutorialChapters">
+        <article class="tutorial-stage" id="tutorial-stage-0" data-tutorial-step="0">
+          <div class="tutorial-stage-number">00</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>FOUNDATION</span><span class="tutorial-time">5 MIN</span></div>
+            <h2>Understand what Kerno does</h2>
+            <p>Kerno has two parts. The website is the IDE you interact with. Kerno Local Service is the native companion that runs on your PC and invokes the compiler, GRUB and QEMU.</p>
+            <div class="tutorial-diagram"><div><b>01</b><strong>Kerno Web IDE</strong><small>Editor · project · settings</small></div><span>↔</span><div><b>02</b><strong>Local Agent</strong><small>Compiler · ISO · emulator</small></div><span>→</span><div><b>03</b><strong>Your OS</strong><small>Kernel ELF · bootable ISO</small></div></div>
+            <div class="tutorial-tip"><strong>Key concept</strong><p>The browser does not compile a kernel by itself. It sends a structured project manifest to the paired Local Agent, which runs native tools on your machine.</p></div>
+            <button class="tutorial-done-button" data-complete-step="0" type="button">Mark stage complete</button>
+          </div>
+        </article>
+        <article class="tutorial-stage" id="tutorial-stage-1" data-tutorial-step="1">
+          <div class="tutorial-stage-number">01</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>HOST SETUP</span><span class="tutorial-time">15–30 MIN</span></div>
+            <h2>Prepare your PC and connect the tools</h2>
+            <p>The first supported native target is x86_64 + BIOS + GRUB + Multiboot2. You need Python 3.10+, NASM, x86_64 C/C++ compilers, an ELF linker, GRUB ISO tooling, xorriso and QEMU.</p>
+            <ul class="tutorial-check-list"><li>Python 3.10 or newer</li><li>NASM assembler</li><li><code>x86_64-elf-gcc</code> and <code>x86_64-elf-g++</code></li><li><code>x86_64-elf-ld</code>, <code>grub-mkrescue</code> and <code>xorriso</code></li><li><code>qemu-system-x86_64</code></li></ul>
+            <div class="tutorial-tip"><strong>Windows</strong><p>Run <code>local-agent/start-local-agent.bat</code>. Copy the pairing token printed by the terminal into Settings → Advanced. Keep the service open while building.</p></div>
+            <div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="settings-toolchain" type="button">Open toolchain settings ↗</button><a href="https://github.com/Zarr-Dev/kerno/blob/main/local-agent/README.md" target="_blank" rel="noopener">Read Local Agent setup</a></div>
+            <button class="tutorial-done-button" data-complete-step="1" type="button">Mark stage complete</button>
+          </div>
+        </article>
+        <article class="tutorial-stage" id="tutorial-stage-2" data-tutorial-step="2">
+          <div class="tutorial-stage-number">02</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>PROJECT DESIGN</span><span class="tutorial-time">5–10 MIN</span></div>
+            <h2>Create your first kernel project</h2>
+            <p>Choose New Project, then select x86_64, BIOS, GRUB, and C or C++. Keep the initial RAM and vCPU settings modest. The generated scaffold includes the Multiboot2 entry, linker script, kernel source, serial console, memory helpers and starter IDT/PMM modules.</p>
+            <div class="tutorial-code-tree">boot/entry.asm
+boot/grub.cfg
+include/kernel/
+src/kernel.cpp
+src/serial.cpp
+src/pmm.cpp
+src/interrupts.cpp
+linker.ld
+kerno.project.json</div>
+            <div class="tutorial-tip"><strong>Why the target matters</strong><p>Changing architecture metadata does not automatically convert boot assembly, ABI or linker layout. Only the x86_64 BIOS + GRUB + Multiboot2 path is currently enabled for native ISO builds.</p></div>
+            <div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="new-project" type="button">Create a new project ↗</button></div>
+            <button class="tutorial-done-button" data-complete-step="2" type="button">Mark stage complete</button>
+          </div>
+        </article>
+        <article class="tutorial-stage" id="tutorial-stage-3" data-tutorial-step="3">
+          <div class="tutorial-stage-number">03</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>BOOT ARCHITECTURE</span><span class="tutorial-time">15 MIN</span></div>
+            <h2>Understand the boot chain</h2>
+            <p>On the current BIOS target, firmware loads GRUB. GRUB recognises the Multiboot2 header and transfers control to the kernel entry point. The x86_64 entry stub begins in 32-bit protected mode, checks CPU capabilities, creates an identity map for the first 1 GiB, enables PAE and long mode, switches to 64-bit code and calls <code>kernel_main</code>.</p>
+            <div class="tutorial-chain"><span>BIOS</span><i>→</i><span>GRUB</span><i>→</i><span>Multiboot2</span><i>→</i><span>32-bit entry</span><i>→</i><span>Long mode</span><i>→</i><span>kernel_main</span></div>
+            <div class="tutorial-tip"><strong>What GRUB passes</strong><p>Multiboot2 provides a boot magic value and a pointer to boot information. Kerno's entry stub forwards these values to the kernel so it can inspect the memory map and other boot tags.</p></div>
+            <button class="tutorial-done-button" data-complete-step="3" type="button">Mark stage complete</button>
+          </div>
+        </article>
+        <article class="tutorial-stage" id="tutorial-stage-4" data-tutorial-step="4">
+          <div class="tutorial-stage-number">04</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>KERNEL SOURCE</span><span class="tutorial-time">20 MIN</span></div>
+            <h2>Read the source files and linker layout</h2>
+            <p>The assembly entry exports <code>_start</code>. The linker script places the Multiboot2 header early in the ELF image, then arranges text, read-only data, writable data and BSS at the configured kernel base. The kernel must be freestanding: no operating-system runtime or standard hosted startup is available.</p>
+            <ul class="tutorial-check-list"><li>Inspect <code>boot/entry.asm</code> and its handoff to 64-bit mode.</li><li>Inspect <code>linker.ld</code> and <code>ENTRY(_start)</code>.</li><li>Inspect <code>src/kernel.cpp</code> and the serial startup messages.</li><li>Keep compiler ABI, entry assembly and linker architecture consistent.</li></ul>
+            <div class="tutorial-tip"><strong>Freestanding compilation</strong><p>Kerno disables hosted assumptions such as built-in memory routines, stack protector, PIE and C++ exceptions/RTTI in its initial pipeline. New modules must still provide any required runtime primitives themselves.</p></div>
+            <button class="tutorial-done-button" data-complete-step="4" type="button">Mark stage complete</button>
+          </div>
+        </article>
+        <article class="tutorial-stage" id="tutorial-stage-5" data-tutorial-step="5">
+          <div class="tutorial-stage-number">05</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>LOW-LEVEL SUBSYSTEMS</span><span class="tutorial-time">20–40 MIN</span></div>
+            <h2>Understand memory, console and interrupts</h2>
+            <p>The starter PMM uses the Multiboot2 memory map to manage 4 KiB physical frames in the first 1 GiB identity-mapped region. Serial output uses COM1 for diagnostics; the text console uses legacy VGA text memory. The IDT installs a fail-stop default handler.</p>
+            <div class="tutorial-tip"><strong>Important limitation</strong><p>This is a learning kernel foundation, not a complete OS. It does not yet implement a general heap, complete virtual memory manager, interrupt controller/PIC/APIC, scheduler, drivers, filesystem or SMP. External interrupts remain disabled.</p></div>
+            <button class="tutorial-done-button" data-complete-step="5" type="button">Mark stage complete</button>
+          </div>
+        </article>
+        <article class="tutorial-stage" id="tutorial-stage-6" data-tutorial-step="6">
+          <div class="tutorial-stage-number">06</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>PRE-BUILD HEALTH</span><span class="tutorial-time">5 MIN</span></div>
+            <h2>Run the toolchain health check</h2>
+            <p>Open Settings → Toolchain and run the local scan. Ensure that assembler, both cross-compilers, linker, GRUB and xorriso are available. The QEMU executable is needed for the next stage. Confirm that both compiler targets report an x86_64 triple.</p>
+            <div class="tutorial-tip"><strong>Do not skip this</strong><p>A compiler found on PATH is not necessarily configured for the right target. Kerno checks compiler target triples before compiling.</p></div>
+            <div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="settings-toolchain" type="button">Run toolchain health check ↗</button></div>
+            <button class="tutorial-done-button" data-complete-step="6" type="button">Mark stage complete</button>
+          </div>
+        </article>
+        <article class="tutorial-stage tutorial-stage-iso" id="tutorial-stage-7" data-tutorial-step="7">
+          <div class="tutorial-stage-number">07</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>BOOTABLE IMAGE</span><span class="tutorial-time">5–15 MIN</span></div>
+            <h2>Build and validate the ISO</h2>
+            <p>Kerno's native pipeline is deliberately staged. A successful ISO is accepted only after its kernel and boot image pass independent health checks.</p>
+            <div class="iso-pipeline">
+              <div><span>01</span><strong>Assemble</strong><small>NASM → ELF64 objects</small></div>
+              <div><span>02</span><strong>Compile</strong><small>C/C++ → freestanding objects</small></div>
+              <div><span>03</span><strong>Link</strong><small>ELF64 x86_64 kernel</small></div>
+              <div><span>04</span><strong>Verify kernel</strong><small>Entry point + Multiboot2</small></div>
+              <div><span>05</span><strong>Stage ISO root</strong><small>/boot/kernel.elf + grub.cfg</small></div>
+              <div><span>06</span><strong>Package</strong><small>grub-mkrescue + xorriso</small></div>
+              <div><span>07</span><strong>Inspect ISO</strong><small>ISO9660 + El Torito + file paths</small></div>
+              <div><span>08</span><strong>Register artifact</strong><small>Only after every required check passes</small></div>
+            </div>
+            <div class="tutorial-tip"><strong>What an ISO contains</strong><p>The staging directory places the kernel at <code>/boot/kernel.elf</code> and GRUB's menu at <code>/boot/grub/grub.cfg</code>. The ISO must contain a valid ISO9660 volume descriptor and an El Torito boot catalog for legacy BIOS boot.</p></div>
+            <div class="tutorial-action-row"><button class="tutorial-action-button" data-tutorial-action="build" type="button">Open Build workspace ↗</button></div>
+            <button class="tutorial-done-button" data-complete-step="7" type="button">Mark stage complete</button>
+          </div>
+        </article>
+        <article class="tutorial-stage tutorial-stage-final" id="tutorial-stage-8" data-tutorial-step="8">
+          <div class="tutorial-stage-number">08</div><div class="tutorial-stage-body">
+            <div class="tutorial-stage-meta"><span>FIRST BOOT</span><span class="tutorial-time">5–10 MIN</span></div>
+            <h2>Boot the ISO in QEMU and inspect output</h2>
+            <p>After the ISO is verified, start the QEMU guest with the matching x86_64 BIOS profile. Inspect the VGA display and COM1 serial output. A real kernel boot should reach the early kernel entry messages; a QEMU process merely staying open does not prove the kernel executed successfully.</p>
+            <ul class="tutorial-check-list"><li>QEMU process is running and its display is attached.</li><li>GRUB loads the kernel without a Multiboot error.</li><li>Serial output reports that kernel entry was reached.</li><li>Physical memory map and IDT initialization messages appear when enabled.</li></ul>
+            <div class="tutorial-tip"><strong>When it fails</strong><p>Use the build health report first. Then inspect QEMU process logs and serial output. A valid ISO can still contain a kernel with a runtime fault, so image validation and successful guest execution are separate checks.</p></div>
+            <div class="tutorial-finish"><span>✓</span><div><strong>That's your first kernel boot milestone.</strong><p>Save your project, export its source archive and keep the verified ISO with its build logs.</p></div></div>
+            <div class="tutorial-action-row"><button class="primary-button" id="tutorialFinishButton" type="button">Start a kernel project <span aria-hidden="true">↗</span></button><a href="https://github.com/Zarr-Dev/kerno" target="_blank" rel="noopener">Explore the source repository</a></div>
+            <button class="tutorial-done-button" data-complete-step="8" type="button">Mark course complete</button>
+          </div>
+        </article>
+      </div>
+    </div>
+    <footer class="tutorial-footer"><span>KERNO ACADEMY · LEARN BY BUILDING</span><button class="text-button" id="tutorialBackTopButton" type="button">Back to top ↑</button></footer>
+  </main>
+
   <main class="screen setup-screen hidden" id="newProjectScreen">
     <header class="setup-header"><button class="back-button" id="backFromNewProject">← <span data-i18n="back">Back</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><span class="setup-step">NEW WORKSPACE / 01</span></header>
     <section class="setup-content">
