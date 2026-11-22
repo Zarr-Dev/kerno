@@ -252,7 +252,7 @@ async function handleTutorialAction(action){
     state.newProjectReturn="tutorial";syncWizardDefaults();show("newProject");return;
   }
   if(action==="build"){
-    if(!state.project){notify("Create a project first","The Build workspace needs a kernel project.");syncWizardDefaults();show("newProject");return;}
+    if(!state.project){notify("Create a project first","The Build workspace needs a kernel project.");state.newProjectReturn="tutorial";syncWizardDefaults();show("newProject");return;}
     show("app");switchWorkspace("build");return;
   }
 }
@@ -1329,6 +1329,9 @@ async function pollQemuStatus(){
       if(window.KernoNoVNC)window.KernoNoVNC.disconnect();
       state.currentDisplayUrl="";
       state.lastSerialOutput="";
+      state.qemuStartedAt=0;
+      state.qemuBootTimeoutShown=false;
+      if(!state.kernelEntryConfirmed)$("#buildStateLabel").textContent="QEMU STOPPED · KERNEL ENTRY NOT CONFIRMED";
       $("#serialOutput").textContent="QEMU is stopped. No serial output is available.";
       renderMachineEmpty("Local service connected; no QEMU guest is running.");
       setServiceStatus(true,"Service connected · machine stopped");
