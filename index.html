@@ -3,161 +3,177 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#10141b">
-  <meta name="description" content="Kerno Kernel Studio — write, organize and package operating-system source code.">
-  <title>Kerno — Kernel Studio</title>
+  <meta name="theme-color" content="#11161d">
+  <meta name="description" content="Kerno — an OS-focused development environment for kernel engineering.">
+  <title>Kerno — Operating System Builder</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+  <script src="./local-agent.js"></script>
 </head>
 <body>
-  <div class="app-shell" id="appShell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark"><i></i><i></i><i></i></div>
-        <div class="brand-copy"><strong>kerno</strong><span>KERNEL STUDIO</span></div>
-      </div>
-      <div class="project-identity">
-        <span class="project-label">PROJECT</span>
-        <strong id="projectNameLabel">My First OS</strong>
-        <span class="target-chip"><span class="target-dot"></span>x86_64 <b>·</b> GRUB</span>
-      </div>
-      <button class="command-trigger" id="commandButton" title="Search files and commands (Ctrl+Shift+P)">⌕ <span>Search files and actions</span><kbd>Ctrl ⇧ P</kbd></button>
-      <div class="top-actions">
-        <button class="tool-button" id="newProjectButton">＋ New OS</button>
-        <button class="tool-button" id="importButton" title="Import source files or a Kerno ZIP project"><span class="button-icon">⇧</span> Import</button>
-        <button class="tool-button" id="exportFileButton" title="Export the active source file"><span class="button-icon">↓</span> Export file</button>
-        <button class="tool-button secondary" id="exportProjectButton" title="Export the complete project as a ZIP archive"><span class="button-icon">▣</span> Export project</button>
-        <span class="top-separator"></span>
-        <button class="icon-button" id="themeButton" title="Toggle editor theme" aria-label="Toggle theme">◐</button>
-        <button class="build-button" id="buildButton"><span>▶</span> Build &amp; Boot</button>
-        <button class="icon-button" id="focusButton" title="Toggle focus mode" aria-label="Toggle focus mode">⛶</button>
-      </div>
-    </header>
-
-    <div class="studio-layout">
-      <nav class="tool-rail" aria-label="Kerno tools">
-        <button class="rail-button active" data-view="project" title="Project map"><span class="rail-symbol">⌘</span><small>Project</small></button>
-        <button class="rail-button" data-view="snippets" title="Code patterns"><span class="rail-symbol">⌁</span><small>Patterns</small></button>
-        <button class="rail-button" data-view="settings" title="Editor settings"><span class="rail-symbol">⚙</span><small>Settings</small></button>
-        <div class="rail-spacer"></div>
-        <button class="rail-button help-rail" id="helpButton" title="Kerno help"><span class="rail-symbol">?</span><small>Help</small></button>
-      </nav>
-
-      <aside class="project-panel" id="projectPanel">
-        <div class="panel-heading">
-          <div><span class="eyebrow">WORKSPACE</span><h2 id="sideHeading">Project map</h2></div>
-          <button class="icon-button small" id="sideActionButton" title="Create source file">＋</button>
-        </div>
-        <div class="panel-view" id="panelView">
-          <div class="project-card">
-            <div class="project-card-icon">K</div>
-            <div class="project-card-copy"><strong id="sideProjectName">My First OS</strong><span>Kernel project · x86_64</span></div>
-            <span class="live-dot"></span>
-          </div>
-          <div class="tree-toolbar">
-            <span>PROJECT FILES</span>
-            <div><button class="mini-action" id="newFileButton" title="New file">＋</button><button class="mini-action" id="importFolderButton" title="Import a source folder">⇧</button><button class="mini-action" id="refreshTreeButton" title="Refresh file map">↻</button></div>
-          </div>
-          <div class="file-tree" id="fileTree" aria-label="Project source files"></div>
-          <div class="panel-footnote"><span class="footnote-mark">i</span><span>Starter code is editable. Save locally or export a project archive.</span></div>
-        </div>
-      </aside>
-
-      <main class="editor-workspace">
-        <div class="workspace-toolbar">
-          <div class="workspace-context">
-            <span class="context-kicker">SOURCE WORKSPACE</span>
-            <span class="context-divider">/</span>
-            <strong id="activeFilePath">src/kernel.cpp</strong>
-            <span class="unsaved-indicator" id="unsavedIndicator">SAVED IN BROWSER</span>
-          </div>
-          <div class="editor-actions">
-            <button class="editor-action" id="saveButton" title="Save project in this browser (Ctrl+S)">Save <kbd>⌃ S</kbd></button>
-            <button class="editor-action" id="splitButton" title="Open a second editor pane">Split view</button>
-            <button class="editor-action" id="editorMenuButton" title="Editor actions">···</button>
-          </div>
-        </div>
-
-        <div class="open-files" id="openFiles" aria-label="Open files"></div>
-
-        <section class="editor-stage" id="editorStage">
-          <div class="editor-pane primary-pane">
-            <div class="pane-caption"><span class="file-language-dot" id="languageDot"></span><span id="paneFileName">kernel.cpp</span><span class="pane-caption-spacer"></span><span id="paneRole">KERNEL ENTRY</span></div>
-            <div class="editor-host" id="editorHost"></div>
-            <textarea id="fallbackEditor" spellcheck="false" aria-label="Source code editor"></textarea>
-          </div>
-          <div class="split-pane hidden" id="splitPane">
-            <div class="split-toolbar">
-              <span class="split-label">SECOND EDITOR</span>
-              <select id="splitFileSelect" aria-label="File in second editor"></select>
-              <button class="mini-action" id="closeSplitButton" title="Close split view">×</button>
-            </div>
-            <div class="editor-host" id="splitEditorHost"></div>
-          </div>
-        </section>
-
-        <div class="bottom-resizer" id="bottomResizer" role="separator" aria-label="Resize output panel"></div>
-        <section class="output-panel" id="outputPanel">
-          <div class="output-heading">
-            <div class="output-tabs">
-              <button class="output-tab active" data-output="problems">Problems <span class="tab-count">0</span></button>
-              <button class="output-tab" data-output="build">Build output</button>
-              <button class="output-tab" data-output="serial">Kernel serial</button>
-              <button class="output-tab" data-output="notes">Integration notes</button>
-            </div>
-            <div class="output-tools">
-              <button class="mini-action" id="clearOutputButton" title="Clear current output">⌫</button>
-              <button class="mini-action" id="expandOutputButton" title="Expand or restore output panel">⌃</button>
-              <button class="mini-action" id="hideOutputButton" title="Hide output panel">×</button>
-            </div>
-          </div>
-          <div class="output-content" id="outputContent"></div>
-        </section>
-      </main>
-    </div>
-
-    <footer class="statusbar">
-      <div class="status-left"><span class="status-led"></span><span id="saveStatus">Workspace ready</span><span class="status-divider">│</span><span>Target: x86_64</span><span class="status-divider">│</span><span id="fileCountStatus">7 source files</span></div>
-      <div class="status-right"><span id="cursorStatus">Ln 1, Col 1</span><span id="languageStatus">C++</span><span>UTF-8</span><span>LF</span><span>KERNO PREVIEW</span></div>
-    </footer>
-  </div>
-
-  <input type="file" id="importInput" multiple hidden accept=".zip,.kerno,.c,.cc,.cpp,.cxx,.h,.hh,.hpp,.hxx,.asm,.s,.inc,.ld,.cfg,.ini,.json,.txt,.md,.mk">
-  <input type="file" id="folderInput" multiple hidden webkitdirectory directory>
-
   <div class="toast-region" id="toastRegion" aria-live="polite"></div>
 
-  <div class="modal-backdrop hidden" id="newFileModal">
-    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="newFileTitle">
-      <div class="modal-title-row"><div><span class="eyebrow">PROJECT FILE</span><h2 id="newFileTitle">Add source file</h2><p>Create a file inside your OS project.</p></div><button class="icon-button" id="closeNewFileModal" aria-label="Close">×</button></div>
-      <label class="field-label" for="newFilePath">File path</label>
-      <input class="text-field" id="newFilePath" value="src/new_module.cpp" placeholder="src/new_module.cpp">
-      <div class="form-hint">Examples: <code>src/memory.cpp</code>, <code>boot/gdt.asm</code>, <code>include/kernel.hpp</code></div>
-      <div class="modal-actions"><button class="tool-button" id="cancelNewFile">Cancel</button><button class="primary-button" id="confirmNewFile">Create file</button></div>
-    </section>
-  </div>
-
-  <div class="modal-backdrop hidden" id="newProjectModal">
-    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="newProjectTitle">
-      <div class="modal-title-row"><div><span class="eyebrow">NEW WORKSPACE</span><h2 id="newProjectTitle">Start an OS project</h2><p>Choose a starter source layout.</p></div><button class="icon-button" id="closeNewProjectModal" aria-label="Close">×</button></div>
-      <label class="field-label" for="newProjectName">Project name</label>
-      <input class="text-field" id="newProjectName" value="My First OS" maxlength="48">
-      <div class="starter-grid">
-        <button class="starter-card selected" data-starter="text"><strong>Text kernel</strong><span>Assembly entry + C++ kernel + GRUB</span></button>
-        <button class="starter-card" data-starter="framebuffer"><strong>Framebuffer starter</strong><span>Text kernel plus framebuffer scaffolding</span></button>
+  <main class="screen welcome-screen" id="welcomeScreen">
+    <header class="welcome-top">
+      <div class="brand-lockup"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small>OS DEVELOPMENT ENVIRONMENT</small></span></div>
+      <div class="welcome-top-actions"><span class="local-status"><i></i> LOCAL WORKSPACE</span><button class="quiet-button" id="welcomeSettingsButton" data-i18n="settings">Settings</button></div>
+    </header>
+    <section class="welcome-content">
+      <div class="welcome-intro">
+        <span class="section-kicker">KERNEL ENGINEERING WORKSPACE</span>
+        <h1 data-i18n="welcomeTitle">Build your operating system.</h1>
+        <p data-i18n="welcomeSubtitle">A focused environment for kernel source, machine configuration, memory planning and emulator workflows.</p>
       </div>
-      <div class="modal-actions"><button class="tool-button" id="cancelNewProject">Cancel</button><button class="primary-button" id="confirmNewProject">Create workspace</button></div>
+      <div class="welcome-actions">
+        <button class="welcome-card primary-card" id="welcomeNewProject">
+          <span class="action-icon">＋</span><strong data-i18n="newProject">New project</strong><span data-i18n="newProjectDesc">Create a structured OS workspace from a kernel template.</span><b data-i18n="startArrow">Start a project →</b>
+        </button>
+        <button class="welcome-card" id="welcomeLoadProject">
+          <span class="action-icon">↥</span><strong data-i18n="loadProject">Load project</strong><span data-i18n="loadProjectDesc">Open a Kerno archive, project manifest or source directory.</span><b data-i18n="openWorkspace">Open workspace →</b>
+        </button>
+        <button class="welcome-card" id="welcomeConfigure">
+          <span class="action-icon">⚙</span><strong data-i18n="configureIDE">Configure IDE</strong><span data-i18n="configureDesc">Set language, appearance, editor behavior and local tools.</span><b data-i18n="openSettings">Open settings →</b>
+        </button>
+      </div>
+      <section class="recent-section">
+        <div class="section-heading"><div><span class="section-kicker" data-i18n="workspaceHistory">WORKSPACE HISTORY</span><h2 data-i18n="recentProjects">Recent projects</h2></div><button class="text-button" id="clearRecentButton" data-i18n="clearHistory">Clear history</button></div>
+        <div class="recent-list" id="recentProjects"><div class="recent-empty"><span>⌁</span><strong data-i18n="noRecent">No recent projects</strong><p data-i18n="noRecentDesc">Create or load an OS project to begin.</p></div></div>
+      </section>
+      <footer class="welcome-footer"><span>KERNO <b>0.3.0</b></span><span data-i18n="noAccount">No account required · Project data stays in this browser until exported</span></footer>
     </section>
-  </div>
+  </main>
 
-  <div class="command-backdrop hidden" id="commandBackdrop">
-    <div class="command-box"><div class="command-search"><span>⌕</span><input id="commandInput" placeholder="Search Kerno actions and files..." autocomplete="off"><kbd>ESC</kbd></div><div class="command-results" id="commandResults"></div><div class="command-help">↑ ↓ navigate <span>Enter select</span><span>Esc close</span></div></div>
-  </div>
+  <main class="screen setup-screen hidden" id="newProjectScreen">
+    <header class="setup-header"><button class="back-button" id="backFromNewProject">← <span data-i18n="back">Back</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><span class="setup-step">NEW WORKSPACE / 01</span></header>
+    <section class="setup-content">
+      <span class="section-kicker">PROJECT SCAFFOLDING</span>
+      <h1 data-i18n="newOsWorkspace">New operating system workspace</h1>
+      <p class="setup-lead" data-i18n="newOsLead">Choose the machine target and kernel foundation. Kerno will create the initial source tree and project configuration.</p>
+      <div class="setup-grid">
+        <section class="setup-form">
+          <label class="field-label" for="projectNameInput" data-i18n="projectName">Project name</label>
+          <input class="text-field" id="projectNameInput" value="My First OS" maxlength="48">
+          <label class="field-label" for="templateSelect" data-i18n="starterTemplate">Starter template</label>
+          <select class="text-field" id="templateSelect">
+            <option value="kernel-text">Bare-metal text kernel</option>
+            <option value="kernel-framebuffer">Framebuffer kernel</option>
+            <option value="kernel-minimal">Minimal kernel foundation</option>
+          </select>
+          <div class="form-columns">
+            <div><label class="field-label" for="architectureSelect" data-i18n="architecture">Architecture</label><select class="text-field" id="architectureSelect"><option value="x86_64">x86_64</option><option value="i686">i686</option><option value="aarch64">AArch64</option><option value="riscv64">RISC-V 64</option></select></div>
+            <div><label class="field-label" for="firmwareSelect" data-i18n="firmware">Firmware</label><select class="text-field" id="firmwareSelect"><option value="bios">BIOS / legacy</option><option value="uefi">UEFI</option></select></div>
+          </div>
+          <div class="form-columns">
+            <div><label class="field-label" for="kernelLanguageSelect" data-i18n="kernelLanguage">Kernel language</label><select class="text-field" id="kernelLanguageSelect"><option value="cpp">C++</option><option value="c">C</option></select></div>
+            <div><label class="field-label" for="bootloaderSelect" data-i18n="bootloader">Bootloader</label><select class="text-field" id="bootloaderSelect"><option value="grub">GRUB</option><option value="uefi-app">UEFI application</option><option value="custom">Custom boot stage</option></select></div>
+          </div>
+          <div class="form-columns">
+            <div><label class="field-label" for="guestMemoryInput" data-i18n="guestMemory">Guest RAM (MiB)</label><input class="text-field" type="number" id="guestMemoryInput" min="64" max="32768" step="64" value="512"></div>
+            <div><label class="field-label" for="cpuCountInput" data-i18n="virtualCpus">Virtual CPUs</label><input class="text-field" type="number" id="cpuCountInput" min="1" max="32" value="2"></div>
+          </div>
+          <div class="setup-actions"><button class="quiet-button" id="cancelNewProject" data-i18n="cancel">Cancel</button><button class="primary-button" id="createProjectButton" data-i18n="createWorkspace">Create workspace</button></div>
+        </section>
+        <aside class="setup-aside">
+          <div class="aside-title">PROJECT STRUCTURE</div>
+          <pre id="scaffoldPreview">My First OS/
+├── boot/
+│   ├── entry.asm
+│   └── grub.cfg
+├── include/
+│   └── kernel/
+├── src/
+│   ├── kernel.cpp
+│   ├── console.cpp
+│   └── memory.cpp
+├── linker.ld
+└── kerno.project.json</pre>
+          <div class="aside-note"><span>i</span><p data-i18n="scaffoldNote">These are real editable source files. A validated boot image still requires a matching native toolchain and boot protocol.</p></div>
+        </aside>
+      </div>
+    </section>
+  </main>
 
+  <main class="screen settings-screen hidden" id="settingsScreen">
+    <header class="settings-header"><button class="back-button" id="backFromSettings">← <span data-i18n="back">Back</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><div class="settings-heading"><span class="section-kicker">ENVIRONMENT CONTROL</span><strong data-i18n="settings">Settings</strong></div><button class="primary-button" id="saveSettingsButton" data-i18n="applySettings">Apply settings</button></header>
+    <div class="settings-layout">
+      <nav class="settings-nav" id="settingsNav">
+        <button class="settings-nav-item active" data-category="general"><span>◈</span><b data-i18n="general">General</b></button>
+        <button class="settings-nav-item" data-category="appearance"><span>◐</span><b data-i18n="appearance">Appearance</b></button>
+        <button class="settings-nav-item" data-category="language"><span>文</span><b data-i18n="language">Language</b></button>
+        <button class="settings-nav-item" data-category="editor"><span>⌘</span><b data-i18n="editor">Editor</b></button>
+        <button class="settings-nav-item" data-category="architecture"><span>⌬</span><b data-i18n="osArchitecture">OS & Architecture</b></button>
+        <button class="settings-nav-item" data-category="memory"><span>▤</span><b data-i18n="memory">Memory</b></button>
+        <button class="settings-nav-item" data-category="emulator"><span>▣</span><b data-i18n="emulator">QEMU & Emulator</b></button>
+        <button class="settings-nav-item" data-category="toolchain"><span>⚒</span><b data-i18n="toolchain">Toolchain</b></button>
+        <button class="settings-nav-item" data-category="storage"><span>▱</span><b data-i18n="storage">Storage & Data</b></button>
+        <button class="settings-nav-item" data-category="advanced"><span>⚙</span><b data-i18n="advanced">Advanced</b></button>
+      </nav>
+      <section class="settings-content"><div class="settings-category-heading"><span class="section-kicker" id="settingsEyebrow">ENVIRONMENT</span><h1 id="settingsTitle">General</h1><p id="settingsDescription">Control how Kerno behaves across projects.</p></div><div id="settingsFields"></div></section>
+    </div>
+  </main>
+
+  <main class="screen app-screen hidden" id="appScreen">
+    <header class="app-topbar">
+      <div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div>
+      <div class="app-project"><span class="project-dot"></span><strong id="activeProjectName">My OS</strong><span class="chip" id="activeTargetChip">x86_64 · GRUB</span></div>
+      <nav class="workspace-nav"><button class="workspace-nav-item active" data-workspace="source" data-i18n="source">Source</button><button class="workspace-nav-item" data-workspace="machine" data-i18n="machine">Machine</button><button class="workspace-nav-item" data-workspace="build" data-i18n="build">Build</button></nav>
+      <div class="app-actions"><button class="icon-button" id="appSettingsButton" title="Settings">⚙</button><button class="tool-button" id="saveProjectButton">Save</button><button class="tool-button" id="importProjectFilesButton" data-i18n="importFiles">Import files</button><button class="tool-button" id="exportProjectButton" data-i18n="exportProject">Export project</button><button class="primary-button small-button" id="buildProjectButton" data-i18n="buildBoot">Build & Boot</button><button class="icon-button" id="backToWelcomeButton" title="Home">⌂</button></div>
+    </header>
+
+    <section class="workspace-view" id="sourceWorkspace">
+      <aside class="source-sidebar">
+        <div class="sidebar-top"><div><span class="section-kicker">PROJECT</span><strong data-i18n="projectFiles">Project files</strong></div><div><button class="mini-button" id="addSourceFileButton" title="New file">＋</button><button class="mini-button" id="importSourceFolderButton" title="Import folder">↥</button></div></div>
+        <div class="source-tree" id="sourceTree"></div>
+        <div class="sidebar-bottom"><span id="sourceCount">0 files</span><span id="projectStorageSize">0 KB</span></div>
+      </aside>
+      <section class="source-editor-area">
+        <div class="editor-toolbar"><div class="editor-breadcrumb" id="editorBreadcrumb">Select a source file</div><div class="editor-toolbar-actions"><button class="editor-tool" id="splitEditorButton">Split editor</button><button class="editor-tool" id="saveFileButton">Save file</button><button class="editor-tool" id="exportFileButton">Export file</button></div></div>
+        <div class="source-tabs" id="sourceTabs"></div>
+        <div class="editor-container" id="editorContainer"><div class="monaco-pane" id="monacoPane"></div><textarea id="plainEditor" spellcheck="false" aria-label="Kernel source editor"></textarea><div class="editor-empty hidden" id="editorEmpty"><span>⌘</span><strong>No source file selected</strong><p>Choose a file from the project tree or create a new source module.</p><button class="quiet-button" id="emptyNewFileButton">Create source file</button></div><div class="split-editor-pane hidden" id="splitPane"><div class="split-pane-heading"><span>SECOND SOURCE</span><select id="splitFileSelect"></select><button class="mini-button" id="closeSplitButton">×</button></div><div id="splitMonacoPane"></div></div></div>
+        <footer class="editor-status"><span id="editorStatus">Workspace ready</span><span id="cursorPosition">Ln 1, Col 1</span><span id="languageMode">Plain Text</span><span id="encodingStatus">UTF-8 · LF</span></footer>
+      </section>
+    </section>
+
+    <section class="workspace-view hidden" id="machineWorkspace">
+      <div class="machine-layout">
+        <section class="machine-main">
+          <div class="machine-heading"><div><span class="section-kicker">VIRTUAL MACHINE OUTPUT</span><h1 data-i18n="machineDisplay">Machine display</h1><p data-i18n="machineDesc">Live guest output is streamed from the connected local QEMU service.</p></div><div class="machine-status"><i id="qemuStatusDot"></i><span id="qemuStatusText">QEMU not connected</span></div></div>
+          <div class="machine-viewport" id="machineViewport"><div class="viewport-empty"><div class="monitor-glyph">▣</div><strong data-i18n="noMachineSession">No machine session</strong><p data-i18n="connectQemuPrompt">Connect Kerno Local Service to launch and display a QEMU guest.</p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div></div>
+          <div class="machine-console"><div class="console-head"><span>SERIAL / COM1</span><button class="mini-button" id="clearSerialButton">Clear</button></div><pre id="serialOutput">Serial output is unavailable until a real QEMU session is connected.</pre></div>
+        </section>
+        <aside class="machine-controls">
+          <span class="section-kicker">MACHINE PROFILE</span><h2>Virtual hardware</h2>
+          <div class="machine-spec"><span>Architecture</span><strong id="machineArchitecture">x86_64</strong></div>
+          <div class="machine-spec"><span>Machine type</span><strong id="machineType">q35</strong></div>
+          <div class="machine-spec"><span>Guest memory</span><strong id="machineMemory">512 MiB</strong></div>
+          <div class="machine-spec"><span>vCPU cores</span><strong id="machineCpus">2</strong></div>
+          <div class="machine-spec"><span>Display</span><strong id="machineDisplaySpec">std VGA</strong></div>
+          <div class="control-divider"></div>
+          <button class="primary-button full-button" id="connectLocalServiceButton">Connect local service</button>
+          <button class="primary-button full-button" id="startQemuButton">Start QEMU</button>
+          <button class="quiet-button full-button" id="stopQemuButton" disabled>Stop machine</button>
+          <p class="control-note" id="machineControlNote">QEMU is managed by Kerno Local Service. The browser does not execute native emulator processes.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="workspace-view hidden" id="buildWorkspace">
+      <div class="build-layout">
+        <div class="build-overview"><span class="section-kicker">NATIVE TOOLCHAIN</span><h1 data-i18n="buildConfiguration">Build configuration</h1><p data-i18n="buildConfigurationDesc">Review the project target before invoking the connected native build service.</p><div class="build-config-grid"><div><span>Target</span><strong id="buildTarget">x86_64</strong></div><div><span>Bootloader</span><strong id="buildBootloader">GRUB</strong></div><div><span>Kernel language</span><strong id="buildLanguage">C++</strong></div><div><span>Output format</span><strong>ISO / ELF</strong></div></div><div class="build-actions"><button class="primary-button" id="runBuildButton">Run native build</button><button class="quiet-button" id="openSettingsFromBuild">Configure toolchain</button></div><p class="build-disclaimer">A build is only reported as successful after the local service returns a verified artifact and exit status.</p></div>
+        <div class="build-log-panel"><div class="log-heading"><strong>BUILD EVENTS</strong><span id="buildStateLabel">NO BUILD RUN</span></div><pre id="buildLog">No build has been requested.</pre></div>
+      </div>
+    </section>
+  </main>
+
+  <input type="file" id="loadProjectInput" hidden accept=".zip,.kerno,.json">
+  <input type="file" id="sourceImportInput" hidden multiple>
+  <input type="file" id="sourceFolderInput" hidden multiple webkitdirectory directory>
+  <input type="file" id="projectFolderInput" hidden multiple webkitdirectory directory>
+  <div class="hidden" id="settingsScreenReturn"></div>
   <script src="./script.js"></script>
 </body>
 </html>
