@@ -62,24 +62,340 @@ function show(name){state.screen=name;["welcome","newProject","settings","app"].
 function emptyRecent(){const d=document.createElement("div");d.className="recent-empty";d.innerHTML="<span>⌁</span><div><strong></strong><p></p></div>";$("strong",d).textContent=tr("noRecent");$("p",d).textContent=tr("noRecentDesc");return d;}
 async function refreshRecent(){try{const hidden=await get("meta","hiddenRecent");const hiddenIds=new Set(hidden&&hidden.value||[]);state.recent=(await all("projects")).filter(p=>!hiddenIds.has(p.id)).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,12);}catch(_){state.recent=[];}const host=$("#recentProjects");host.innerHTML="";if(!state.recent.length){host.append(emptyRecent());return;}state.recent.forEach(p=>{const b=document.createElement("button");b.className="recent-item";b.innerHTML='<span class="recent-icon">K</span><span class="recent-copy"><strong></strong><small></small></span><span class="recent-open">OPEN →</span>';$("strong",b).textContent=p.name;$("small",b).textContent=(p.config.architecture||"unknown")+" · "+Object.keys(p.files).length+" files · "+new Date(p.updatedAt).toLocaleDateString();b.onclick=()=>loadProject(p.id);host.append(b);});}
 function configFor(name){const s=state.settings;return {name:name,architecture:s.defaultArchitecture,firmware:s.defaultFirmware,bootloader:s.defaultBootloader,kernelLanguage:s.defaultKernelLanguage,optimization:s.optimization,memory:{guestMiB:s.guestMemoryMiB,heapReserveMiB:s.heapReserveMiB,stackReserveKiB:s.stackReserveKiB,pageSize:s.pageSize,kernelBase:s.kernelBase},qemu:{binary:s.qemuBinary,machine:s.qemuMachine,display:s.qemuDisplay,vcpus:s.qemuVcpus,vncPort:s.qemuVncPort,acceleration:s.qemuAcceleration}};}
-function scaffold(c,template){const ext=c.kernelLanguage==="c"?"c":"cpp",f={};let asm;
-if(c.architecture==="x86_64"||c.architecture==="i686")asm=["; Kerno x86 entry scaffold","; Validate boot ABI, CPU mode and Multiboot2 handoff before booting.","BITS 32","SECTION .multiboot","ALIGN 8","dd 0xE85250D6","dd 0","dd header_end - header_start","dd -(0xE85250D6 + (header_end - header_start))","header_start:","    dd 0","    dd 8","header_end:","SECTION .bss","ALIGN 16","stack_bottom: RESB 16384","stack_top:","SECTION .text","GLOBAL _start","EXTERN kernel_main","_start:","    cli","    mov esp, stack_top","    call kernel_main",".halt:","    hlt","    jmp .halt",""].join("\n");
-else if(c.architecture==="aarch64")asm=["// AArch64 entry scaffold; firmware ABI and exception level must be validated.",".section .text.boot",".global _start","_start:","    msr daifset, #0xf","    bl kernel_main","1:  wfe","    b 1b",""].join("\n");
-else asm=["# RISC-V 64 entry scaffold; validate privilege and platform ABI."," .section .text.init",".globl _start","_start:","    la sp, kernel_stack_top","    call kernel_main","1:  wfi","    j 1b",".section .bss",".align 12","kernel_stack:","    .space 16384","kernel_stack_top:",""].join("\n");
-f["boot/entry.asm"]=asm;
-if(c.bootloader==="grub")f["boot/grub.cfg"]=["set timeout=3","set default=0","","menuentry '"+c.name+"' {","    multiboot2 /boot/kernel.elf","    boot","}",""].join("\n");
-f["include/kernel/types.h"]=["#pragma once","#include <stdint.h>","#include <stddef.h>","typedef uintptr_t kerno_addr_t;","typedef uint64_t kerno_size_t;",""].join("\n");
-f["include/kernel/console.h"]=["#pragma once","void kerno_console_initialize(void);","void kerno_console_write(const char* text);",""].join("\n");
-f["include/kernel/memory.h"]=["#pragma once","#include <stddef.h>","void* kerno_memset(void* dst, int value, size_t size);","void* kerno_memcpy(void* dst, const void* src, size_t size);",""].join("\n");
-f["src/kernel."+ext]=["#include <stdint.h>","#include \"kernel/console.h\"","#include \"kernel/memory.h\"","","extern \"C\" void kernel_main(void) {","    kerno_console_initialize();","    kerno_console_write(\""+c.name+" kernel initialized.\");","    for (;;) {","        __asm__ volatile (\"hlt\");","    }","}",""].join("\n");
-f["src/console."+ext]=["#include \"kernel/console.h\"","","void kerno_console_initialize(void) {","    // Initialize a validated VGA, framebuffer or serial backend.","}","","void kerno_console_write(const char* text) {","    (void)text;","    // Implement the selected output driver after boot handoff validation.","}",""].join("\n");
-f["src/memory."+ext]=["#include <stddef.h>","#include <stdint.h>","#include \"kernel/memory.h\"","","void* kerno_memset(void* dst, int value, size_t size) {","    uint8_t* out=(uint8_t*)dst;","    for(size_t i=0;i<size;++i) out[i]=(uint8_t)value;","    return dst;","}","","void* kerno_memcpy(void* dst,const void* src,size_t size) {","    uint8_t* out=(uint8_t*)dst;","    const uint8_t* in=(const uint8_t*)src;","    for(size_t i=0;i<size;++i) out[i]=in[i];","    return dst;","}",""].join("\n");
-if(template==="kernel-framebuffer"){f["include/kernel/framebuffer.h"]=["#pragma once","#include <stdint.h>","typedef struct { uintptr_t address; uint32_t width,height,pitch; uint8_t bits_per_pixel; } kerno_framebuffer_t;","void kerno_framebuffer_initialize(const kerno_framebuffer_t* fb);",""].join("\n");f["src/framebuffer."+ext]=["#include \"kernel/framebuffer.h\"","void kerno_framebuffer_initialize(const kerno_framebuffer_t* fb) {","    if(!fb || !fb->address || !fb->width || !fb->height) return;","    // Validate pitch, pixel format and accessible memory before drawing.","}",""].join("\n");}
-f["linker.ld"]=["ENTRY(_start)","SECTIONS","{","    . = "+c.memory.kernelBase+";","    .multiboot ALIGN(8) : { KEEP(*(.multiboot)) }","    .text ALIGN(4K) : { *(.text .text.*) }","    .rodata ALIGN(4K) : { *(.rodata .rodata.*) }","    .data ALIGN(4K) : { *(.data .data.*) }","    .bss ALIGN(4K) : { *(COMMON) *(.bss .bss.*) }","}",""].join("\n");
-f["kerno.project.json"]=JSON.stringify({format:"kerno-project",version:1,name:c.name,config:c},null,2)+"\n";
-f["docs/architecture.md"]=["# "+c.name,"","## Target","- Architecture: "+c.architecture,"- Firmware: "+c.firmware,"- Bootloader: "+c.bootloader,"- Kernel language: "+c.kernelLanguage,"","## Source layout","- boot/: entry and boot configuration","- include/kernel/: kernel interfaces","- src/: kernel implementation","- linker.ld: memory layout","","## Boot validation","This scaffold contains editable source. Validate boot ABI, CPU mode, compiler flags, linker output and bootloader contract together before treating an image as bootable.",""].join("\n");
-f["README.md"]="# "+c.name+"\n\nKernel source workspace created by Kerno. Review docs/architecture.md before native builds.\n";
-return f;}
+function scaffold(c,template){
+const ext=c.kernelLanguage==="c"?"c":"cpp";
+const f={};
+const x86=c.architecture==="x86_64"||c.architecture==="i686";
+let entry="";
+if(c.architecture==="x86_64"){
+entry=[
+"; Kerno x86_64 Multiboot2 entry. GRUB enters in 32-bit protected mode.",
+"; This stub checks long-mode support, builds a 1 GiB identity map, then enters long mode.",
+"BITS 32",
+"SECTION .multiboot",
+"ALIGN 8",
+"mb2_header_start:",
+"    dd 0xE85250D6",
+"    dd 0",
+"    dd mb2_header_end - mb2_header_start",
+"    dd -(0xE85250D6 + (mb2_header_end - mb2_header_start))",
+"    dw 0",
+"    dw 0",
+"    dd 8",
+"mb2_header_end:",
+"",
+"SECTION .bss",
+"ALIGN 4096",
+"pml4: RESQ 512",
+"pdpt: RESQ 512",
+"pd:   RESQ 512",
+"ALIGN 16",
+"kernel_stack_bottom: RESB 16384",
+"kernel_stack_top:",
+"boot_magic: RESD 1",
+"boot_info:  RESD 1",
+"",
+"SECTION .rodata",
+"ALIGN 8",
+"gdt64:",
+"    dq 0x0000000000000000",
+"    dq 0x00AF9A000000FFFF",
+"    dq 0x00CF92000000FFFF",
+"gdt64_pointer:",
+"    dw gdt64_pointer - gdt64 - 1",
+"    dd gdt64",
+"",
+"SECTION .text",
+"GLOBAL _start",
+"EXTERN kernel_main",
+"_start:",
+"    cli",
+"    mov [boot_magic], eax",
+"    mov [boot_info], ebx",
+"    mov esp, kernel_stack_top",
+"",
+"    ; Confirm CPUID and extended long-mode support.",
+"    pushfd",
+"    pop eax",
+"    mov ecx, eax",
+"    xor eax, 1 << 21",
+"    push eax",
+"    popfd",
+"    pushfd",
+"    pop eax",
+"    push ecx",
+"    popfd",
+"    cmp eax, ecx",
+"    je .halt32",
+"    mov eax, 0x80000000",
+"    cpuid",
+"    cmp eax, 0x80000001",
+"    jb .halt32",
+"    mov eax, 0x80000001",
+"    cpuid",
+"    bt edx, 29",
+"    jnc .halt32",
+"    bt edx, 6",
+"    jnc .halt32",
+"",
+"    ; Map the first 1 GiB with 2 MiB identity pages.",
+"    mov edi, pd",
+"    mov ecx, 512",
+"    mov ebx, 0x00000083",
+".map_page:",
+"    mov [edi], ebx",
+"    mov dword [edi + 4], 0",
+"    add ebx, 0x00200000",
+"    add edi, 8",
+"    loop .map_page",
+"    mov dword [pml4], pdpt + 3",
+"    mov dword [pml4 + 4], 0",
+"    mov dword [pdpt], pd + 3",
+"    mov dword [pdpt + 4], 0",
+"",
+"    mov eax, cr4",
+"    or eax, 1 << 5",
+"    mov cr4, eax",
+"    mov eax, pml4",
+"    mov cr3, eax",
+"    mov ecx, 0xC0000080",
+"    rdmsr",
+"    or eax, 1 << 8",
+"    wrmsr",
+"    lgdt [gdt64_pointer]",
+"    mov eax, cr0",
+"    or eax, 0x80000001",
+"    mov cr0, eax",
+"    jmp 0x08:long_mode_start",
+"",
+".halt32:",
+"    cli",
+".halt32_loop:",
+"    hlt",
+"    jmp .halt32_loop",
+"",
+"BITS 64",
+"long_mode_start:",
+"    mov ax, 0x10",
+"    mov ds, ax",
+"    mov es, ax",
+"    mov ss, ax",
+"    xor eax, eax",
+"    mov fs, ax",
+"    mov gs, ax",
+"    mov edi, [rel boot_magic]",
+"    mov esi, [rel boot_info]",
+"    lea rsp, [rel kernel_stack_top]",
+"    and rsp, -16",
+"    call kernel_main",
+".halt64:",
+"    cli",
+"    hlt",
+"    jmp .halt64",
+""
+].join("\n");
+}else if(c.architecture==="i686"){
+entry=[
+"; Kerno i686 Multiboot2 32-bit entry scaffold.",
+"BITS 32","SECTION .multiboot","ALIGN 8","mb2_header_start:",
+"    dd 0xE85250D6","    dd 0","    dd mb2_header_end - mb2_header_start",
+"    dd -(0xE85250D6 + (mb2_header_end - mb2_header_start))",
+"    dw 0","    dw 0","    dd 8","mb2_header_end:",
+"SECTION .bss","ALIGN 16","kernel_stack: RESB 16384","kernel_stack_top:",
+"SECTION .text","GLOBAL _start","EXTERN kernel_main","_start:",
+"    cli","    mov esp, kernel_stack_top","    push ebx","    push eax","    call kernel_main",
+".halt: hlt","    jmp .halt",""
+].join("\n");
+}else{
+entry=c.architecture==="aarch64"?[
+"// AArch64 EL1 entry template. Platform/firmware handoff must be validated.",
+".section .text.boot"," .align 4",".global _start","_start:",
+"    msr daifset, #0xf","    adrp x0, kernel_stack_top","    add x0, x0, :lo12:kernel_stack_top",
+"    mov sp, x0","    bl kernel_main","1:  wfe","    b 1b",
+".section .bss"," .align 12","kernel_stack: .skip 16384","kernel_stack_top:",""
+].join("\n"):[
+"# RISC-V 64 entry template. Privilege level and platform ABI must be validated.",
+".section .text.init"," .align 12",".globl _start","_start:",
+"    la sp, kernel_stack_top","    call kernel_main","1:  wfi","    j 1b",
+".section .bss"," .align 12","kernel_stack: .space 16384","kernel_stack_top:",""
+].join("\n");
+}
+if(x86)f["boot/entry.asm"]=entry;
+else f["boot/entry.S"]=entry;
+f["boot/interrupts.asm"]=[
+"; Default x86_64 interrupt fallback. Interrupts remain disabled until an",
+"; architecture-specific controller and handlers have been configured.",
+"BITS 64","SECTION .text","GLOBAL kerno_default_interrupt_stub",
+"kerno_default_interrupt_stub:","    cli",".halt_interrupt:","    hlt","    jmp .halt_interrupt",""
+].join("\n");
+if(c.bootloader==="grub"){
+f["boot/grub.cfg"]=x86?[
+"set timeout=3","set default=0","","menuentry '"+c.name+"' {",
+"    multiboot2 /boot/kernel.elf","    boot","}",""
+].join("\n"):[
+"# Kerno scaffold only: this target does not yet have a validated GRUB handoff.",
+"# Do not treat this template as a bootable image."
+].join("\n");
+}
+f["include/kernel/types.h"]=[
+"#pragma once","#include <stdint.h>","#include <stddef.h>",
+"typedef uintptr_t kerno_addr_t;","typedef uint64_t kerno_size_t;",""
+].join("\n");
+f["include/kernel/boot.h"]=[
+"#pragma once","#include <stdint.h>",
+"#define KERNO_MULTIBOOT2_BOOT_MAGIC 0x36D76289u",
+"typedef struct __attribute__((packed)) { uint32_t total_size; uint32_t reserved; } kerno_mb2_info_t;",
+"typedef struct __attribute__((packed)) { uint32_t type; uint32_t size; } kerno_mb2_tag_t;",
+"typedef struct __attribute__((packed)) { uint32_t type; uint32_t size; uint32_t entry_size; uint32_t entry_version; } kerno_mb2_mmap_tag_t;",
+"typedef struct __attribute__((packed)) { uint64_t address; uint64_t length; uint32_t type; uint32_t reserved; } kerno_mb2_mmap_entry_t;",
+""
+].join("\n");
+f["include/kernel/serial.h"]=[
+"#pragma once","void kerno_serial_initialize(void);","void kerno_serial_write(const char* text);",""
+].join("\n");
+f["include/kernel/console.h"]=[
+"#pragma once","void kerno_console_initialize(void);","void kerno_console_write(const char* text);",""
+].join("\n");
+f["include/kernel/memory.h"]=[
+"#pragma once","#include <stddef.h>",
+"void* kerno_memset(void* destination, int value, size_t size);",
+"void* kerno_memcpy(void* destination, const void* source, size_t size);",""
+].join("\n");
+f["include/kernel/pmm.h"]=[
+"#pragma once","#include <stdint.h>",
+"int kerno_pmm_initialize(uint32_t boot_magic, uintptr_t boot_info);",
+"uintptr_t kerno_pmm_allocate_frame(void);",
+"int kerno_pmm_release_frame(uintptr_t physical_address);",
+"uint32_t kerno_pmm_free_frames(void);",""
+].join("\n");
+f["include/kernel/interrupts.h"]=[
+"#pragma once","void kerno_interrupts_initialize(void);",""
+].join("\n");
+f["src/kernel."+ext]=[
+"#include <stdint.h>","#include \"kernel/boot.h\"","#include \"kernel/serial.h\"",
+"#include \"kernel/pmm.h\"","#include \"kernel/interrupts.h\"",
+"#ifdef __cplusplus","extern \"C\"","#endif",
+"void kernel_main(uint32_t boot_magic, uintptr_t boot_info) {",
+"    kerno_serial_initialize();",
+"    kerno_serial_write(\"KERNO: kernel entry reached.\\r\\n\");",
+"    if (boot_magic != KERNO_MULTIBOOT2_BOOT_MAGIC) {",
+"        kerno_serial_write(\"KERNO: invalid Multiboot2 boot magic.\\r\\n\");",
+"        for (;;) { __asm__ volatile (\"hlt\"); }",
+"    }",
+"    if (kerno_pmm_initialize(boot_magic, boot_info))",
+"        kerno_serial_write(\"KERNO: physical memory map initialized.\\r\\n\");",
+"    else",
+"        kerno_serial_write(\"KERNO: memory map unavailable; PMM is offline.\\r\\n\");",
+"    kerno_interrupts_initialize();",
+"    kerno_serial_write(\"KERNO: IDT installed; external interrupts remain disabled.\\r\\n\");",
+"    for (;;) { __asm__ volatile (\"hlt\"); }",
+"}",""
+].join("\n");
+f["src/console."+ext]=[
+"#include <stdint.h>","#include \"kernel/console.h\"",
+"#if defined(__x86_64__) || defined(__i386__)",
+"static volatile uint16_t* const vga=(volatile uint16_t*)0xB8000;",
+"void kerno_console_initialize(void){ for(uint32_t i=0;i<80u*25u;++i)vga[i]=(uint16_t)(' '|0x0700); }",
+"void kerno_console_write(const char* text){ static uint32_t cursor=0; if(!text)return; while(*text&&cursor<80u*25u){ if(*text=='\\n'){cursor=((cursor/80u)+1u)*80u;}else{vga[cursor++]=(uint16_t)(uint8_t)*text|0x0700;} ++text; } }",
+"#else",
+"void kerno_console_initialize(void){}",
+"void kerno_console_write(const char* text){(void)text;}",
+"#endif",""
+].join("\n");
+f["src/memory."+ext]=[
+"#include <stddef.h>","#include <stdint.h>",
+"void* kerno_memset(void* destination,int value,size_t size){uint8_t* out=(uint8_t*)destination;for(size_t i=0;i<size;++i)out[i]=(uint8_t)value;return destination;}",
+"void* kerno_memcpy(void* destination,const void* source,size_t size){uint8_t* out=(uint8_t*)destination;const uint8_t* in=(const uint8_t*)source;for(size_t i=0;i<size;++i)out[i]=in[i];return destination;}",
+""
+].join("\n");
+f["src/serial."+ext]=[
+"#include <stdint.h>","#include \"kernel/serial.h\"",
+"#if defined(__x86_64__) || defined(__i386__)",
+"static inline void outb(uint16_t port,uint8_t value){__asm__ volatile(\"outb %0,%1\"::\"a\"(value),\"Nd\"(port));}",
+"static inline uint8_t inb(uint16_t port){uint8_t value;__asm__ volatile(\"inb %1,%0\":\"=a\"(value):\"Nd\"(port));return value;}",
+"void kerno_serial_initialize(void){outb(0x3F9,0x00);outb(0x3FB,0x80);outb(0x3F8,0x03);outb(0x3F9,0x00);outb(0x3FB,0x03);outb(0x3FA,0xC7);outb(0x3FC,0x0B);}",
+"void kerno_serial_write(const char* text){if(!text)return;while(*text){uint32_t timeout=1000000;while(!(inb(0x3FD)&0x20)&&--timeout){}if(!timeout)return;outb(0x3F8,(uint8_t)*text++);}}",
+"#else",
+"void kerno_serial_initialize(void){}",
+"void kerno_serial_write(const char* text){(void)text;}",
+"#endif",""
+].join("\n");
+f["src/pmm."+ext]=[
+"#include <stdint.h>","#include \"kernel/boot.h\"","#include \"kernel/pmm.h\"","#include \"kernel/memory.h\"",
+"#define KERNO_FRAME_SIZE 4096ULL",
+"#define KERNO_PMM_LIMIT (1ULL<<30)",
+"#define KERNO_FRAME_COUNT (KERNO_PMM_LIMIT/KERNO_FRAME_SIZE)",
+"#define KERNO_BITMAP_BYTES (KERNO_FRAME_COUNT/8ULL)",
+"extern uint8_t __kernel_start;","extern uint8_t __kernel_end;",
+"static uint8_t frame_bitmap[KERNO_BITMAP_BYTES];",
+"static uint32_t free_frame_count=0;",
+"static int pmm_ready=0;",
+"static void frame_mark(uint64_t frame,int used){uint8_t mask=(uint8_t)(1u<<(frame&7u));uint8_t* cell=&frame_bitmap[frame>>3u];if(used){if(!(*cell&mask)){*cell|=mask;if(free_frame_count) --free_frame_count;}}else{if(*cell&mask){*cell&=(uint8_t)~mask;++free_frame_count;}}}",
+"static void reserve_range(uint64_t start,uint64_t end){if(end>KERNO_PMM_LIMIT)end=KERNO_PMM_LIMIT;if(start>=end)return;uint64_t first=start/KERNO_FRAME_SIZE;uint64_t last=(end+KERNO_FRAME_SIZE-1u)/KERNO_FRAME_SIZE;for(uint64_t frame=first;frame<last&&frame<KERNO_FRAME_COUNT;++frame)frame_mark(frame,1);}",
+"int kerno_pmm_initialize(uint32_t boot_magic,uintptr_t boot_info){",
+"    if(boot_magic!=KERNO_MULTIBOOT2_BOOT_MAGIC||!boot_info)return 0;",
+"    kerno_memset(frame_bitmap,0xFF,(size_t)KERNO_BITMAP_BYTES);free_frame_count=0;",
+"    const kerno_mb2_info_t* info=(const kerno_mb2_info_t*)boot_info;",
+"    if(info->total_size<16u||info->total_size>1024u*1024u)return 0;",
+"    const uint8_t* cursor=(const uint8_t*)boot_info+8u;const uint8_t* limit=(const uint8_t*)boot_info+info->total_size;int found=0;",
+"    while(cursor+8u<=limit){const kerno_mb2_tag_t* tag=(const kerno_mb2_tag_t*)cursor;if(tag->size<8u||cursor+tag->size>limit)break;if(tag->type==0u)break;",
+"      if(tag->type==6u&&tag->size>=16u){const kerno_mb2_mmap_tag_t* map=(const kerno_mb2_mmap_tag_t*)tag;if(map->entry_size<sizeof(kerno_mb2_mmap_entry_t))return 0;const uint8_t* item=cursor+16u;const uint8_t* end=cursor+tag->size;while(item+map->entry_size<=end){const kerno_mb2_mmap_entry_t* entry=(const kerno_mb2_mmap_entry_t*)item;if(entry->type==1u&&entry->length&&entry->address<KERNO_PMM_LIMIT&&entry->address+entry->length>entry->address){uint64_t start=(entry->address+KERNO_FRAME_SIZE-1u)&~(KERNO_FRAME_SIZE-1u);uint64_t finish=entry->address+entry->length;if(finish>KERNO_PMM_LIMIT)finish=KERNO_PMM_LIMIT;uint64_t last=finish/KERNO_FRAME_SIZE;for(uint64_t frame=start/KERNO_FRAME_SIZE;frame<last&&frame<KERNO_FRAME_COUNT;++frame)frame_mark(frame,0);found=1;}item+=map->entry_size;}}",
+"      uint64_t next=((uint64_t)(uintptr_t)cursor+tag->size+7u)&~7ULL;if(next<=(uint64_t)(uintptr_t)cursor)break;cursor=(const uint8_t*)(uintptr_t)next;",
+"    }",
+"    if(!found)return 0;reserve_range(0,0x100000ULL);reserve_range((uintptr_t)&__kernel_start,(uintptr_t)&__kernel_end);pmm_ready=1;return 1;",
+"}",
+"uintptr_t kerno_pmm_allocate_frame(void){if(!pmm_ready)return 0;for(uint64_t frame=256u;frame<KERNO_FRAME_COUNT;++frame){if(!(frame_bitmap[frame>>3u]&(uint8_t)(1u<<(frame&7u)))){frame_mark(frame,1);return (uintptr_t)(frame*KERNO_FRAME_SIZE);}}return 0;}",
+"int kerno_pmm_release_frame(uintptr_t address){if(!pmm_ready||address<0x100000u||(address&(KERNO_FRAME_SIZE-1u))||address>=KERNO_PMM_LIMIT)return 0;uint64_t frame=(uint64_t)address/KERNO_FRAME_SIZE;if(!(frame_bitmap[frame>>3u]&(uint8_t)(1u<<(frame&7u))))return 0;frame_mark(frame,0);return 1;}",
+"uint32_t kerno_pmm_free_frames(void){return free_frame_count;}",
+""
+].join("\n");
+f["src/interrupts.asm"]=[
+"; Default exception/interrupt fallback for the x86_64 IDT.",
+"BITS 64","SECTION .text","GLOBAL kerno_default_interrupt_stub",
+"kerno_default_interrupt_stub:","    cli",".halt_forever:","    hlt","    jmp .halt_forever",""
+].join("\n");
+f["src/interrupts."+ext]=[
+"#include <stdint.h>","#include \"kernel/interrupts.h\"",
+"#if defined(__x86_64__)",
+"typedef struct __attribute__((packed)){uint16_t low;uint16_t selector;uint8_t ist;uint8_t flags;uint16_t middle;uint32_t high;uint32_t reserved;} kerno_idt_entry_t;",
+"typedef struct __attribute__((packed)){uint16_t limit;uint64_t base;} kerno_idtr_t;",
+"static kerno_idt_entry_t idt[256];",
+"extern \"C\" void kerno_default_interrupt_stub(void);",
+"void kerno_interrupts_initialize(void){uintptr_t handler=(uintptr_t)&kerno_default_interrupt_stub;for(uint32_t i=0;i<256u;++i){idt[i].low=(uint16_t)(handler&0xFFFFu);idt[i].selector=0x08;idt[i].ist=0;idt[i].flags=0x8E;idt[i].middle=(uint16_t)((handler>>16)&0xFFFFu);idt[i].high=(uint32_t)(handler>>32);idt[i].reserved=0;}kerno_idtr_t descriptor={(uint16_t)(sizeof(idt)-1u),(uint64_t)(uintptr_t)idt};__asm__ volatile(\"lidt %0\"::\"m\"(descriptor));}",
+"#else",
+"void kerno_interrupts_initialize(void){}",
+"#endif",""
+].join("\n");
+f["linker.ld"]=[
+"OUTPUT_FORMAT(elf64-x86-64)","ENTRY(_start)","SECTIONS","{",
+"    . = "+c.memory.kernelBase+";",
+"    __kernel_start = .;",
+"    .multiboot ALIGN(8) : { KEEP(*(.multiboot)) }",
+"    .text ALIGN(4K) : { *(.text .text.*) }",
+"    .rodata ALIGN(4K) : { *(.rodata .rodata.*) }",
+"    .data ALIGN(4K) : { *(.data .data.*) }",
+"    .bss ALIGN(4K) : { *(COMMON) *(.bss .bss.*) }",
+"    __kernel_end = .;",
+"}",""
+].join("\n");
+f["kerno.project.json"]=JSON.stringify({format:"kerno-project",version:2,name:c.name,config:c,buildSupport:c.architecture==="x86_64"&&c.firmware==="bios"&&c.bootloader==="grub"?"x86_64-bios-grub-multiboot2":"scaffold-only"},null,2)+"\n";
+f["docs/architecture.md"]=[
+"# "+c.name,"","## Machine target","- Architecture: "+c.architecture,
+"- Firmware: "+c.firmware,"- Bootloader: "+c.bootloader,"- Kernel language: "+c.kernelLanguage,
+"","## Low-level modules","- boot/entry: CPU entry and boot handoff.",
+"- src/pmm: 4 KiB physical-frame bitmap manager for the first 1 GiB identity-mapped region.",
+"- src/serial: COM1 serial output for QEMU diagnostics on x86.",
+"- src/interrupts: IDT installation with a fail-stop default handler.",
+"- src/memory: freestanding memory primitives.",
+"","## Important boundaries","- The first native build service target is x86_64 + BIOS + GRUB + Multiboot2.",
+"- Other architecture selections create learning scaffolds only and are not claimed to boot.",
+"- The memory manager consumes the Multiboot2 memory map and is limited to the first 1 GiB identity map in this starter.",
+"- Interrupts are not enabled; APIC/PIC initialization and proper per-vector handlers are future work.",
+""
+].join("\n");
+f["README.md"]="# "+c.name+"\n\nKerno kernel workspace. Review docs/architecture.md and validate the selected boot protocol before using native builds.\n";
+return f;
+}
 function validName(x){return /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,47}$/.test(x);}
 async function createProject(){const name=$("#projectNameInput").value.trim();if(!validName(name)){notify("Invalid project name","Use letters, numbers, spaces, dots, dashes or underscores.");return;}const c=configFor(name);c.architecture=$("#architectureSelect").value;c.firmware=$("#firmwareSelect").value;c.kernelLanguage=$("#kernelLanguageSelect").value;c.bootloader=$("#bootloaderSelect").value;c.memory.guestMiB=Number($("#guestMemoryInput").value);c.qemu.vcpus=Number($("#cpuCountInput").value);c.qemu.machine=["aarch64","riscv64"].includes(c.architecture)?"virt":"q35";if(!Number.isInteger(c.memory.guestMiB)||c.memory.guestMiB<64||c.memory.guestMiB>32768||!Number.isInteger(c.qemu.vcpus)||c.qemu.vcpus<1||c.qemu.vcpus>32){notify("Invalid resources","RAM must be 64–32768 MiB; vCPU must be 1–32.");return;}state.settings.defaultArchitecture=c.architecture;state.settings.defaultFirmware=c.firmware;state.settings.defaultBootloader=c.bootloader;state.settings.defaultKernelLanguage=c.kernelLanguage;state.settings.guestMemoryMiB=c.memory.guestMiB;state.settings.qemuVcpus=c.qemu.vcpus;await saveSettings();state.project={id:makeId(),name,config:c,files:scaffold(c,$("#templateSelect").value),template:$("#templateSelect").value,createdAt:Date.now(),updatedAt:Date.now()};await saveProject(true);await openProject();notify("OS workspace created",Object.keys(state.project.files).length+" editable source/config files generated.");}
 function renderTree(){const host=$("#sourceTree");if(!host||!state.project)return;host.innerHTML="";const root={dirs:{},files:[]};Object.keys(state.project.files).sort().forEach(path=>{let n=root;const parts=path.split("/");parts.slice(0,-1).forEach(dir=>{if(!n.dirs[dir])n.dirs[dir]={dirs:{},files:[]};n=n.dirs[dir];});n.files.push({path,name:parts[parts.length-1]});});function draw(parent,node){Object.keys(node.dirs).sort().forEach(name=>{const wrap=document.createElement("div");wrap.className="tree-folder";const head=document.createElement("button");head.className="tree-folder-head";head.innerHTML='<span class="folder-arrow">⌄</span><span class="folder-icon">▰</span><span></span>';$("span:last-child",head).textContent=name;const content=document.createElement("div");content.className="folder-contents";head.onclick=()=>{content.classList.toggle("hidden");$(".folder-arrow",head).textContent=content.classList.contains("hidden")?"›":"⌄";};wrap.append(head,content);draw(content,node.dirs[name]);parent.append(wrap);});node.files.forEach(file=>{const b=document.createElement("button");b.className="tree-file"+(file.path===state.activeFile?" active":"");const ic=fileBadge(file.path);b.innerHTML='<span class="file-type-mark"></span><span class="tree-file-name"></span>';$("span:first-child",b).classList.add(ic[1]);$("span:first-child",b).textContent=ic[0];$(".tree-file-name",b).textContent=file.name;b.onclick=()=>openFile(file.path);parent.append(b);});}draw(host,root);$("#sourceCount").textContent=Object.keys(state.project.files).length+" files";$("#projectStorageSize").textContent=formatBytes(fileSize(state.project));}
