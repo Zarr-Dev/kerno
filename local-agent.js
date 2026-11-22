@@ -90,6 +90,14 @@
       body: { settings: settings || {} }
     });
   }
+  async function hostDiagnostics(settings) {
+    return request("/api/v1/host/diagnostics", {
+      method: "POST",
+      timeout: 10000,
+      body: { settings: settings || {} }
+    });
+  }
+
 
   async function resourceEstimate(project, settings) {
     return request("/api/v1/memory/estimate", {
@@ -138,6 +146,7 @@
     stopEmulator: stopEmulator,
     emulatorStatus: emulatorStatus,
     toolchain: toolchain,
+    hostDiagnostics: hostDiagnostics,
     resourceEstimate: resourceEstimate,
     downloadArtifact: downloadArtifact
   });
