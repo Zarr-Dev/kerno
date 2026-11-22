@@ -913,7 +913,28 @@ async function nativeBuild(bootAfter){
     $("#buildProjectButton").disabled=false;
   }
 }
-async function checkToolchain(){try{KernoLocalService.configure(state.settings.localServiceUrl);const r=await KernoLocalService.toolchain(state.settings);const names=Object.entries(r.tools||{}).filter(x=>x[1]&&x[1].available).map(x=>x[0]);$("#toolchainResult").textContent=names.length?names.join(", "):"No tools reported";}catch(e){$("#toolchainResult").textContent="Unavailable: "+e.message;}}
+async function checkToolchain(){
+  const host=$("#toolchainResult");if(!host)return;
+  host.textContent="Scanning tools on the connected host…";
+  try{
+    KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+    const result=await KernoLocalService.toolchain(state.settings);
+    const tools=Object.entries(result.tools||{});
+    const available=tools.filter(([,value])=>value&&value.available);
+    const missing=tools.filter(([,value])=>!value||!value.available);
+    host.textContent=available.length+" available · "+missing.length+" missing";
+    const details=document.createElement("div");details.className="toolchain-results";
+    tools.forEach(([name,value])=>{
+      const line=document.createElement("div");line.className="toolchain-result-row";
+      const label=document.createElement("strong");label.textContent=name;
+      const status=document.createElement("span");
+      status.textContent=value&&value.available?"Available · "+(value.version||value.path||"detected"):"Missing · "+((value&&value.command)||"not configured");
+      status.className=value&&value.available?"tool-found":"tool-missing";
+      line.append(label,status);details.append(line);
+    });
+    host.append(details);
+  }catch(error){host.textContent="Unavailable · "+error.message;}
+}
 async function loadArchive(file){const p={id:makeId(),name:file.name.replace(/\.(zip|kerno|json)$/i,""),config:configFor("Imported OS"),files:{},createdAt:Date.now(),updatedAt:Date.now()};state.project=p;if(file.name.toLowerCase().endsWith(".json")){const m=JSON.parse(await file.text());if(m.format!=="kerno-project"||!m.files)throw Error("Not a Kerno project manifest.");p.name=m.name||p.name;p.config=Object.assign(p.config,m.config||{});p.files=m.files;}else{const r=await importZip(file);if(!r.n)throw Error("No supported text source files found.");}p.files=cleanFiles(p.files);if(!Object.keys(p.files).length)throw Error("Project archive contains no supported source files.");await saveProject(true);await openProject();notify("Project loaded",p.name);}
 function cleanFiles(files){const out={};let total=0;Object.entries(files).forEach(([raw,text])=>{const path=normalizePath(raw);if(!path||binaryPath(path)||typeof text!=="string")return;const size=new Blob([text]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT)return;total+=size;out[path]=text;});return out;}
 function openSettings(from){state.settingsReturn=from||state.screen;show("settings");renderSettings(state.category);}
