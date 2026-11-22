@@ -14,7 +14,7 @@ const DEFAULTS = {
   autosave:true, confirmDestructive:true, startScreen:"welcome",
   editorFontSize:14, editorFontFamily:"DM Mono", tabSize:4, wordWrap:"off", lineNumbers:true, minimap:false,
   cursorStyle:"line", smoothScrolling:true, bracketPairColorization:true, renderWhitespace:"selection",
-  autoSaveDelayMs:800, defaultTemplate:"kernel-text", uiScale:100, reduceMotion:false,
+  autoSaveDelayMs:800, defaultTemplate:"kernel-text", uiScale:100, reduceMotion:false, highContrastFocus:false,
   debugSymbols:true, warningsAsErrors:false, kernelLogLevel:"info", retainBuildLogs:true,
   grubTimeout:3, grubDefault:0, kernelCommandLine:"", qemuCpuModel:"max", qemuNetwork:"none", serialBackend:"file",
   cCompiler:"x86_64-elf-gcc", objcopy:"x86_64-elf-objcopy", readelf:"x86_64-elf-readelf",
@@ -36,8 +36,8 @@ const DEFAULTS = {
 };
 
 const LANGUAGES = {
-  en:{startArrow:"Start a project →",openWorkspace:"Open workspace →",openSettings:"Open settings →",workspaceHistory:"WORKSPACE HISTORY",clearHistory:"Clear history",noAccount:"No account required · Project data stays in this browser until exported",newOsWorkspace:"New operating system workspace",newOsLead:"Choose the machine target and kernel foundation. Kerno creates the initial source tree and project configuration.",scaffoldNote:"These are editable source files. A verified boot image still requires a matching native toolchain and boot protocol.",machineDesc:"Live guest output is streamed from the connected local QEMU service.",buildConfiguration:"Build configuration",buildConfigurationDesc:"Review the target before invoking the connected native build service.",settings:"Settings",back:"Back",welcomeTitle:"Build your operating system.",welcomeSubtitle:"A focused environment for kernel source, machine configuration, memory planning and emulator workflows.",newProject:"New project",newProjectDesc:"Create a structured OS workspace from a kernel template.",loadProject:"Load project",loadProjectDesc:"Open a Kerno archive, project manifest or source directory.",configureIDE:"Configure IDE",configureDesc:"Set language, appearance, editor behavior and local tools.",recentProjects:"Recent projects",noRecent:"No recent projects",noRecentDesc:"Create or load an OS project to begin.",createWorkspace:"Create workspace",projectName:"Project name",starterTemplate:"Starter template",architecture:"Architecture",firmware:"Firmware",kernelLanguage:"Kernel language",bootloader:"Bootloader",guestMemory:"Guest RAM (MiB)",virtualCpus:"Virtual CPUs",applySettings:"Apply settings",general:"General",appearance:"Appearance",language:"Language",editor:"Editor",osArchitecture:"OS & Architecture",memory:"Memory",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Storage & Data",advanced:"Advanced",source:"Source",machine:"Machine",build:"Build",importFiles:"Import files",exportProject:"Export project",buildBoot:"Build & Boot",projectFiles:"Project files",cancel:"Cancel",machineDisplay:"Machine display",noMachineSession:"No machine session",connectQemuPrompt:"Connect Kerno Local Service to launch and display a QEMU guest."},
-  id:{settings:"Pengaturan",back:"Kembali",welcomeTitle:"Bangun sistem operasi milikmu.",welcomeSubtitle:"Lingkungan terfokus untuk source kernel, konfigurasi mesin, perencanaan memori, dan emulator.",newProject:"Proyek baru",newProjectDesc:"Buat workspace OS terstruktur dari template kernel.",loadProject:"Muat proyek",loadProjectDesc:"Buka arsip Kerno atau direktori source.",configureIDE:"Konfigurasi IDE",configureDesc:"Atur bahasa, tampilan, editor, dan tool lokal.",recentProjects:"Proyek terbaru",noRecent:"Belum ada proyek",noRecentDesc:"Buat atau muat proyek OS untuk memulai.",createWorkspace:"Buat workspace",projectName:"Nama proyek",starterTemplate:"Template awal",architecture:"Arsitektur",firmware:"Firmware",kernelLanguage:"Bahasa kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtual",applySettings:"Terapkan pengaturan",general:"Umum",appearance:"Tampilan",language:"Bahasa",editor:"Editor",osArchitecture:"OS & Arsitektur",memory:"Memori",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Penyimpanan & Data",advanced:"Lanjutan",source:"Source",machine:"Mesin",build:"Build",importFiles:"Impor file",exportProject:"Ekspor proyek",buildBoot:"Build & Boot",projectFiles:"File proyek",cancel:"Batal",machineDisplay:"Tampilan mesin",noMachineSession:"Belum ada sesi mesin",connectQemuPrompt:"Hubungkan Kerno Local Service untuk menjalankan guest QEMU."},
+  en:{startArrow:"Start a project →",openWorkspace:"Open workspace →",openSettings:"Open settings →",workspaceHistory:"WORKSPACE HISTORY",clearHistory:"Clear history",noAccount:"No account required · Project data stays in this browser until exported",newOsWorkspace:"New operating system workspace",newOsLead:"Choose the machine target and kernel foundation. Kerno creates the initial source tree and project configuration.",scaffoldNote:"These are editable source files. A verified boot image still requires a matching native toolchain and boot protocol.",machineDesc:"Live guest output is streamed from the connected local QEMU service.",buildConfiguration:"Build configuration",buildConfigurationDesc:"Review the target before invoking the connected native build service.",settings:"Settings",back:"Back",welcomeTitle:"Build your operating system.",welcomeSubtitle:"A focused environment for kernel source, machine configuration, memory planning and emulator workflows.",newProject:"New project",newProjectDesc:"Create a structured OS workspace from a kernel template.",loadProject:"Load project",loadProjectDesc:"Open a Kerno archive, project manifest or source directory.",configureIDE:"Configure IDE",configureDesc:"Set language, appearance, editor behavior and local tools.",recentProjects:"Recent projects",noRecent:"No recent projects",noRecentDesc:"Create or load an OS project to begin.",createWorkspace:"Create workspace",projectName:"Project name",starterTemplate:"Starter template",architecture:"Architecture",firmware:"Firmware",kernelLanguage:"Kernel language",bootloader:"Bootloader",guestMemory:"Guest RAM (MiB)",virtualCpus:"Virtual CPUs",applySettings:"Apply settings",general:"General",appearance:"Appearance",language:"Language",editor:"Editor",osArchitecture:"OS & Architecture",memory:"Memory",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Storage & Data",advanced:"Advanced",bootSettings:"Boot & Firmware",diagnostics:"Diagnostics",accessibility:"Accessibility",shortcuts:"Keyboard & Shortcuts",source:"Source",machine:"Machine",build:"Build",importFiles:"Import files",exportProject:"Export project",buildBoot:"Build & Boot",projectFiles:"Project files",cancel:"Cancel",machineDisplay:"Machine display",noMachineSession:"No machine session",connectQemuPrompt:"Connect Kerno Local Service to launch and display a QEMU guest."},
+  id:{settings:"Pengaturan",back:"Kembali",welcomeTitle:"Bangun sistem operasi milikmu.",welcomeSubtitle:"Lingkungan terfokus untuk source kernel, konfigurasi mesin, perencanaan memori, dan emulator.",newProject:"Proyek baru",newProjectDesc:"Buat workspace OS terstruktur dari template kernel.",loadProject:"Muat proyek",loadProjectDesc:"Buka arsip Kerno atau direktori source.",configureIDE:"Konfigurasi IDE",configureDesc:"Atur bahasa, tampilan, editor, dan tool lokal.",recentProjects:"Proyek terbaru",noRecent:"Belum ada proyek",noRecentDesc:"Buat atau muat proyek OS untuk memulai.",createWorkspace:"Buat workspace",projectName:"Nama proyek",starterTemplate:"Template awal",architecture:"Arsitektur",firmware:"Firmware",kernelLanguage:"Bahasa kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtual",applySettings:"Terapkan pengaturan",general:"Umum",appearance:"Tampilan",language:"Bahasa",editor:"Editor",osArchitecture:"OS & Arsitektur",memory:"Memori",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Penyimpanan & Data",advanced:"Lanjutan",bootSettings:"Boot & Firmware",diagnostics:"Diagnostik",accessibility:"Aksesibilitas",shortcuts:"Keyboard & Pintasan",source:"Source",machine:"Mesin",build:"Build",importFiles:"Impor file",exportProject:"Ekspor proyek",buildBoot:"Build & Boot",projectFiles:"File proyek",cancel:"Batal",machineDisplay:"Tampilan mesin",noMachineSession:"Belum ada sesi mesin",connectQemuPrompt:"Hubungkan Kerno Local Service untuk menjalankan guest QEMU."},
   ms:{settings:"Tetapan",back:"Kembali",welcomeTitle:"Bina sistem operasi anda.",welcomeSubtitle:"Persekitaran khusus untuk source kernel, konfigurasi mesin, memori dan emulator.",newProject:"Projek baharu",newProjectDesc:"Cipta workspace OS daripada templat kernel.",loadProject:"Muat projek",loadProjectDesc:"Buka arkib Kerno atau direktori source.",configureIDE:"Konfigurasi IDE",configureDesc:"Tetapkan bahasa, penampilan dan alat setempat.",recentProjects:"Projek terkini",noRecent:"Tiada projek terkini",noRecentDesc:"Cipta atau muat projek OS untuk bermula.",createWorkspace:"Cipta workspace",projectName:"Nama projek",starterTemplate:"Templat permulaan",architecture:"Seni bina",firmware:"Firmware",kernelLanguage:"Bahasa kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU maya",applySettings:"Gunakan tetapan",general:"Umum",appearance:"Penampilan",language:"Bahasa",editor:"Editor",osArchitecture:"OS & Seni bina",memory:"Memori",emulator:"QEMU & Emulator",toolchain:"Toolchain",storage:"Storan & Data",advanced:"Lanjutan",source:"Source",machine:"Mesin",build:"Build",importFiles:"Import fail",exportProject:"Eksport projek",buildBoot:"Build & Boot",projectFiles:"Fail projek",cancel:"Batal",machineDisplay:"Paparan mesin",noMachineSession:"Tiada sesi mesin",connectQemuPrompt:"Sambungkan Kerno Local Service untuk menjalankan QEMU."},
   zh:{settings:"设置",back:"返回",welcomeTitle:"构建你自己的操作系统。",welcomeSubtitle:"专注于内核源代码、机器配置、内存规划和模拟器工作流。",newProject:"新建项目",newProjectDesc:"从内核模板创建操作系统工作区。",loadProject:"加载项目",loadProjectDesc:"打开 Kerno 压缩包或源代码目录。",configureIDE:"配置 IDE",configureDesc:"设置语言、外观、编辑器和本地工具。",recentProjects:"最近项目",noRecent:"没有最近项目",noRecentDesc:"创建或加载操作系统项目以开始。",createWorkspace:"创建工作区",projectName:"项目名称",starterTemplate:"起始模板",architecture:"架构",firmware:"固件",kernelLanguage:"内核语言",bootloader:"引导程序",guestMemory:"客户机内存 (MiB)",virtualCpus:"虚拟 CPU",applySettings:"应用设置",general:"常规",appearance:"外观",language:"语言",editor:"编辑器",osArchitecture:"操作系统与架构",memory:"内存",emulator:"QEMU 与模拟器",toolchain:"工具链",storage:"存储与数据",advanced:"高级",source:"源代码",machine:"机器",build:"构建",importFiles:"导入文件",exportProject:"导出项目",buildBoot:"构建并启动",projectFiles:"项目文件",cancel:"取消",machineDisplay:"机器显示",noMachineSession:"没有机器会话",connectQemuPrompt:"连接 Kerno Local Service 以启动 QEMU 客户机。"},
   ja:{settings:"設定",back:"戻る",welcomeTitle:"自分のオペレーティングシステムを構築。",welcomeSubtitle:"カーネルソース、マシン構成、メモリ計画、エミュレーターに集中できる環境。",newProject:"新規プロジェクト",newProjectDesc:"カーネルテンプレートから OS ワークスペースを作成。",loadProject:"プロジェクトを読み込む",loadProjectDesc:"Kerno アーカイブまたはソースディレクトリを開く。",configureIDE:"IDE を設定",configureDesc:"言語、外観、エディター、ローカルツールを設定。",recentProjects:"最近のプロジェクト",noRecent:"最近のプロジェクトはありません",noRecentDesc:"OS プロジェクトを作成または読み込んで開始。",createWorkspace:"ワークスペースを作成",projectName:"プロジェクト名",starterTemplate:"開始テンプレート",architecture:"アーキテクチャ",firmware:"ファームウェア",kernelLanguage:"カーネル言語",bootloader:"ブートローダー",guestMemory:"ゲスト RAM (MiB)",virtualCpus:"仮想 CPU",applySettings:"設定を適用",general:"一般",appearance:"外観",language:"言語",editor:"エディター",osArchitecture:"OS とアーキテクチャ",memory:"メモリ",emulator:"QEMU とエミュレーター",toolchain:"ツールチェーン",storage:"ストレージとデータ",advanced:"詳細設定",source:"ソース",machine:"マシン",build:"ビルド",importFiles:"ファイルをインポート",exportProject:"プロジェクトをエクスポート",buildBoot:"ビルドして起動",projectFiles:"プロジェクトファイル",cancel:"キャンセル",machineDisplay:"マシン画面",noMachineSession:"マシンセッションなし",connectQemuPrompt:"Kerno Local Service に接続して QEMU を起動。"},
@@ -462,6 +462,7 @@ function saveProject(silent){
 function syncWizardDefaults(){
   const s=state.settings;
   $("#projectNameInput").value="My First OS";
+  $("#templateSelect").value=s.defaultTemplate||"kernel-text";
   $("#architectureSelect").value=s.defaultArchitecture;
   $("#firmwareSelect").value=s.defaultFirmware;
   $("#bootloaderSelect").value=s.defaultBootloader;
@@ -795,10 +796,73 @@ async function renderSettings(category){
 }
 function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale")translate();if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density")applyDensity();if(["editorFontSize","tabSize","wordWrap","lineNumbers","minimap"].includes(k))applyEditorSettings();if(["guestMemoryMiB","heapReserveMiB","stackReserveKiB"].includes(k))renderMemory();}
 function validateSettings(){const s=state.settings;for(const [k,min,max] of [["editorFontSize",10,22],["guestMemoryMiB",64,32768],["heapReserveMiB",1,8192],["stackReserveKiB",64,1048576],["qemuVcpus",1,32],["qemuVncPort",5900,5999]])if(!Number.isInteger(Number(s[k]))||s[k]<min||s[k]>max)throw Error(k+" is outside the permitted range.");if(s.heapReserveMiB+s.stackReserveKiB/1024+1>=s.guestMemoryMiB)throw Error("Kernel reservations exceed guest RAM.");if(!/^0x[0-9a-fA-F]{6,16}$/.test(s.kernelBase))throw Error("Kernel base must be hexadecimal, e.g. 0x00100000.");KernoLocalService.configure(s.localServiceUrl);}
-async function applySettings(){try{validateSettings();}catch(e){notify("Settings need attention",e.message);return;}await saveSettings();applyTheme();applyAccent();applyDensity();translate();applyEditorSettings();if(state.project){const c=state.project.config;c.architecture=state.settings.defaultArchitecture;c.firmware=state.settings.defaultFirmware;c.bootloader=state.settings.defaultBootloader;c.kernelLanguage=state.settings.defaultKernelLanguage;c.optimization=state.settings.optimization;c.memory=Object.assign(c.memory,{guestMiB:state.settings.guestMemoryMiB,heapReserveMiB:state.settings.heapReserveMiB,stackReserveKiB:state.settings.stackReserveKiB,pageSize:state.settings.pageSize,kernelBase:state.settings.kernelBase});c.qemu=Object.assign(c.qemu,{binary:state.settings.qemuBinary,machine:state.settings.qemuMachine,display:state.settings.qemuDisplay,vcpus:state.settings.qemuVcpus,vncPort:state.settings.qemuVncPort,acceleration:state.settings.qemuAcceleration});await saveProject(true);updateProjectHeader();renderMachine();renderBuild();}notify("Settings applied","IDE preferences and OS target updated.");show(state.settingsReturn);}
+async function applySettings(){
+  try{validateSettings();}catch(error){notify("Settings need attention",error.message);return;}
+  await saveSettings();
+  applyTheme();applyAccent();applyDensity();translate();applyEditorSettings();
+  if(state.project){
+    const config=state.project.config;
+    config.architecture=state.settings.projectArchitecture;
+    config.firmware=state.settings.projectFirmware;
+    config.bootloader=state.settings.projectBootloader;
+    config.kernelLanguage=state.settings.projectKernelLanguage;
+    config.optimization=state.settings.projectOptimization;
+    config.memory=Object.assign({},config.memory||{},{
+      guestMiB:Number(state.settings.projectGuestMemoryMiB),
+      heapReserveMiB:Number(state.settings.projectHeapReserveMiB),
+      stackReserveKiB:Number(state.settings.projectStackReserveKiB),
+      pageSize:state.settings.projectPageSize,
+      kernelBase:state.settings.projectKernelBase
+    });
+    config.qemu=Object.assign({},config.qemu||{},{
+      binary:state.settings.projectQemuBinary,
+      machine:state.settings.projectQemuMachine,
+      display:state.settings.projectQemuDisplay,
+      vcpus:Number(state.settings.projectQemuVcpus),
+      vncPort:Number(state.settings.projectQemuVncPort),
+      acceleration:state.settings.projectQemuAcceleration,
+      cpuModel:state.settings.projectQemuCpuModel,
+      network:state.settings.projectQemuNetwork
+    });
+    config.boot=Object.assign({},config.boot||{},{
+      grubTimeout:Number(state.settings.projectGrubTimeout),
+      grubDefault:Number(state.settings.projectGrubDefault),
+      kernelCommandLine:String(state.settings.projectKernelCommandLine||"").trim()
+    });
+    config.diagnostics=Object.assign({},config.diagnostics||{},{
+      debugSymbols:!!state.settings.debugSymbols,
+      warningsAsErrors:!!state.settings.warningsAsErrors,
+      logLevel:state.settings.kernelLogLevel,
+      serialBackend:state.settings.serialBackend
+    });
+    if(config.bootloader==="grub"&&state.project.files["boot/grub.cfg"]){
+      const lines=state.project.files["boot/grub.cfg"].split(/\r?\n/);
+      const updated=lines.map(line=>{
+        const trimmed=line.trim();
+        if(trimmed.startsWith("set timeout="))return "set timeout="+config.boot.grubTimeout;
+        if(trimmed.startsWith("set default="))return "set default="+config.boot.grubDefault;
+        if(trimmed.startsWith("multiboot2 /boot/kernel.elf"))return "    multiboot2 /boot/kernel.elf"+(config.boot.kernelCommandLine?" "+config.boot.kernelCommandLine:"");
+        return line;
+      });
+      if(!updated.some(line=>line.trim().startsWith("set timeout=")))updated.unshift("set timeout="+config.boot.grubTimeout);
+      if(!updated.some(line=>line.trim().startsWith("set default=")))updated.unshift("set default="+config.boot.grubDefault);
+      state.project.files["boot/grub.cfg"]=updated.join("\n");
+    }
+    await saveProject(true);
+    updateProjectHeader();renderMachine();renderBuild();renderMemory();renderTree();
+  }
+  notify("Settings applied","IDE preferences saved. Current-project OS settings remain separate from defaults for new projects.");
+  show(state.settingsReturn);
+}
+
 function applyTheme(){document.body.classList.toggle("light-theme",state.settings.theme==="light");if(window.monaco&&state.editor)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":"kerno-dark");}
 function applyAccent(){const map={sage:"#79b8a3",cyan:"#63c9ca",blue:"#80aee8",amber:"#d7b16e"};document.documentElement.style.setProperty("--accent",map[state.settings.accent]||map.sage);}
-function applyDensity(){document.documentElement.dataset.density=state.settings.density;}
+function applyDensity(){
+  document.documentElement.dataset.density=state.settings.density;
+  document.documentElement.style.setProperty("--ui-scale",String(Number(state.settings.uiScale||100)/100));
+  document.body.classList.toggle("reduce-motion",!!state.settings.reduceMotion);
+  document.body.classList.toggle("high-contrast-focus",!!state.settings.highContrastFocus);
+}
 async function refreshHostMemoryEstimate(){
   const host=$("#hostMemoryEstimate");
   if(!host)return;
@@ -816,7 +880,7 @@ async function refreshHostMemoryEstimate(){
     host.textContent="Unavailable · "+error.message;
   }
 }
-function renderMemory(){const s=state.settings,ram=Number(s.guestMemoryMiB)||0,res=Number(s.heapReserveMiB||0)+Number(s.stackReserveKiB||0)/1024+1,free=Math.max(0,ram-res);if($("#memoryMeterFill"))$("#memoryMeterFill").style.width=Math.min(100,res/Math.max(ram,1)*100)+"%";if($("#memoryReservedLabel"))$("#memoryReservedLabel").textContent="Planned reserve: "+res.toFixed(2)+" MiB";if($("#memoryAvailableLabel"))$("#memoryAvailableLabel").textContent="Unreserved guest RAM: "+free.toFixed(2)+" MiB";if($("#memoryPlanNote"))$("#memoryPlanNote").textContent=res>=ram?"Invalid plan: kernel reservations exceed guest RAM.":"Estimate only. It does not allocate physical host RAM or implement an allocator.";}
+function renderMemory(){const s=state.settings,ram=Number(state.project?s.projectGuestMemoryMiB:s.guestMemoryMiB)||0,res=Number(state.project?s.projectHeapReserveMiB:s.heapReserveMiB||0)+Number(state.project?s.projectStackReserveKiB:s.stackReserveKiB||0)/1024+1,free=Math.max(0,ram-res);if($("#memoryMeterFill"))$("#memoryMeterFill").style.width=Math.min(100,res/Math.max(ram,1)*100)+"%";if($("#memoryReservedLabel"))$("#memoryReservedLabel").textContent="Planned reserve: "+res.toFixed(2)+" MiB";if($("#memoryAvailableLabel"))$("#memoryAvailableLabel").textContent="Unreserved guest RAM: "+free.toFixed(2)+" MiB";if($("#memoryPlanNote"))$("#memoryPlanNote").textContent=res>=ram?"Invalid plan: kernel reservations exceed guest RAM.":"Estimate only. It does not allocate physical host RAM or implement an allocator.";}
 async function renderStorageSettings(){if($("#storedProjectCount"))$("#storedProjectCount").textContent=(await all("projects")).length;if($("#browserStorageEstimate")){if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();$("#browserStorageEstimate").textContent=formatBytes(e.usage||0)+" / "+formatBytes(e.quota||0);}else $("#browserStorageEstimate").textContent="Unavailable";}}
 async function exportAll(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
 async function clearAllProjects(){if(state.settings.confirmDestructive&&!confirm("Delete all locally stored projects? This cannot be undone."))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
@@ -937,7 +1001,35 @@ async function checkToolchain(){
 }
 async function loadArchive(file){const p={id:makeId(),name:file.name.replace(/\.(zip|kerno|json)$/i,""),config:configFor("Imported OS"),files:{},createdAt:Date.now(),updatedAt:Date.now()};state.project=p;if(file.name.toLowerCase().endsWith(".json")){const m=JSON.parse(await file.text());if(m.format!=="kerno-project"||!m.files)throw Error("Not a Kerno project manifest.");p.name=m.name||p.name;p.config=Object.assign(p.config,m.config||{});p.files=m.files;}else{const r=await importZip(file);if(!r.n)throw Error("No supported text source files found.");}p.files=cleanFiles(p.files);if(!Object.keys(p.files).length)throw Error("Project archive contains no supported source files.");await saveProject(true);await openProject();notify("Project loaded",p.name);}
 function cleanFiles(files){const out={};let total=0;Object.entries(files).forEach(([raw,text])=>{const path=normalizePath(raw);if(!path||binaryPath(path)||typeof text!=="string")return;const size=new Blob([text]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT)return;total+=size;out[path]=text;});return out;}
-function openSettings(from){state.settingsReturn=from||state.screen;show("settings");renderSettings(state.category);}
+function openSettings(from){
+  state.settingsReturn=from||state.screen;
+  if(from==="app"&&state.project){
+    const c=state.project.config||{},memory=c.memory||{},qemu=c.qemu||{},boot=c.boot||{};
+    state.settings.projectArchitecture=c.architecture||state.settings.defaultArchitecture;
+    state.settings.projectFirmware=c.firmware||state.settings.defaultFirmware;
+    state.settings.projectBootloader=c.bootloader||state.settings.defaultBootloader;
+    state.settings.projectKernelLanguage=c.kernelLanguage||state.settings.defaultKernelLanguage;
+    state.settings.projectOptimization=c.optimization||state.settings.optimization;
+    state.settings.projectGuestMemoryMiB=Number(memory.guestMiB||state.settings.guestMemoryMiB);
+    state.settings.projectHeapReserveMiB=Number(memory.heapReserveMiB||state.settings.heapReserveMiB);
+    state.settings.projectStackReserveKiB=Number(memory.stackReserveKiB||state.settings.stackReserveKiB);
+    state.settings.projectPageSize=memory.pageSize||state.settings.pageSize;
+    state.settings.projectKernelBase=memory.kernelBase||state.settings.kernelBase;
+    state.settings.projectQemuBinary=qemu.binary||state.settings.qemuBinary;
+    state.settings.projectQemuMachine=qemu.machine||state.settings.qemuMachine;
+    state.settings.projectQemuDisplay=qemu.display||state.settings.qemuDisplay;
+    state.settings.projectQemuVcpus=Number(qemu.vcpus||state.settings.qemuVcpus);
+    state.settings.projectQemuVncPort=Number(qemu.vncPort||state.settings.qemuVncPort);
+    state.settings.projectQemuAcceleration=qemu.acceleration||state.settings.qemuAcceleration;
+    state.settings.projectQemuCpuModel=qemu.cpuModel||state.settings.qemuCpuModel;
+    state.settings.projectQemuNetwork=qemu.network||state.settings.qemuNetwork;
+    state.settings.projectGrubTimeout=Number(boot.grubTimeout??state.settings.grubTimeout);
+    state.settings.projectGrubDefault=Number(boot.grubDefault??state.settings.grubDefault);
+    state.settings.projectKernelCommandLine=boot.kernelCommandLine||"";
+  }
+  show("settings");
+  renderSettings(state.category);
+}
 function applyStartup(){applyTheme();applyAccent();applyDensity();translate();if(state.settings.startScreen==="lastProject"){all("projects").then(list=>{list.sort((a,b)=>b.updatedAt-a.updatedAt);if(list[0]){state.project=list[0];openProject();}else show("welcome");}).catch(()=>show("welcome"));}else show("welcome");}
 function bindEvents(){
 $("#welcomeNewProject").onclick=()=>{syncWizardDefaults();show("newProject");};$("#welcomeLoadProject").onclick=()=>$("#loadProjectInput").click();$("#welcomeLoadFolder").onclick=()=>$("#projectFolderInput").click();$("#welcomeConfigure").onclick=()=>openSettings("welcome");$("#welcomeSettingsButton").onclick=()=>openSettings("welcome");
