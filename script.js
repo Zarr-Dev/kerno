@@ -972,7 +972,7 @@ async function renderSettings(category){
   $("#exportAllProjectsButton")&&$("#exportAllProjectsButton").addEventListener("click",exportAll);
   $("#clearProjectsButton")&&$("#clearProjectsButton").addEventListener("click",clearAllProjects);
 }
-function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale")translate();if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density")applyDensity();if(["editorFontSize","tabSize","wordWrap","lineNumbers","minimap"].includes(k))applyEditorSettings();if(["guestMemoryMiB","heapReserveMiB","stackReserveKiB"].includes(k))renderMemory();}
+function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale"){translate();renderSettings(state.category);return;}if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density")applyDensity();if(["editorFontSize","editorFontFamily","tabSize","wordWrap","lineNumbers","minimap","cursorStyle","smoothScrolling","bracketPairColorization","renderWhitespace"].includes(k))applyEditorSettings();if(["guestMemoryMiB","heapReserveMiB","stackReserveKiB"].includes(k))renderMemory();}
 function validateSettings(){
   const s=state.settings;
   const requireInteger=(key,min,max,step=1)=>{
