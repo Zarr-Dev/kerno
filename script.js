@@ -56,7 +56,83 @@ const LANGUAGES = {
 const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:""};
 function tr(k){return (LANGUAGES[state.settings.locale]&&LANGUAGES[state.settings.locale][k])||LANGUAGES.en[k]||k;}
 function translate(){ $$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=state.settings.locale;document.documentElement.dir=state.settings.locale==="ar"?"rtl":"ltr"; }
-function notify(a,b){const n=document.createElement("div");n.className="toast";n.textContent=a;if(b){const s=document.createElement("small");s.textContent=b;n.append(s);}$("#toastRegion").append(n);setTimeout(()=>n.remove(),3500);}
+function notify(title,detail,type){
+  const region=$("#toastRegion");
+  if(!region){console[type==="error"?"error":"log"]("[Kerno]",title,detail||"");return;}
+  while(region.children.length>=4)region.firstElementChild.remove();
+  const kind=type||(/fail|error|unavailable|could not|invalid/i.test(String(title))?"error":"success");
+  const node=document.createElement("div");
+  node.className="toast toast-"+kind;
+  node.setAttribute("role",kind==="error"?"alert":"status");
+  const mark=document.createElement("span");mark.className="toast-mark";mark.textContent=kind==="error"?"!":"✓";
+  const copy=document.createElement("div");copy.className="toast-copy";
+  const heading=document.createElement("strong");heading.textContent=String(title||"Kerno");
+  copy.append(heading);
+  if(detail){const small=document.createElement("small");small.textContent=String(detail);copy.append(small);}
+  const dismiss=document.createElement("button");dismiss.className="toast-dismiss";dismiss.type="button";dismiss.textContent="×";dismiss.setAttribute("aria-label","Dismiss notification");
+  dismiss.onclick=()=>node.remove();
+  node.append(mark,copy,dismiss);region.append(node);
+  window.setTimeout(()=>{if(node.isConnected)node.remove();},kind==="error"?6000:4200);
+}
+let modalResolver=null;
+let modalEscapeHandler=null;
+function showInAppDialog(options){
+  const opts=Object.assign({title:"Kerno",message:"",confirmLabel:"Continue",cancelLabel:"Cancel",input:false,initialValue:"",placeholder:"",danger:false,eyebrow:"KERNO WORKSPACE"},options||{});
+  const modal=$("#kernoModal"),input=$("#modalInput"),confirmButton=$("#modalConfirmButton");
+  if(modalResolver){modalResolver(null);modalResolver=null;}
+  $("#modalEyebrow").textContent=opts.eyebrow;
+  $("#modalTitle").textContent=opts.title;
+  $("#modalMessage").textContent=opts.message;
+  $("#modalError").textContent="";
+  $("#modalError").classList.add("hidden");
+  confirmButton.textContent=opts.confirmLabel;
+  confirmButton.classList.toggle("danger-button",!!opts.danger);
+  $("#modalCancelButton").textContent=opts.cancelLabel;
+  input.classList.toggle("hidden",!opts.input);
+  input.value=opts.initialValue||"";
+  input.placeholder=opts.placeholder||"";
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden","false");
+  return new Promise(resolve=>{
+    let finished=false;
+    const finish=value=>{
+      if(finished)return;
+      finished=true;
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden","true");
+      confirmButton.onclick=null;$("#modalCancelButton").onclick=null;$("#modalDismissButton").onclick=null;
+      modal.onclick=null;
+      if(modalEscapeHandler){document.removeEventListener("keydown",modalEscapeHandler);modalEscapeHandler=null;}
+      modalResolver=null;
+      resolve(value);
+    };
+    modalResolver=finish;
+    confirmButton.onclick=()=>finish(opts.input?input.value.trim():true);
+    $("#modalCancelButton").onclick=()=>finish(null);
+    $("#modalDismissButton").onclick=()=>finish(null);
+    modal.onclick=e=>{if(e.target===modal)finish(null);};
+    modalEscapeHandler=e=>{if(e.key==="Escape"){e.preventDefault();finish(null);}else if(e.key==="Enter"&&opts.input&&document.activeElement===input){e.preventDefault();finish(input.value.trim());}};
+    document.addEventListener("keydown",modalEscapeHandler);
+    window.requestAnimationFrame(()=>opts.input?input.focus():confirmButton.focus());
+  });
+}
+async function confirmInApp(message,title="Confirm action"){
+  return (await showInAppDialog({title,message,confirmLabel:"Confirm",danger:true}))===true;
+}
+async function promptInApp(message,initialValue="",title="Enter a value"){
+  return await showInAppDialog({title,message,input:true,initialValue,placeholder:"Type here",confirmLabel:"Create"});
+}
+function cycleTheme(){
+  const order=["dark","light","mono"];
+  const current=order.indexOf(state.settings.theme);
+  state.settings.theme=order[(current+1)%order.length];
+  applyTheme();
+  const select=$('[data-setting="theme"]');
+  if(select)select.value=state.settings.theme;
+  saveSettings();
+  const label=state.settings.theme==="mono"?"Black & white":state.settings.theme==="light"?"Light":"Dark";
+  notify("Theme changed",label+" appearance applied across Kerno.");
+}
 function makeId(){return crypto&&crypto.randomUUID?crypto.randomUUID():"kerno-"+Date.now()+"-"+Math.random().toString(36).slice(2);}
 function dbOpen(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains("projects"))d.createObjectStore("projects",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta",{keyPath:"key"});};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
 function dbReq(store,mode,fn){return new Promise((resolve,reject)=>{const tx=database.transaction(store,mode),r=fn(tx.objectStore(store));r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);tx.onabort=()=>reject(tx.error||Error("Storage transaction aborted"));});}
@@ -486,7 +562,21 @@ function syncWizardDefaults(){
 function syncEditor(){if(!state.project||!state.activeFile)return;if(state.models[state.activeFile])state.project.files[state.activeFile]=state.models[state.activeFile].getValue();else if($("#plainEditor").style.display==="block")state.project.files[state.activeFile]=$("#plainEditor").value;}
 function renderEditor(){const empty=!state.activeFile||!(state.activeFile in state.project.files);$("#editorEmpty").classList.toggle("hidden",!empty);if(empty){$("#editorBreadcrumb").textContent="No source file selected";$("#plainEditor").style.display="none";return;}$("#editorBreadcrumb").textContent=state.activeFile;$("#languageMode").textContent=langLabel(state.activeFile);if(state.editor&&state.models[state.activeFile]){state.editor.setModel(state.models[state.activeFile]);$("#plainEditor").style.display="none";}else{$("#plainEditor").value=state.project.files[state.activeFile];$("#plainEditor").style.display="block";}}
 function openFile(path){if(!(path in state.project.files))return;syncEditor();state.activeFile=path;if(!state.tabs.includes(path))state.tabs.push(path);renderTree();renderTabs();renderEditor();if(state.editor&&state.models[path])state.editor.setModel(state.models[path]);}
-function closeTab(path){state.tabs=state.tabs.filter(x=>x!==path);if(state.activeFile===path)state.activeFile=state.tabs[0]||Object.keys(state.project.files)[0]||null;renderTabs();renderEditor();}
+function closeTab(path){
+  if(!state.project||!path)return;
+  syncEditor();
+  const wasActive=state.activeFile===path;
+  state.tabs=state.tabs.filter(x=>x!==path);
+  if(wasActive)state.activeFile=state.tabs[state.tabs.length-1]||null;
+  renderTabs();renderTree();renderEditor();
+  if(state.editor)state.editor.setModel(state.activeFile?ensureModel(state.activeFile):null);
+  if(state.splitEditor&&state.splitFile===path){
+    state.splitFile=Object.keys(state.project.files).find(x=>x!==state.activeFile)||state.activeFile;
+    if(state.splitFile)state.splitEditor.setModel(ensureModel(state.splitFile));
+  }
+  saveProject(true);
+  if(wasActive)notify("File tab closed",path);
+}
 function disposeEditors(){Object.values(state.models).forEach(m=>{try{m.dispose();}catch(_){}});state.models={};if(state.editor){state.editor.dispose();state.editor=null;}if(state.splitEditor){state.splitEditor.dispose();state.splitEditor=null;}}
 function defineLanguages(m){
 m.languages.register({id:"kerno-gas",extensions:[".s",".S"],aliases:["GNU Assembler","GAS"]});
@@ -552,7 +642,18 @@ function openSplit(){if(!window.monaco||!state.editor)return;$("#splitPane").cla
 function toggleSplit(){if($("#splitPane").classList.contains("hidden"))openSplit();else $("#splitPane").classList.add("hidden");}
 async function openProject(){show("app");$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();$("#plainEditor").style.display="none";state.activeFile=null;disposeEditors();state.tabs=[];state.activeFile=Object.keys(state.project.files).find(x=>/kernel\.(c|cpp)$/.test(x))||Object.keys(state.project.files)[0]||null;state.tabs=state.activeFile?[state.activeFile]:[];state.splitFile=Object.keys(state.project.files).find(x=>x!==state.activeFile)||state.activeFile;renderTree();renderTabs();renderEditor();renderMachine();renderBuild();renderMemory();initMonaco();await saveProject(true);}
 async function loadProject(id){try{state.project=await get("projects",id);if(!state.project)throw Error("Project not found in browser storage.");const hidden=await get("meta","hiddenRecent");const ids=(hidden&&hidden.value||[]).filter(x=>x!==id);await put("meta",{key:"hiddenRecent",value:ids});await openProject();}catch(e){notify("Could not load project",e.message);}}
-function createSourceFile(){if(!state.project)return;const path=normalizePath(prompt("New source path (example: src/interrupts.cpp)","src/new_module.cpp"));if(!path)return;if(!/^[\w./-]+$/.test(path)||state.project.files[path]!==undefined){notify("Invalid or existing file path");return;}const ext=path.split(".").pop().toLowerCase();state.project.files[path]=["asm","s","inc"].includes(ext)?"; New NASM source\nBITS 32\nSECTION .text\n":["c","cpp","h","hpp"].includes(ext)?"#include <stdint.h>\n\n// New kernel module\n":"";state.tabs.push(path);openFile(path);saveProject(true);notify("Source file created",path);}
+async function createSourceFile(){
+  if(!state.project)return;
+  const entered=await promptInApp("Enter a relative path for the new source file.","src/new_module.cpp","Create source file");
+  if(!entered)return;
+  const path=normalizePath(entered);
+  if(!path||! /^[A-Za-z0-9_.\/-]+$/.test(path)||path.endsWith("/")||state.project.files[path]!==undefined){
+    notify("Invalid source path","Use a new relative path such as src/interrupts.cpp.","error");return;
+  }
+  const ext=path.split(".").pop().toLowerCase();
+  state.project.files[path]=["asm","s","inc"].includes(ext)?"; New NASM source\nBITS 32\nSECTION .text\n":["c","cpp","h","hpp"].includes(ext)?"#include <stdint.h>\n\n// New kernel module\n":"";
+  state.tabs.push(path);openFile(path);await saveProject(true);notify("Source file created",path);
+}
 function binaryPath(p){return /\.(iso|elf|bin|o|a|so|dll|exe|png|jpe?g|gif|webp|ico|pdf|mp3|mp4|woff2?|ttf)$/i.test(p);}
 async function importZip(file){if(!window.JSZip)throw Error("ZIP library unavailable.");const zip=await JSZip.loadAsync(file);let n=0,skip=0,total=fileSize(state.project);const entries=[];zip.forEach((p,e)=>{if(!e.dir)entries.push([p,e]);});for(const [raw,e] of entries){const p=normalizePath(raw);if(!p||binaryPath(p)||p==="KernoProject.json"){skip++;continue;}const content=await e.async("string"),size=new Blob([content]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT){skip++;continue;}total+=size;state.project.files[p]=content;n++;}const m=zip.file("KernoProject.json");if(m){try{const data=JSON.parse(await m.async("string"));if(data.config)state.project.config=Object.assign(state.project.config,data.config);if(data.name)state.project.name=data.name;}catch(_){}}return {n,skip};}
 async function importMany(list,strip){const files=Array.from(list||[]);let n=0,skip=0,total=fileSize(state.project);const root=files.length&&files.every(f=>f.webkitRelativePath)&&files.map(f=>f.webkitRelativePath.split("/")[0]).every(x=>x===files[0].webkitRelativePath.split("/")[0])?files[0].webkitRelativePath.split("/")[0]:"";for(const f of files){try{if(/\.(zip|kerno)$/i.test(f.name)){const r=await importZip(f);n+=r.n;skip+=r.skip;continue;}let p=f.webkitRelativePath||f.name;if(strip&&root)p=p.split("/").slice(1).join("/");p=normalizePath(p);if(!p||binaryPath(p)||f.size>FILE_LIMIT||total+f.size>PROJECT_LIMIT){skip++;continue;}state.project.files[p]=await f.text();total+=f.size;n++;}catch(_){skip++;}}if(n){const next=Object.keys(state.project.files).find(x=>!state.tabs.includes(x));if(next)openFile(next);renderTree();renderTabs();await saveProject(true);}notify(n+" file(s) imported",skip?skip+" item(s) skipped due to type/path/size limits.":"Project updated.");}
