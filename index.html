@@ -15,18 +15,29 @@
   <script src="./local-agent.js"></script>
 </head>
 <body>
-  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-relevant="additions"></div>
+  <div class="modal-overlay hidden" id="kernoModal" aria-hidden="true">
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalMessage">
+      <div class="modal-topline"><span class="modal-mark">K</span><button class="modal-dismiss" id="modalDismissButton" type="button" aria-label="Close dialog">×</button></div>
+      <span class="section-kicker" id="modalEyebrow">KERNO WORKSPACE</span>
+      <h2 id="modalTitle">Confirm action</h2>
+      <p id="modalMessage">Review this action before continuing.</p>
+      <input class="modal-input hidden" id="modalInput" type="text" autocomplete="off">
+      <div class="modal-error hidden" id="modalError"></div>
+      <div class="modal-actions"><button class="quiet-button" id="modalCancelButton" type="button">Cancel</button><button class="primary-button" id="modalConfirmButton" type="button">Continue</button></div>
+    </section>
+  </div>
 
   <main class="screen welcome-screen" id="welcomeScreen">
     <header class="welcome-top">
       <div class="brand-lockup"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small>OS DEVELOPMENT ENVIRONMENT</small></span></div>
-      <div class="welcome-top-actions"><span class="local-status"><i></i> LOCAL WORKSPACE</span><button class="quiet-button" id="welcomeLoadFolder">Open folder</button><button class="quiet-button" id="welcomeSettingsButton" data-i18n="settings">Settings</button></div>
+      <div class="welcome-top-actions"><span class="local-status"><i></i> LOCAL WORKSPACE</span><button class="quiet-button" id="welcomeLoadFolder">Open folder</button><button class="quiet-button" id="themeToggleWelcome" title="Cycle color theme" aria-label="Cycle color theme">◐ Theme</button><button class="quiet-button" id="welcomeSettingsButton" data-i18n="settings">Settings</button></div>
     </header>
     <section class="welcome-content">
       <div class="welcome-intro">
         <span class="section-kicker">KERNEL ENGINEERING WORKSPACE</span>
         <h1 data-i18n="welcomeTitle">Build your operating system.</h1>
-        <p data-i18n="welcomeSubtitle">A focused environment for kernel source, machine configuration, memory planning and emulator workflows.</p>
+        <p data-i18n="welcomeSubtitle">A focused environment for kernel source, machine configuration, memory planning and emulator workflows.</p><div class="hero-proof"><span><b>01</b> Kernel workspace</span><span><b>02</b> Native toolchain</span><span><b>03</b> QEMU machine lab</span></div>
       </div>
       <div class="welcome-actions">
         <button class="welcome-card primary-card" id="welcomeNewProject">
@@ -125,7 +136,7 @@
       <div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div>
       <div class="app-project"><span class="project-dot"></span><strong id="activeProjectName">My OS</strong><span class="chip" id="activeTargetChip">x86_64 · GRUB</span></div>
       <nav class="workspace-nav"><button class="workspace-nav-item active" data-workspace="source" data-i18n="source">Source</button><button class="workspace-nav-item" data-workspace="machine" data-i18n="machine">Machine</button><button class="workspace-nav-item" data-workspace="build" data-i18n="build">Build</button></nav>
-      <div class="app-actions"><button class="icon-button" id="appSettingsButton" title="Settings">⚙</button><button class="tool-button" id="saveProjectButton">Save</button><button class="tool-button" id="importProjectFilesButton" data-i18n="importFiles">Import files</button><button class="tool-button" id="exportProjectButton" data-i18n="exportProject">Export project</button><button class="primary-button small-button" id="buildProjectButton" data-i18n="buildBoot">Build & Boot</button><button class="icon-button" id="backToWelcomeButton" title="Home">⌂</button></div>
+      <div class="app-actions"><button class="icon-button" id="themeToggleApp" title="Cycle color theme" aria-label="Cycle color theme">◐</button><button class="icon-button" id="appSettingsButton" title="Settings">⚙</button><button class="tool-button" id="saveProjectButton">Save</button><button class="tool-button" id="importProjectFilesButton" data-i18n="importFiles">Import files</button><button class="tool-button" id="exportProjectButton" data-i18n="exportProject">Export project</button><button class="primary-button small-button" id="buildProjectButton" data-i18n="buildBoot">Build & Boot</button><button class="icon-button" id="backToWelcomeButton" title="Home">⌂</button></div>
     </header>
 
     <section class="workspace-view" id="sourceWorkspace">
