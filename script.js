@@ -609,8 +609,8 @@ m.languages.setMonarchTokensProvider("kerno-linker",{tokenizer:{root:[
 ]}});
 }
 function defineThemes(m){m.editor.defineTheme("kerno-dark",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"778B9B",fontStyle:"italic"},{token:"keyword",foreground:"C5A4DF"},{token:"string",foreground:"A8D3B3"},{token:"number",foreground:"DDB77B"},{token:"type",foreground:"8CB9ED"},{token:"variable",foreground:"8DC8B2"}],colors:{"editor.background":"#0E141B","editor.foreground":"#E1E9F0","editorLineNumber.foreground":"#526476","editorLineNumber.activeForeground":"#C7D2DC","editor.lineHighlightBackground":"#17212A","editor.selectionBackground":"#3A586F88","editorCursor.foreground":"#A4D4BE","editorIndentGuide.background1":"#263440","editorIndentGuide.activeBackground1":"#557C6B","editorWidget.background":"#1C2833"}});m.editor.defineTheme("kerno-light",{base:"vs",inherit:true,rules:[{token:"comment",foreground:"788A96",fontStyle:"italic"},{token:"keyword",foreground:"8C50A8"},{token:"string",foreground:"357A51"},{token:"number",foreground:"9B641B"},{token:"type",foreground:"2767A5"}],colors:{"editor.background":"#FFFFFF","editor.foreground":"#263540","editorLineNumber.foreground":"#9BA8B2","editorLineNumber.activeForeground":"#526372","editor.lineHighlightBackground":"#F1F6F5","editorCursor.foreground":"#26795E"}});}
-function monacoOptions(model){return {
-  model,theme:state.settings.theme==="light"?"kerno-light":"kerno-dark",automaticLayout:true,
+m.editor.defineTheme("kerno-mono",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"A0A0A0",fontStyle:"italic"},{token:"keyword",foreground:"FFFFFF",fontStyle:"bold"},{token:"string",foreground:"D8D8D8"},{token:"number",foreground:"BDBDBD"},{token:"type",foreground:"F0F0F0"},{token:"variable",foreground:"E0E0E0"}],colors:{"editor.background":"#050505","editor.foreground":"#F5F5F5","editorLineNumber.foreground":"#777777","editorLineNumber.activeForeground":"#FFFFFF","editor.lineHighlightBackground":"#171717","editor.selectionBackground":"#55555588","editorCursor.foreground":"#FFFFFF","editorIndentGuide.background1":"#333333","editorIndentGuide.activeBackground1":"#AAAAAA","editorWidget.background":"#111111"}});\nfunction monacoOptions(model){return {
+  model,theme:state.settings.theme==="light"?"kerno-light":state.settings.theme==="mono"?"kerno-mono":"kerno-dark",automaticLayout:true,
   fontFamily:(state.settings.editorFontFamily||"DM Mono")+", Consolas, monospace",
   fontSize:Number(state.settings.editorFontSize),lineHeight:Math.max(20,Math.round(Number(state.settings.editorFontSize)*1.65)),
   minimap:{enabled:!!state.settings.minimap},padding:{top:17,bottom:20},scrollBeyondLastLine:false,
@@ -636,7 +636,7 @@ function applyEditorSettings(){
     bracketPairColorization:{enabled:!!state.settings.bracketPairColorization}
   };
   [state.editor,state.splitEditor].forEach(e=>{if(e)e.updateOptions(options);});
-  if(window.monaco&&state.editor)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":"kerno-dark");
+  if(window.monaco)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":state.settings.theme==="mono"?"kerno-mono":"kerno-dark");
 }
 function openSplit(){if(!window.monaco||!state.editor)return;$("#splitPane").classList.remove("hidden");const paths=Object.keys(state.project.files);state.splitFile=state.splitFile&&state.project.files[state.splitFile]!==undefined?state.splitFile:(paths.find(x=>x!==state.activeFile)||state.activeFile);const sel=$("#splitFileSelect");sel.innerHTML="";paths.forEach(path=>{const o=document.createElement("option");o.value=path;o.textContent=path;o.selected=path===state.splitFile;sel.append(o);});if(!state.splitEditor)state.splitEditor=window.monaco.editor.create($("#splitMonacoPane"),monacoOptions(ensureModel(state.splitFile)));else state.splitEditor.setModel(ensureModel(state.splitFile));}
 function toggleSplit(){if($("#splitPane").classList.contains("hidden"))openSplit();else $("#splitPane").classList.add("hidden");}
@@ -724,7 +724,7 @@ async function renderSettings(category){
 
   if(category==="appearance"){
     html=group("Interface appearance",
-      row("Color theme","Applied across the Project Hub, settings, workspace and source editor.",select("theme",[["dark","Dark"],["light","Light"]]))+
+      row("Color theme","Applied across the Project Hub, settings, workspace and source editor.",select("theme",[["dark","Dark"],["light","Light"],["mono","Black & white · monochrome"]]))+
       row("Accent color","Used for selection, focus and active controls.",select("accent",[["sage","Sage green"],["cyan","Cyan"],["blue","Blue"],["amber","Amber"]]))+
       row("Interface density","Controls vertical spacing in panels and settings.",select("density",[["compact","Compact"],["balanced","Balanced"],["comfortable","Comfortable"]]))+
       row("Interface scale","Increase text and controls together.",select("uiScale",[["90","90%"],["100","100%"],["110","110%"],["120","120%"]]))+
@@ -1013,7 +1013,7 @@ function validateSettings(){
   requireEnum("serialBackend",["file","null"]);
   requireEnum("kernelLogLevel",["quiet","error","warn","info","debug"]);
   requireEnum("defaultTemplate",["kernel-text","kernel-framebuffer","kernel-minimal"]);
-  requireEnum("theme",["dark","light"]);
+  requireEnum("theme",["dark","light","mono"]);
   requireEnum("accent",["sage","cyan","blue","amber"]);
   requireEnum("density",["compact","balanced","comfortable"]);
   requireEnum("wordWrap",["off","on"]);
@@ -1118,7 +1118,19 @@ async function applySettings(){
   show(state.settingsReturn);
 }
 
-function applyTheme(){document.body.classList.toggle("light-theme",state.settings.theme==="light");if(window.monaco&&state.editor)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":"kerno-dark");}
+function applyTheme(){
+  const theme=state.settings.theme||"dark";
+  document.body.classList.toggle("light-theme",theme==="light");
+  document.body.classList.toggle("monochrome-theme",theme==="mono");
+  document.documentElement.style.colorScheme=theme==="light"?"light":"dark";
+  const editorTheme=theme==="light"?"kerno-light":theme==="mono"?"kerno-mono":"kerno-dark";
+  if(window.monaco)window.monaco.editor.setTheme(editorTheme);
+  ["#themeToggleWelcome","#themeToggleApp"].forEach(selector=>{
+    const button=$(selector);if(!button)return;
+    button.textContent=theme==="mono"?"◑ B/W":theme==="light"?"☼ Light":"◐ Dark";
+    button.title="Current theme: "+(theme==="mono"?"Black & white":theme==="light"?"Light":"Dark")+". Click to cycle.";
+  });
+}
 function applyAccent(){const map={sage:"#79b8a3",cyan:"#63c9ca",blue:"#80aee8",amber:"#d7b16e"};document.documentElement.style.setProperty("--accent",map[state.settings.accent]||map.sage);}
 function applyDensity(){
   document.documentElement.dataset.density=state.settings.density;
