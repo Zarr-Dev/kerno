@@ -1509,7 +1509,7 @@ function openSettings(from){
 }
 function applyStartup(){applyTheme();applyAccent();applyDensity();translate();if(state.settings.startScreen==="lastProject"){all("projects").then(list=>{list.sort((a,b)=>b.updatedAt-a.updatedAt);if(list[0]){state.project=list[0];openProject();}else show("welcome");}).catch(()=>show("welcome"));}else show("welcome");}
 function bindEvents(){
-$("#welcomeNewProject").onclick=()=>{syncWizardDefaults();show("newProject");};$("#welcomeLoadProject").onclick=()=>$("#loadProjectInput").click();$("#welcomeLoadFolder").onclick=()=>$("#projectFolderInput").click();$("#welcomeConfigure").onclick=()=>openSettings("welcome");$("#welcomeSettingsButton").onclick=()=>openSettings("welcome");
+$("#welcomeNewProject").onclick=()=>{syncWizardDefaults();show("newProject");};$("#themeToggleWelcome").onclick=cycleTheme;$("#themeToggleApp").onclick=cycleTheme;$("#welcomeLoadProject").onclick=()=>$("#loadProjectInput").click();$("#welcomeLoadFolder").onclick=()=>$("#projectFolderInput").click();$("#welcomeConfigure").onclick=()=>openSettings("welcome");$("#welcomeSettingsButton").onclick=()=>openSettings("welcome");
 $("#backFromNewProject").onclick=()=>show("welcome");$("#cancelNewProject").onclick=()=>show("welcome");$("#createProjectButton").onclick=createProject;
 $("#backFromSettings").onclick=()=>show(state.settingsReturn);$("#saveSettingsButton").onclick=applySettings;
 $("#clearRecentButton").onclick=async()=>{if(state.settings.confirmDestructive&&!await confirmInApp("Saved projects will remain available in browser storage.","Clear recent project list?"))return;await put("meta",{key:"hiddenRecent",value:state.recent.map(p=>p.id)});await refreshRecent();};
@@ -1528,15 +1528,35 @@ $("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild(true)
 $$(".settings-nav-item").forEach(b=>b.onclick=()=>renderSettings(b.dataset.category));
 $("#architectureSelect").onchange=()=>{const arch=$("#architectureSelect").value;if(arch==="aarch64"||arch==="riscv64"){$("#firmwareSelect").value="uefi";$("#bootloaderSelect").value="uefi-app";}$("#scaffoldPreview").textContent=arch+" target\n├── boot/\n│   └── entry.asm\n├── include/kernel/\n├── src/\n│   ├── kernel.cpp\n│   ├── console.cpp\n│   └── memory.cpp\n├── linker.ld\n└── kerno.project.json";};
 document.addEventListener("keydown",e=>{
-  const mod=e.ctrlKey||e.metaKey;
-  if(mod&&e.key.toLowerCase()==="s"){e.preventDefault();if(state.project)saveProject(false);else saveSettings();}
-  if(mod&&e.key.toLowerCase()==="o"){e.preventDefault();if(state.screen==="welcome")$("#loadProjectInput").click();else if(state.project)$("#sourceImportInput").click();}
-  if(mod&&e.shiftKey&&e.key.toLowerCase()==="e"){e.preventDefault();if(state.project)exportFile();}
-  if(mod&&e.shiftKey&&e.key.toLowerCase()==="s"){e.preventDefault();if(state.project)exportProject();}
-  if(mod&&e.key.toLowerCase()==="b"&&state.project){e.preventDefault();switchWorkspace("build");nativeBuild(false);}
-  if(mod&&e.key===","){e.preventDefault();openSettings(state.screen==="app"?"app":state.screen);}
-  if(mod&&state.screen==="app"&&["1","2","3"].includes(e.key)){e.preventDefault();switchWorkspace(({1:"source",2:"machine",3:"build"})[e.key]);}
-});
+    const mod=e.ctrlKey||e.metaKey;
+    if(!mod||e.altKey)return;
+    const key=e.key.toLowerCase();
+    const inMonaco=!!(e.target&&e.target.closest&&e.target.closest(".monaco-editor"));
+    const inPlainEditor=e.target&&e.target.id==="plainEditor";
+    const inEditor=inMonaco||inPlainEditor;
+    const inForm=e.target&&e.target.closest&&e.target.closest("input,select,textarea,[contenteditable='true']");
+    if(inForm&&!inEditor&&key!=="s")return;
+    if(!$("#kernoModal").classList.contains("hidden")&&key!=="s")return;
+    if(key==="s"){
+      e.preventDefault();if(state.project){syncEditor();saveProject(false);}else saveSettings();return;
+    }
+    if(state.screen==="app"&&key==="w"){
+      e.preventDefault();e.stopPropagation();
+      if(state.activeFile)closeTab(state.activeFile);else notify("No open file","There is no active editor tab to close.");
+      return;
+    }
+    if(state.screen==="app"&&key==="n"){e.preventDefault();createSourceFile();return;}
+    if(state.screen==="app"&&key==="p"){e.preventDefault();quickOpenFile();return;}
+    if(state.screen==="app"&&key==="tab"){e.preventDefault();cycleEditorTab(e.shiftKey?-1:1);return;}
+    if(key==="o"){
+      e.preventDefault();if(state.screen==="welcome")$("#loadProjectInput").click();else if(state.project)$("#sourceImportInput").click();return;
+    }
+    if(e.shiftKey&&key==="e"){e.preventDefault();if(state.project)exportFile();return;}
+    if(e.shiftKey&&key==="s"){e.preventDefault();if(state.project)exportProject();return;}
+    if(key==="b"&&state.project){e.preventDefault();switchWorkspace("build");nativeBuild(false);return;}
+    if(key===","){e.preventDefault();openSettings(state.screen==="app"?"app":state.screen);return;}
+    if(state.screen==="app"&&["1","2","3"].includes(e.key)){e.preventDefault();switchWorkspace(({1:"source",2:"machine",3:"build"})[e.key]);}
+  });
 }
 function plainCursor(){const el=$("#plainEditor"),lines=el.value.slice(0,el.selectionStart).split("\n");$("#cursorPosition").textContent="Ln "+lines.length+", Col "+(lines[lines.length-1].length+1);}
 async function exportAllProjects(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
