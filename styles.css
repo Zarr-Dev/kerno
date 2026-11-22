@@ -307,3 +307,6 @@ body.light-theme .tool-missing { color:#966333; }
   .setting-copy small,.setting-note { font-size:10px; }
   .shortcut-row { align-items:flex-start; flex-direction:column; justify-content:center; padding:9px 0; gap:7px; }
 }
+
+/* Scale the entire IDE canvas, not only inherited body typography. */
+body { zoom: var(--ui-scale, 1); }
