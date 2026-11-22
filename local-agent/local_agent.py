@@ -686,6 +686,10 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             data = self.read_json()
+            if path == "/api/v1/toolchain":
+                settings = data.get("settings") or {}
+                self.send_json(200, {"tools": toolchain_report(settings)})
+                return
             if path == "/api/v1/build":
                 result = build_project(data)
                 self.send_json(200, result)
