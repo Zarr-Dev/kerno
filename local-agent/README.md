@@ -16,6 +16,12 @@ Kerno Local Service is the native execution companion for the browser IDE.
 
 The service can start without the build tools installed, but its toolchain scan will report missing executables and build requests will fail with a clear diagnostic.
 
+## Windows Command Prompt diagnostics
+
+Run `diagnose-windows.cmd` from Command Prompt to check Python, NASM, the x86_64 cross compilers, linker, GRUB ISO builder, xorriso and QEMU. It is read-only: it does not install software or change PATH.
+
+Kerno's **Settings → Toolchain → Host PC & Command Prompt** panel can also inspect host OS, CPU architecture, logical CPU count, memory and PATH-resolved tool availability while the Local Service is connected.
+
 ## Start
 
 Windows:
