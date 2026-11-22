@@ -31,13 +31,13 @@
   <main class="screen welcome-screen" id="welcomeScreen">
     <header class="welcome-top">
       <div class="brand-lockup"><span class="brand-symbol">K</span><span class="brand-word">KERNO<small>OS DEVELOPMENT ENVIRONMENT</small></span></div>
-      <div class="welcome-top-actions"><span class="local-status"><i></i> LOCAL WORKSPACE</span><button class="quiet-button" id="welcomeLoadFolder">Open folder</button><button class="quiet-button" id="themeToggleWelcome" title="Cycle color theme" aria-label="Cycle color theme">◐ Theme</button><button class="quiet-button" id="welcomeSettingsButton" data-i18n="settings">Settings</button></div>
+      <div class="welcome-top-actions"><nav class="landing-nav" aria-label="Main navigation"><button class="landing-nav-link" id="landingFeaturesButton" type="button">Platform</button><button class="landing-nav-link" id="landingWorkflowButton" type="button">Workflow</button><button class="landing-nav-link" id="landingTutorialButton" type="button">Tutorial</button></nav><span class="local-status"><i></i> LOCAL WORKSPACE</span><button class="quiet-button" id="welcomeLoadFolder">Open folder</button><button class="quiet-button" id="themeToggleWelcome" title="Cycle color theme" aria-label="Cycle color theme">◐ Theme</button><button class="quiet-button" id="welcomeSettingsButton" data-i18n="settings">Settings</button></div>
     </header>
     <section class="welcome-content">
       <div class="welcome-intro">
         <span class="section-kicker">KERNEL ENGINEERING WORKSPACE</span>
         <h1 data-i18n="welcomeTitle">Build your operating system.</h1>
-        <p data-i18n="welcomeSubtitle">A focused environment for kernel source, machine configuration, memory planning and emulator workflows.</p><div class="hero-proof"><span><b>01</b> Kernel workspace</span><span><b>02</b> Native toolchain</span><span><b>03</b> QEMU machine lab</span></div>
+        <p data-i18n="welcomeSubtitle">A focused environment for kernel source, machine configuration, memory planning and emulator workflows.</p><div class="hero-proof"><span><b>01</b> Kernel workspace</span><span><b>02</b> Native toolchain</span><span><b>03</b> QEMU machine lab</span></div><div class="hero-cta-row"><button class="primary-button hero-primary-cta" id="heroStartButton" type="button">Start building <span aria-hidden="true">↗</span></button><button class="hero-secondary-cta" id="heroTutorialButton" type="button">Explore the learning path <span aria-hidden="true">→</span></button></div>
       </div>
       <div class="welcome-actions">
         <button class="welcome-card primary-card" id="welcomeNewProject">
@@ -50,6 +50,52 @@
           <span class="action-icon">⚙</span><strong data-i18n="configureIDE">Configure IDE</strong><span data-i18n="configureDesc">Set language, appearance, editor behavior and local tools.</span><b data-i18n="openSettings">Open settings →</b>
         </button>
       </div>
+      <section class="landing-section platform-section" id="platformSection">
+        <div class="landing-section-heading">
+          <span class="section-kicker">ENGINEER THE WHOLE MACHINE</span>
+          <h2>Everything around the kernel, <span>in one workspace.</span></h2>
+          <p>Move from source code to a verified boot image with the tools and feedback that low-level development needs.</p>
+        </div>
+        <div class="platform-grid">
+          <article class="platform-card platform-card-featured">
+            <div class="platform-card-top"><span class="platform-icon">⌘</span><span class="platform-index">01 / SOURCE</span></div>
+            <h3>Kernel source studio</h3>
+            <p>Explore C, C++, Assembly, linker scripts and GRUB configuration with a multi-file editor.</p>
+            <div class="platform-tags"><span>Monaco Editor</span><span>Project tree</span><span>Split view</span></div>
+          </article>
+          <article class="platform-card">
+            <div class="platform-card-top"><span class="platform-icon">⚙</span><span class="platform-index">02 / HARDWARE</span></div>
+            <h3>Machine configuration</h3>
+            <p>Plan memory, CPU topology, boot target and virtual hardware before running a guest.</p>
+            <div class="platform-tags"><span>Memory map</span><span>QEMU</span></div>
+          </article>
+          <article class="platform-card">
+            <div class="platform-card-top"><span class="platform-icon">▤</span><span class="platform-index">03 / BUILD</span></div>
+            <h3>Native build pipeline</h3>
+            <p>Assemble, compile, link, validate Multiboot2 and package a GRUB bootable ISO locally.</p>
+            <div class="platform-tags"><span>ELF64</span><span>ISO9660</span><span>Health checks</span></div>
+          </article>
+        </div>
+      </section>
+      <section class="landing-section workflow-section" id="workflowSection">
+        <div class="workflow-copy">
+          <span class="section-kicker">FROM FIRST FILE TO FIRST BOOT</span>
+          <h2>A clear path through low-level engineering.</h2>
+          <p>Kerno keeps the workflow visible: prepare the host, create the kernel, validate the image, then boot it inside an isolated virtual machine.</p>
+          <button class="workflow-link-button" id="workflowTutorialButton" type="button">Open the step-by-step tutorial <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="workflow-steps" aria-label="Kerno development workflow">
+          <div class="workflow-step"><span>01</span><div><strong>Prepare</strong><small>Connect the local runtime and inspect the toolchain.</small></div></div>
+          <div class="workflow-step"><span>02</span><div><strong>Scaffold</strong><small>Create the boot entry, kernel modules and linker layout.</small></div></div>
+          <div class="workflow-step"><span>03</span><div><strong>Build & verify</strong><small>Validate ELF, Multiboot2, ISO9660 and El Torito.</small></div></div>
+          <div class="workflow-step"><span>04</span><div><strong>Boot & inspect</strong><small>Run the ISO in QEMU and inspect serial output.</small></div></div>
+        </div>
+      </section>
+      <section class="landing-section iso-callout">
+        <div class="iso-callout-mark" aria-hidden="true">K</div>
+        <div><span class="section-kicker">YOUR BOOT IMAGE, YOUR RULES</span><h2>Make the first successful boot meaningful.</h2><p>Understand the boot chain, inspect every build check, and keep control of the kernel that you create.</p></div>
+        <button class="primary-button" id="isoTutorialButton" type="button">Learn the ISO pipeline <span aria-hidden="true">→</span></button>
+      </section>
       <section class="recent-section">
         <div class="section-heading"><div><span class="section-kicker" data-i18n="workspaceHistory">WORKSPACE HISTORY</span><h2 data-i18n="recentProjects">Recent projects</h2></div><button class="text-button" id="clearRecentButton" data-i18n="clearHistory">Clear history</button></div>
         <div class="recent-list" id="recentProjects"><div class="recent-empty"><span>⌁</span><strong data-i18n="noRecent">No recent projects</strong><p data-i18n="noRecentDesc">Create or load an OS project to begin.</p></div></div>
