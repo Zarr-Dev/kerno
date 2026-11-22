@@ -460,6 +460,7 @@ def build_project(payload: dict) -> dict:
     current_stage = "Project validation"
     workspace: Path | None = None
     artifact_path: Path | None = None
+    artifact_registered = False
     keep_build_logs = True
     build_log_path = LOGS / ("build-" + uuid.uuid4().hex + ".log")
 
@@ -511,7 +512,11 @@ def build_project(payload: dict) -> dict:
         if kernel_base < 0x100000 or kernel_base >= 0x40000000 or kernel_base % 4096:
             raise ValueError("Kernel link base must be page-aligned and inside the first 1 GiB identity-mapped region.")
         boot_config = project["files"]["boot/grub.cfg"]
-        if "menuentry" not in boot_config or "multiboot2 /boot/kernel.elf" not in boot_config or "\n    boot" not in boot_config:
+        if (
+            "menuentry" not in boot_config
+            or not re.search(r"(?m)^\s*multiboot2\s+/boot/kernel\.elf(?:\s|$)", boot_config)
+            or not re.search(r"(?m)^\s*boot\s*$", boot_config)
+        ):
             raise RuntimeError("GRUB menu must load /boot/kernel.elf with multiboot2 and execute the boot command.")
         health("Project manifest and target", "Relative paths, source limits, x86_64/BIOS/GRUB target and kernel reservations validated.")
         keep_build_logs = bool(diagnostics.get("retainBuildLogs", settings.get("retainBuildLogs", True)))
@@ -652,14 +657,15 @@ def build_project(payload: dict) -> dict:
             "health_checks": health_checks.copy(),
             "created_at": time.time(),
         }
-        with STATE_LOCK:
-            ARTIFACTS[artifact_id] = metadata
-            PROJECT_ARTIFACTS[project["id"]] = artifact_id
         logs.append("Verified ELF64 x86_64 entry point, Multiboot2 header and ISO9660/El Torito structure.")
         logs.append("ISO SHA-256: " + iso_sha256)
         logs.append("ISO artifact: " + artifact_name + " (" + str(metadata["size_bytes"]) + " bytes)")
         if keep_build_logs:
             build_log_path.write_text("\n".join(logs) + "\n", encoding="utf-8")
+        with STATE_LOCK:
+            ARTIFACTS[artifact_id] = metadata
+            PROJECT_ARTIFACTS[project["id"]] = artifact_id
+        artifact_registered = True
         return {
             "status": "success",
             "message": "Native build completed and the ISO artifact was verified.",
@@ -700,7 +706,7 @@ def build_project(payload: dict) -> dict:
     finally:
         if workspace is not None:
             shutil.rmtree(workspace, ignore_errors=True)
-        if artifact_path is not None and artifact_path.exists() and artifact_path.stem not in {str(item.get("id")) for item in ARTIFACTS.values()}:
+        if artifact_path is not None and artifact_path.exists() and not artifact_registered:
             try:
                 artifact_path.unlink()
             except OSError:
