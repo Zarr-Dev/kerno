@@ -1160,7 +1160,7 @@ $("#projectFolderInput").onchange=async e=>{const files=Array.from(e.target.file
 $("#importProjectFilesButton").onclick=()=>$("#sourceImportInput").click();$("#sourceImportInput").onchange=e=>{importMany(e.target.files,false);e.target.value="";};$("#sourceFolderInput").onchange=e=>{importMany(e.target.files,true);e.target.value="";};
 $("#addSourceFileButton").onclick=createSourceFile;$("#importSourceFolderButton").onclick=()=>$("#sourceFolderInput").click();$("#emptyNewFileButton").onclick=createSourceFile;
 $("#saveProjectButton").onclick=()=>saveProject(false);$("#saveFileButton").onclick=()=>saveProject(false);$("#exportFileButton").onclick=exportFile;$("#exportProjectButton").onclick=exportProject;
-$("#appSettingsButton").onclick=()=>openSettings("app");$("#backToWelcomeButton").onclick=async()=>{await saveProject(true);disposeEditors();show("welcome");};
+$("#appSettingsButton").onclick=()=>openSettings("app");$("#backToWelcomeButton").onclick=async()=>{await saveProject(true);disposeEditors();state.project=null;state.activeFile=null;state.tabs=[];show("welcome");};
 $("#splitEditorButton").onclick=toggleSplit;$("#closeSplitButton").onclick=()=>$("#splitPane").classList.add("hidden");$("#splitFileSelect").onchange=e=>{state.splitFile=e.target.value;if(state.splitEditor)state.splitEditor.setModel(ensureModel(state.splitFile));};
 $("#plainEditor").oninput=()=>{if(state.activeFile){state.project.files[state.activeFile]=$("#plainEditor").value;if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),900);}}};
 $("#plainEditor").onkeyup=plainCursor;$("#plainEditor").onclick=plainCursor;
@@ -1169,7 +1169,16 @@ $("#connectLocalServiceButton").onclick=connectService;$("#startQemuButton").onc
 $("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild(true);};$("#runBuildButton").onclick=()=>nativeBuild(false);$("#openSettingsFromBuild").onclick=()=>{state.category="toolchain";openSettings("app");};
 $$(".settings-nav-item").forEach(b=>b.onclick=()=>renderSettings(b.dataset.category));
 $("#architectureSelect").onchange=()=>{const arch=$("#architectureSelect").value;if(arch==="aarch64"||arch==="riscv64"){$("#firmwareSelect").value="uefi";$("#bootloaderSelect").value="uefi-app";}$("#scaffoldPreview").textContent=arch+" target\n├── boot/\n│   └── entry.asm\n├── include/kernel/\n├── src/\n│   ├── kernel.cpp\n│   ├── console.cpp\n│   └── memory.cpp\n├── linker.ld\n└── kerno.project.json";};
-document.addEventListener("keydown",e=>{const mod=e.ctrlKey||e.metaKey;if(mod&&e.key.toLowerCase()==="s"){e.preventDefault();saveProject(false);}if(mod&&e.key.toLowerCase()==="o"){e.preventDefault();if(state.screen==="welcome")$("#loadProjectInput").click();else $("#sourceImportInput").click();}if(mod&&e.shiftKey&&e.key.toLowerCase()==="e"){e.preventDefault();exportFile();}if(mod&&e.shiftKey&&e.key.toLowerCase()==="s"){e.preventDefault();exportProject();}if(mod&&e.key.toLowerCase()==="b"){e.preventDefault();switchWorkspace("build");nativeBuild();}});
+document.addEventListener("keydown",e=>{
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod&&e.key.toLowerCase()==="s"){e.preventDefault();if(state.project)saveProject(false);else saveSettings();}
+  if(mod&&e.key.toLowerCase()==="o"){e.preventDefault();if(state.screen==="welcome")$("#loadProjectInput").click();else if(state.project)$("#sourceImportInput").click();}
+  if(mod&&e.shiftKey&&e.key.toLowerCase()==="e"){e.preventDefault();if(state.project)exportFile();}
+  if(mod&&e.shiftKey&&e.key.toLowerCase()==="s"){e.preventDefault();if(state.project)exportProject();}
+  if(mod&&e.key.toLowerCase()==="b"&&state.project){e.preventDefault();switchWorkspace("build");nativeBuild(false);}
+  if(mod&&e.key===","){e.preventDefault();openSettings(state.screen==="app"?"app":state.screen);}
+  if(mod&&state.screen==="app"&&["1","2","3"].includes(e.key)){e.preventDefault();switchWorkspace(({1:"source",2:"machine",3:"build"})[e.key]);}
+});
 }
 function plainCursor(){const el=$("#plainEditor"),lines=el.value.slice(0,el.selectionStart).split("\n");$("#cursorPosition").textContent="Ln "+lines.length+", Col "+(lines[lines.length-1].length+1);}
 async function exportAllProjects(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
