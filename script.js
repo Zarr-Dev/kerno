@@ -1537,6 +1537,9 @@ document.addEventListener("keydown",e=>{
     const inForm=e.target&&e.target.closest&&e.target.closest("input,select,textarea,[contenteditable='true']");
     if(inForm&&!inEditor&&key!=="s")return;
     if(!$("#kernoModal").classList.contains("hidden")&&key!=="s")return;
+    if(key==="s"&&e.shiftKey){
+      e.preventDefault();if(state.project)exportProject();return;
+    }
     if(key==="s"){
       e.preventDefault();if(state.project){syncEditor();saveProject(false);}else saveSettings();return;
     }
@@ -1552,7 +1555,6 @@ document.addEventListener("keydown",e=>{
       e.preventDefault();if(state.screen==="welcome")$("#loadProjectInput").click();else if(state.project)$("#sourceImportInput").click();return;
     }
     if(e.shiftKey&&key==="e"){e.preventDefault();if(state.project)exportFile();return;}
-    if(e.shiftKey&&key==="s"){e.preventDefault();if(state.project)exportProject();return;}
     if(key==="b"&&state.project){e.preventDefault();switchWorkspace("build");nativeBuild(false);return;}
     if(key===","){e.preventDefault();openSettings(state.screen==="app"?"app":state.screen);return;}
     if(state.screen==="app"&&["1","2","3"].includes(e.key)){e.preventDefault();switchWorkspace(({1:"source",2:"machine",3:"build"})[e.key]);}
