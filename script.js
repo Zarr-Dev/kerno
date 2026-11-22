@@ -1173,9 +1173,11 @@ SECTIONS
         detail.textContent = item.detail;
         button.append(name, detail);
         button.addEventListener("click", () => {
-          const isAsm = item.language === "asm";
-          if (isAsm !== (languageFor(state.activeFile) === "kerno-asm")) {
-            toast("Choose a matching source file", isAsm ? "Open a .asm file before inserting this Assembly pattern." : "Open a C or C++ file before inserting this pattern.");
+          const isAsmFile = languageFor(state.activeFile) === "kerno-asm";
+          const isCppFile = languageFor(state.activeFile) === "cpp";
+          const matchesLanguage = item.language === "asm" ? isAsmFile : isCppFile;
+          if (!matchesLanguage) {
+            toast("Choose a matching source file", item.language === "asm" ? "Open a .asm file before inserting this Assembly pattern." : "Open a C or C++ file before inserting this C++ pattern.");
             return;
           }
           insertAtCursor(item.code);
@@ -1447,7 +1449,10 @@ void framebuffer_initialize(const Framebuffer& framebuffer) {
     $("#commandInput").addEventListener("input", event => renderCommands(event.target.value));
     $("#commandInput").addEventListener("keydown", event => {
       if (event.key === "Escape") $("#commandBackdrop").classList.add("hidden");
-      if (event.key === "Enter") $(".command-item.active")?.click() || $(".command-item")?.click();
+      if (event.key === "Enter") {
+        const selected = $(".command-item.active") || $(".command-item");
+        selected?.click();
+      }
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         const items = $$(".command-item", $("#commandResults"));
