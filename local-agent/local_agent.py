@@ -224,9 +224,13 @@ def toolchain_report(settings: dict) -> dict:
     return {
         "assembler": probe_tool(settings.get("assembler"), "nasm"),
         "crossCompiler": probe_tool(settings.get("crossCompiler"), "x86_64-elf-g++"),
+        "cCompiler": probe_tool(settings.get("cCompiler"), "x86_64-elf-gcc"),
         "linker": probe_tool(settings.get("linker"), "x86_64-elf-ld"),
         "isoBuilder": probe_tool(settings.get("isoBuilder"), "grub-mkrescue"),
         "xorriso": probe_tool("xorriso", "xorriso"),
+        "objcopy": probe_tool(settings.get("objcopy"), "x86_64-elf-objcopy"),
+        "readelf": probe_tool(settings.get("readelf"), "x86_64-elf-readelf"),
+        "make": probe_tool("make", "make"),
         "qemu": probe_tool(settings.get("qemuBinary"), "qemu-system-x86_64"),
     }
 
@@ -310,15 +314,19 @@ def build_project(payload: dict) -> dict:
 
         settings = payload.get("settings") or {}
         nasm = executable(settings.get("assembler"), "nasm")
-        compiler = executable(settings.get("crossCompiler"), "x86_64-elf-g++")
+        cpp_compiler = executable(settings.get("crossCompiler"), "x86_64-elf-g++")
+        c_compiler = executable(settings.get("cCompiler"), "x86_64-elf-gcc")
         linker = executable(settings.get("linker"), "x86_64-elf-ld")
         grub = executable(settings.get("isoBuilder"), "grub-mkrescue")
         xorriso = shutil.which("xorriso")
         if not xorriso:
             raise RuntimeError("xorriso was not found. grub-mkrescue requires xorriso to package the ISO.")
-        compiler_machine = subprocess.run([compiler, "-dumpmachine"], capture_output=True, text=True, timeout=5, check=False).stdout.strip()
+        compiler_machine = subprocess.run([cpp_compiler, "-dumpmachine"], capture_output=True, text=True, timeout=5, check=False).stdout.strip()
+        c_compiler_machine = subprocess.run([c_compiler, "-dumpmachine"], capture_output=True, text=True, timeout=5, check=False).stdout.strip()
         if not compiler_machine.startswith("x86_64-"):
-            raise RuntimeError("Configured cross compiler must target x86_64; reported target: " + (compiler_machine or "unknown"))
+            raise RuntimeError("Configured C++ cross compiler must target x86_64; reported target: " + (compiler_machine or "unknown"))
+        if not c_compiler_machine.startswith("x86_64-"):
+            raise RuntimeError("Configured C cross compiler must target x86_64; reported target: " + (c_compiler_machine or "unknown"))
 
         build_id = uuid.uuid4().hex
         workspace = BUILDS / (project["id"] + "-" + build_id[:10])
@@ -348,16 +356,23 @@ def build_project(payload: dict) -> dict:
         for relative in source_files:
             source = workspace.joinpath(*PurePosixPath(relative).parts)
             object_path = output / (hashlib.sha1(relative.encode("utf-8")).hexdigest()[:12] + ".o")
+            diagnostics = config.get("diagnostics") or {}
+            is_c_source = source.suffix == ".c"
+            selected_compiler = c_compiler if is_c_source else cpp_compiler
             args = [
-                compiler, "-m64", "-mcmodel=kernel", "-mno-red-zone", "-ffreestanding",
+                selected_compiler, "-m64", "-mcmodel=kernel", "-mno-red-zone", "-ffreestanding",
                 "-fno-exceptions", "-fno-rtti", "-fno-stack-protector", "-fno-pic", "-fno-pie",
                 "-fno-builtin", "-mno-mmx", "-mno-sse", "-mno-sse2", opt_flag,
                 "-Wall", "-Wextra", "-I", str(workspace / "include"), "-c", str(source), "-o", str(object_path)
             ]
-            if source.suffix == ".c":
-                args[1:1] = ["-x", "c", "-std=c11"]
+            if is_c_source:
+                args[1:1] = ["-std=c11"]
             else:
                 args[1:1] = ["-std=c++20"]
+            if bool(diagnostics.get("debugSymbols", settings.get("debugSymbols", True))):
+                args.append("-g")
+            if bool(diagnostics.get("warningsAsErrors", settings.get("warningsAsErrors", False))):
+                args.append("-Werror")
             run_command(args, workspace, logs, timeout=90)
             object_files.append(str(object_path))
 
@@ -477,6 +492,10 @@ def start_qemu(payload: dict) -> dict:
     machine = str(qemu_cfg.get("machine", settings.get("qemuMachine", "q35")))
     display = str(qemu_cfg.get("display", settings.get("qemuDisplay", "std")))
     accel = str(qemu_cfg.get("acceleration", settings.get("qemuAcceleration", "auto")))
+    cpu_model = str(qemu_cfg.get("cpuModel", settings.get("qemuCpuModel", "max")))
+    network = str(qemu_cfg.get("network", settings.get("qemuNetwork", "none")))
+    diagnostics = config.get("diagnostics") or {}
+    serial_backend = str(diagnostics.get("serialBackend", settings.get("serialBackend", "file")))
     vnc_port = int(qemu_cfg.get("vncPort", settings.get("qemuVncPort", 5901)))
     if not 64 <= ram <= 32768 or not 1 <= cpus <= 32:
         raise ValueError("QEMU guest memory or vCPU count is outside the supported limits.")
@@ -486,6 +505,12 @@ def start_qemu(payload: dict) -> dict:
         raise ValueError("Unsupported QEMU display profile.")
     if accel not in ("auto", "kvm", "whpx", "tcg"):
         raise ValueError("Unsupported QEMU acceleration setting.")
+    if cpu_model not in ("max", "qemu64", "Nehalem"):
+        raise ValueError("Unsupported QEMU CPU model.")
+    if network not in ("none", "user"):
+        raise ValueError("Unsupported QEMU network mode.")
+    if serial_backend not in ("file", "null"):
+        raise ValueError("Unsupported serial backend.")
     if not 5900 <= vnc_port <= 5999:
         raise ValueError("VNC port must be between 5900 and 5999.")
     display_number = vnc_port - 5900
@@ -497,12 +522,14 @@ def start_qemu(payload: dict) -> dict:
     session_dir.mkdir(parents=True, exist_ok=True)
     serial_path = session_dir / "serial.log"
     process_log = session_dir / "qemu-process.log"
+    serial_device = "file:serial.log" if serial_backend == "file" else "null"
+    network_device = "user,model=e1000" if network == "user" else "none"
     cmd = [
         binary, "-name", "Kerno-" + project["id"][:10],
-        "-machine", machine, "-m", str(ram), "-smp", str(cpus),
+        "-machine", machine, "-cpu", cpu_model, "-m", str(ram), "-smp", str(cpus),
         "-drive", "file=" + str(iso_path) + ",media=cdrom,readonly=on",
-        "-boot", "order=d", "-nic", "none", "-monitor", "none",
-        "-serial", "file:serial.log", "-display", "none", "-vga", "std",
+        "-boot", "order=d", "-nic", network_device, "-monitor", "none",
+        "-serial", serial_device, "-display", "none", "-vga", "std",
         "-vnc", HOST + ":" + str(display_number) + ",websocket=" + HOST + ":" + str(websocket_port),
         "-no-reboot", "-no-shutdown",
     ]
