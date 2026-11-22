@@ -277,15 +277,20 @@ f["src/kernel."+ext]=[
 "#ifdef __cplusplus","extern \"C\"","#endif",
 "void kernel_main(uint32_t boot_magic, uintptr_t boot_info) {",
 "    kerno_serial_initialize();",
+"    kerno_console_initialize();",
+"    kerno_console_write(\"KERNO kernel entry reached.\\n\");",
 "    kerno_serial_write(\"KERNO: kernel entry reached.\\r\\n\");",
 "    if (boot_magic != KERNO_MULTIBOOT2_BOOT_MAGIC) {",
 "        kerno_serial_write(\"KERNO: invalid Multiboot2 boot magic.\\r\\n\");",
 "        for (;;) { __asm__ volatile (\"hlt\"); }",
 "    }",
-"    if (kerno_pmm_initialize(boot_magic, boot_info))",
+"    if (kerno_pmm_initialize(boot_magic, boot_info)) {",
 "        kerno_serial_write(\"KERNO: physical memory map initialized.\\r\\n\");",
-"    else",
+"        kerno_console_write(\"Physical memory map initialized.\\n\");",
+"    } else {",
 "        kerno_serial_write(\"KERNO: memory map unavailable; PMM is offline.\\r\\n\");",
+"        kerno_console_write(\"Memory map unavailable; PMM offline.\\n\");",
+"    }",
 "    kerno_interrupts_initialize();",
 "    kerno_serial_write(\"KERNO: IDT installed; external interrupts remain disabled.\\r\\n\");",
 "    for (;;) { __asm__ volatile (\"hlt\"); }",
@@ -349,7 +354,7 @@ f["src/pmm."+ext]=[
 "uint32_t kerno_pmm_free_frames(void){return free_frame_count;}",
 ""
 ].join("\n");
-f["src/interrupts.asm"]=[
+if(c.architecture==="x86_64")f["boot/interrupts.asm"]=[
 "; Default exception/interrupt fallback for the x86_64 IDT.",
 "BITS 64","SECTION .text","GLOBAL kerno_default_interrupt_stub",
 "kerno_default_interrupt_stub:","    cli",".halt_forever:","    hlt","    jmp .halt_forever",""
@@ -360,14 +365,15 @@ f["src/interrupts."+ext]=[
 "typedef struct __attribute__((packed)){uint16_t low;uint16_t selector;uint8_t ist;uint8_t flags;uint16_t middle;uint32_t high;uint32_t reserved;} kerno_idt_entry_t;",
 "typedef struct __attribute__((packed)){uint16_t limit;uint64_t base;} kerno_idtr_t;",
 "static kerno_idt_entry_t idt[256];",
-"extern \"C\" void kerno_default_interrupt_stub(void);",
+"#ifdef __cplusplus","extern \"C\" {","#endif","void kerno_default_interrupt_stub(void);","#ifdef __cplusplus","}","#endif",
 "void kerno_interrupts_initialize(void){uintptr_t handler=(uintptr_t)&kerno_default_interrupt_stub;for(uint32_t i=0;i<256u;++i){idt[i].low=(uint16_t)(handler&0xFFFFu);idt[i].selector=0x08;idt[i].ist=0;idt[i].flags=0x8E;idt[i].middle=(uint16_t)((handler>>16)&0xFFFFu);idt[i].high=(uint32_t)(handler>>32);idt[i].reserved=0;}kerno_idtr_t descriptor={(uint16_t)(sizeof(idt)-1u),(uint64_t)(uintptr_t)idt};__asm__ volatile(\"lidt %0\"::\"m\"(descriptor));}",
 "#else",
 "void kerno_interrupts_initialize(void){}",
 "#endif",""
 ].join("\n");
+const outputFormat=c.architecture==="i686"?"elf32-i386":c.architecture==="aarch64"?"elf64-littleaarch64":c.architecture==="riscv64"?"elf64-littleriscv":"elf64-x86-64";
 f["linker.ld"]=[
-"OUTPUT_FORMAT(elf64-x86-64)","ENTRY(_start)","SECTIONS","{",
+"OUTPUT_FORMAT("+outputFormat+")","ENTRY(_start)","SECTIONS","{",
 "    . = "+c.memory.kernelBase+";",
 "    __kernel_start = .;",
 "    .multiboot ALIGN(8) : { KEEP(*(.multiboot)) }",
