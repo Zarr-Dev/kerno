@@ -315,6 +315,143 @@ def verify_multiboot2_header(kernel: Path) -> None:
         raise RuntimeError("Multiboot2 end tag is missing or invalid.")
 
 
+def verify_elf64_x86_64(kernel: Path) -> dict:
+    import struct
+
+    data = kernel.read_bytes()
+    if len(data) < 64 or data[:4] != b"\x7fELF":
+        raise RuntimeError("Kernel is not a complete ELF image.")
+    ident = data[:16]
+    if ident[4] != 2 or ident[5] != 1 or ident[6] != 1:
+        raise RuntimeError("Kernel must be ELF64, little-endian and use the current ELF version.")
+
+    e_type, e_machine = struct.unpack_from("<HH", data, 16)
+    if e_type != 2:
+        raise RuntimeError("Kernel ELF must be ET_EXEC; a relocatable or shared object is not bootable.")
+    if e_machine != 62:
+        raise RuntimeError("Kernel ELF machine is not x86_64 (EM_X86_64).")
+
+    entry = struct.unpack_from("<Q", data, 24)[0]
+    phoff = struct.unpack_from("<Q", data, 32)[0]
+    phentsize = struct.unpack_from("<H", data, 54)[0]
+    phnum = struct.unpack_from("<H", data, 56)[0]
+    if entry == 0 or phnum == 0 or phentsize < 56 or phnum > 256:
+        raise RuntimeError("Kernel ELF entry point or program-header table is invalid.")
+    if phoff > len(data) or phoff + phentsize * phnum > len(data):
+        raise RuntimeError("Kernel ELF program-header table extends beyond the file.")
+
+    entry_is_executable = False
+    for index in range(phnum):
+        offset = phoff + index * phentsize
+        p_type, p_flags = struct.unpack_from("<II", data, offset)
+        if p_type != 1 or not (p_flags & 1):
+            continue
+        p_vaddr = struct.unpack_from("<Q", data, offset + 16)[0]
+        p_memsz = struct.unpack_from("<Q", data, offset + 40)[0]
+        if p_memsz and p_vaddr <= entry < p_vaddr + p_memsz:
+            entry_is_executable = True
+            break
+    if not entry_is_executable:
+        raise RuntimeError("Kernel ELF entry point is not inside an executable PT_LOAD segment.")
+    return {"entryPoint": "0x" + format(entry, "x"), "machine": "EM_X86_64", "type": "ET_EXEC"}
+
+
+def run_capture(argv: list[str], cwd: Path, log: list[str], timeout: int = 30) -> str:
+    display = " ".join(json.dumps(arg) if " " in arg else arg for arg in argv)
+    log.append("$ " + display)
+    try:
+        result = subprocess.run(
+            argv, cwd=str(cwd), capture_output=True, text=True,
+            timeout=timeout, check=False, encoding="utf-8", errors="replace"
+        )
+    except subprocess.TimeoutExpired as error:
+        output = error.stdout or ""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
+        log.append(str(output)[-12000:])
+        raise RuntimeError("Command timed out after " + str(timeout) + " seconds: " + argv[0])
+    except OSError as error:
+        raise RuntimeError("Could not start " + argv[0] + ": " + str(error))
+    output = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
+    if output:
+        log.append(output[-20000:])
+    if result.returncode != 0:
+        log.append("Exit code: " + str(result.returncode))
+        raise RuntimeError("Command failed: " + argv[0] + " (exit " + str(result.returncode) + ")")
+    return output
+
+
+def verify_iso_image(image_path: Path, xorriso: str, cwd: Path, log: list[str]) -> dict:
+    import struct
+
+    if not image_path.is_file():
+        raise RuntimeError("ISO artifact does not exist.")
+    size = image_path.stat().st_size
+    if size < 64 * 1024 or size % 2048 != 0:
+        raise RuntimeError("ISO size or sector alignment is invalid.")
+    with image_path.open("rb") as handle:
+        handle.seek(16 * 2048)
+        primary = handle.read(2048)
+        if len(primary) != 2048 or primary[0] != 1 or primary[1:6] != b"CD001" or primary[6] != 1:
+            raise RuntimeError("ISO9660 primary volume descriptor is missing or invalid.")
+
+        has_terminator = False
+        boot_catalog_lba = None
+        descriptor_count = min(64, size // 2048)
+        for sector in range(16, descriptor_count):
+            handle.seek(sector * 2048)
+            descriptor = handle.read(2048)
+            if len(descriptor) != 2048 or descriptor[1:6] != b"CD001" or descriptor[6] != 1:
+                continue
+            descriptor_type = descriptor[0]
+            if descriptor_type == 0 and descriptor[7:30].rstrip(b" \x00") == b"EL TORITO SPECIFICATION":
+                boot_catalog_lba = struct.unpack_from("<I", descriptor, 71)[0]
+            if descriptor_type == 255:
+                has_terminator = True
+                break
+        if not has_terminator:
+            raise RuntimeError("ISO9660 volume descriptor terminator is missing.")
+        if not boot_catalog_lba or boot_catalog_lba * 2048 + 64 > size:
+            raise RuntimeError("El Torito boot record or boot catalog pointer is missing.")
+
+        handle.seek(boot_catalog_lba * 2048)
+        catalog = handle.read(2048)
+    validation = catalog[:32]
+    if len(validation) != 32 or validation[0] != 1 or validation[30:32] != b"\x55\xaa":
+        raise RuntimeError("El Torito validation entry is invalid.")
+    checksum = sum(struct.unpack_from("<H", validation, offset)[0] for offset in range(0, 32, 2)) & 0xFFFF
+    if checksum != 0:
+        raise RuntimeError("El Torito validation-entry checksum is invalid.")
+    if catalog[32] != 0x88:
+        raise RuntimeError("El Torito default boot entry is not marked bootable.")
+
+    listing = run_capture(
+        [xorriso, "-indev", str(image_path), "-find", "/", "-type", "f", "-print"],
+        cwd, log, timeout=45
+    )
+    normalized_listing = listing.replace("\\", "/").lower()
+    if "/boot/kernel.elf" not in normalized_listing:
+        raise RuntimeError("ISO filesystem is missing /boot/kernel.elf.")
+    if "/boot/grub/grub.cfg" not in normalized_listing:
+        raise RuntimeError("ISO filesystem is missing /boot/grub/grub.cfg.")
+
+    return {
+        "sizeBytes": size,
+        "iso9660": "primary volume descriptor and terminator valid",
+        "elTorito": "validation catalog and bootable default entry valid",
+        "bootFiles": ["/boot/kernel.elf", "/boot/grub/grub.cfg"],
+        "bootCatalogLba": boot_catalog_lba,
+    }
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def build_project(payload: dict) -> dict:
     if not BUILD_LOCK.acquire(blocking=False):
         return {"status": "failed", "message": "Another Kerno build is already running. Wait for it to finish.", "log": "Build lock is occupied."}
