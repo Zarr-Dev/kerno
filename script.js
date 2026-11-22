@@ -703,6 +703,7 @@ SECTIONS
     state.openTabs.push(path);
     $("#newFileModal").classList.add("hidden");
     setActiveFile(path);
+    updateSplitSelect();
     renderTree();
     markDirty(path);
     toast("Source file created", path);
@@ -842,6 +843,8 @@ SECTIONS
       if (first) setActiveFile(first);
       renderTree();
       renderTabs();
+      updateSplitSelect();
+      if (state.splitEditor && state.files[state.splitFile]) state.splitEditor.setModel(ensureModel(state.splitFile));
       saveWorkspace(true);
     }
     toast(imported + " file(s) imported", skipped ? skipped + " item(s) skipped (binary, oversized, or unsupported)." : "Added to the current workspace.");
