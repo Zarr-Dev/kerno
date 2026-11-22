@@ -41,6 +41,14 @@ Open http://localhost:8000.
 
 Monaco Editor, JSZip and the noVNC client are loaded from version-pinned CDNs, so an internet connection is required for those features. A basic text editor remains available if Monaco does not load.
 
+## Host PC and Command Prompt diagnostics
+
+The Toolchain settings include a read-only host scan for the operating system, CPU architecture, logical CPU count, memory, Python runtime, command environment and PATH-resolved development tools. The scan requires Kerno Local Service to be paired.
+
+On Windows, run `local-agent/diagnose-windows.cmd` from Command Prompt to independently check Python, NASM, x86_64 cross GCC/G++, linker, GRUB ISO tooling, xorriso and QEMU. It does not install software or modify PATH.
+
+Kerno does not expose arbitrary shell execution through its browser API. Native build and QEMU operations use fixed argument arrays and validated project manifests.
+
 ## Run Kerno Local Service
 
 The native service is a separate local process. It does not run inside the browser and it must be started by the user on the machine that should compile and run the guest OS.
