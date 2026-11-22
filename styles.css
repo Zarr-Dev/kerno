@@ -252,3 +252,14 @@ body.light-theme .starter-card, body.light-theme .snippet-button { background: #
   .status-right span:nth-child(1) { display: none; }
   .starter-grid { grid-template-columns: 1fr; }
 }
+.command-trigger { height: 29px; min-width: 170px; display: inline-flex; align-items: center; gap: 8px; padding: 0 9px; margin-left: auto; border: 1px solid #344253; border-radius: 5px; background: #1a222c; color: #9baaba; font-size: 9px; cursor: pointer; }
+.command-trigger:hover { color: var(--text); border-color: #587264; background: #202d35; }
+.command-trigger kbd { margin-left: auto; padding: 2px 4px; border: 1px solid #3b4a59; border-radius: 3px; color: #8293a5; font: 8px var(--mono); white-space: nowrap; }
+body.light-theme .command-trigger { background: #f7f9fa; border-color: #d5dfe3; color: #60717e; }
+.file-language-dot.asm { background: var(--purple); }
+.file-language-dot.cpp { background: var(--blue); }
+.file-language-dot.header { background: var(--accent); }
+.file-language-dot.config, .file-language-dot.json { background: var(--amber); }
+.file-language-dot.linker { background: var(--red); }
+@media (max-width: 1050px) { .command-trigger { min-width: 32px; width: 32px; overflow: hidden; padding: 0 8px; font-size: 0; } .command-trigger kbd, .command-trigger span { display: none; } }
+@media (max-width: 560px) { .command-trigger { display: none; } }
