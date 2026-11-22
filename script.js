@@ -1305,7 +1305,7 @@ async function pollQemuStatus(){
   try{
     const result=await KernoLocalService.emulatorStatus();
     if(result.status==="running"){
-      setServiceStatus(true,"QEMU running");
+      setServiceStatus(true,state.kernelEntryConfirmed?"QEMU running · kernel entry confirmed":"QEMU running · checking kernel entry");
       if(result.displayUrl&&state.currentDisplayUrl!==result.displayUrl)showDisplay(result.displayUrl);
       const serial=String(result.serialOutput||"");
       if(serial!==state.lastSerialOutput){
@@ -1557,7 +1557,9 @@ async function nativeBuild(bootAfter){
       $("#buildLog").textContent+="Starting the configured QEMU machine…\\n";
       const boot=await KernoLocalService.startEmulator(Object.assign(payload(),{buildArtifact:result.artifact}),state.settings);
       if(boot.status!=="running"&&!boot.displayUrl)throw Error(boot.message||"Build succeeded, but QEMU did not confirm a running guest.");
-      setServiceStatus(true,"QEMU running");
+      state.qemuStartedAt=Date.now();
+      state.qemuBootTimeoutShown=false;
+      setServiceStatus(true,"QEMU process running · awaiting kernel entry");
       if(boot.displayUrl)showDisplay(boot.displayUrl);
       state.lastSerialOutput=String(boot.serialOutput||"");
       state.kernelEntryConfirmed=false;
