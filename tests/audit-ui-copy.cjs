@@ -18,4 +18,5 @@ if(!html.includes("x86_64 · BIOS · GRUB · Multiboot2"))throw new Error("The s
 if(!/locale:"id"/.test(script))throw new Error("Bahasa Indonesia must be the default locale.");
 if(!/\["auto","Deteksi otomatis"\],\["id","Bahasa Indonesia"\],\["en","English"\]/.test(script))throw new Error("Only complete UI locales should be offered.");
 if(!script.includes('$$("[data-i18n-title]")'))throw new Error("Localized title attributes are not handled.");
+if(!script.includes('$$("[data-i18n-aria]")'))throw new Error("Localized ARIA attributes are not handled.");
 console.log("UI audit passed: "+ids.length+" IDs, nine Academy stages, "+required.length+" translated interface strings and a complete bilingual header.");
