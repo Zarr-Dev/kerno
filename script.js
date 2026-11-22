@@ -53,7 +53,7 @@ const LANGUAGES = {
   it:{settings:"Impostazioni",back:"Indietro",welcomeTitle:"Costruisci il tuo sistema operativo.",welcomeSubtitle:"Ambiente dedicato a kernel, macchina, memoria ed emulazione.",newProject:"Nuovo progetto",newProjectDesc:"Crea un workspace OS da un modello kernel.",loadProject:"Carica progetto",loadProjectDesc:"Apri un archivio Kerno o una cartella sorgente.",configureIDE:"Configura IDE",configureDesc:"Imposta lingua, aspetto e strumenti locali.",recentProjects:"Progetti recenti",noRecent:"Nessun progetto recente",noRecentDesc:"Crea o carica un progetto OS.",createWorkspace:"Crea workspace",projectName:"Nome progetto",starterTemplate:"Modello iniziale",architecture:"Architettura",firmware:"Firmware",kernelLanguage:"Linguaggio kernel",bootloader:"Bootloader",guestMemory:"RAM guest (MiB)",virtualCpus:"CPU virtuali",applySettings:"Applica impostazioni",general:"Generale",appearance:"Aspetto",language:"Lingua",editor:"Editor",osArchitecture:"OS e Architettura",memory:"Memoria",emulator:"QEMU ed emulatore",toolchain:"Toolchain",storage:"Archiviazione e dati",advanced:"Avanzate",source:"Sorgente",machine:"Macchina",build:"Build",importFiles:"Importa file",exportProject:"Esporta progetto",buildBoot:"Build & Boot",projectFiles:"File progetto",cancel:"Annulla",machineDisplay:"Display macchina",noMachineSession:"Nessuna sessione",connectQemuPrompt:"Connetti Kerno Local Service per avviare QEMU."}
 };
 
-const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false};
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:""};
 function tr(k){return (LANGUAGES[state.settings.locale]&&LANGUAGES[state.settings.locale][k])||LANGUAGES.en[k]||k;}
 function translate(){ $$("[data-i18n]").forEach(n=>n.textContent=tr(n.dataset.i18n));document.documentElement.lang=state.settings.locale;document.documentElement.dir=state.settings.locale==="ar"?"rtl":"ltr"; }
 function notify(a,b){const n=document.createElement("div");n.className="toast";n.textContent=a;if(b){const s=document.createElement("small");s.textContent=b;n.append(s);}$("#toastRegion").append(n);setTimeout(()=>n.remove(),3500);}
@@ -438,7 +438,7 @@ function validName(x){return /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,47}$/.test(x);}
 async function createProject(){const name=$("#projectNameInput").value.trim();if(!validName(name)){notify("Invalid project name","Use letters, numbers, spaces, dots, dashes or underscores.");return;}const c=configFor(name);c.architecture=$("#architectureSelect").value;c.firmware=$("#firmwareSelect").value;c.kernelLanguage=$("#kernelLanguageSelect").value;c.bootloader=$("#bootloaderSelect").value;c.memory.guestMiB=Number($("#guestMemoryInput").value);c.qemu.vcpus=Number($("#cpuCountInput").value);c.qemu.machine=["aarch64","riscv64"].includes(c.architecture)?"virt":"q35";if(!Number.isInteger(c.memory.guestMiB)||c.memory.guestMiB<64||c.memory.guestMiB>32768||!Number.isInteger(c.qemu.vcpus)||c.qemu.vcpus<1||c.qemu.vcpus>32){notify("Invalid resources","RAM must be 64–32768 MiB; vCPU must be 1–32.");return;}state.settings.defaultArchitecture=c.architecture;state.settings.defaultFirmware=c.firmware;state.settings.defaultBootloader=c.bootloader;state.settings.defaultKernelLanguage=c.kernelLanguage;state.settings.guestMemoryMiB=c.memory.guestMiB;state.settings.qemuVcpus=c.qemu.vcpus;await saveSettings();state.project={id:makeId(),name,config:c,files:scaffold(c,$("#templateSelect").value),template:$("#templateSelect").value,createdAt:Date.now(),updatedAt:Date.now()};await saveProject(true);await openProject();notify("OS workspace created",Object.keys(state.project.files).length+" editable source/config files generated.");}
 function renderTree(){const host=$("#sourceTree");if(!host||!state.project)return;host.innerHTML="";const root={dirs:{},files:[]};Object.keys(state.project.files).sort().forEach(path=>{let n=root;const parts=path.split("/");parts.slice(0,-1).forEach(dir=>{if(!n.dirs[dir])n.dirs[dir]={dirs:{},files:[]};n=n.dirs[dir];});n.files.push({path,name:parts[parts.length-1]});});function draw(parent,node){Object.keys(node.dirs).sort().forEach(name=>{const wrap=document.createElement("div");wrap.className="tree-folder";const head=document.createElement("button");head.className="tree-folder-head";head.innerHTML='<span class="folder-arrow">⌄</span><span class="folder-icon">▰</span><span></span>';$("span:last-child",head).textContent=name;const content=document.createElement("div");content.className="folder-contents";head.onclick=()=>{content.classList.toggle("hidden");$(".folder-arrow",head).textContent=content.classList.contains("hidden")?"›":"⌄";};wrap.append(head,content);draw(content,node.dirs[name]);parent.append(wrap);});node.files.forEach(file=>{const b=document.createElement("button");b.className="tree-file"+(file.path===state.activeFile?" active":"");const ic=fileBadge(file.path);b.innerHTML='<span class="file-type-mark"></span><span class="tree-file-name"></span>';$("span:first-child",b).classList.add(ic[1]);$("span:first-child",b).textContent=ic[0];$(".tree-file-name",b).textContent=file.name;b.onclick=()=>openFile(file.path);parent.append(b);});}draw(host,root);$("#sourceCount").textContent=Object.keys(state.project.files).length+" files";$("#projectStorageSize").textContent=formatBytes(fileSize(state.project));}
 function renderTabs(){const host=$("#sourceTabs");host.innerHTML="";state.tabs.forEach(path=>{if(!(path in state.project.files))return;const b=document.createElement("button");b.className="source-tab"+(path===state.activeFile?" active":"");const ic=fileBadge(path);b.innerHTML='<span class="file-type-mark"></span><span></span><span class="tab-close">×</span>';$("span:first-child",b).classList.add(ic[1]);$("span:first-child",b).textContent=ic[0];$("span:nth-child(2)",b).textContent=path.split("/").pop();b.onclick=e=>{if(e.target.classList.contains("tab-close"))closeTab(path);else openFile(path);};host.append(b);});}
-function ensureModel(path){if(!window.monaco||!state.project||!(path in state.project.files))return null;if(state.models[path])return state.models[path];const uri=window.monaco.Uri.parse("file:///kerno/"+path.split("/").map(encodeURIComponent).join("/"));const m=window.monaco.editor.getModel(uri)||window.monaco.editor.createModel(state.project.files[path],langOf(path),uri);m.onDidChangeContent(()=>{state.project.files[path]=m.getValue();$("#editorStatus").textContent="Modified · local autosave scheduled";if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),900);}});state.models[path]=m;return m;}
+function ensureModel(path){if(!window.monaco||!state.project||!(path in state.project.files))return null;if(state.models[path])return state.models[path];const uri=window.monaco.Uri.parse("file:///kerno/"+path.split("/").map(encodeURIComponent).join("/"));const m=window.monaco.editor.getModel(uri)||window.monaco.editor.createModel(state.project.files[path],langOf(path),uri);m.onDidChangeContent(()=>{state.project.files[path]=m.getValue();$("#editorStatus").textContent="Modified · local autosave scheduled";if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),Math.max(250,Math.min(5000,Number(state.settings.autoSaveDelayMs)||800)));}});state.models[path]=m;return m;}
 function saveProject(silent){
   if(!state.project) return Promise.resolve(false);
   syncEditor();
@@ -869,19 +869,27 @@ async function refreshHostMemoryEstimate(){
   host.textContent="Checking local host memory…";
   try{
     KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
-    const project=state.project?payload():{id:"memory-plan",name:"Memory plan",config:configFor("Memory plan"),files:{}};
+    let project;
+    if(state.project){
+      project=payload();
+      if(state.screen==="settings"){
+        project.config.memory=Object.assign({},project.config.memory||{},{
+          guestMiB:Number(state.settings.projectGuestMemoryMiB),
+          heapReserveMiB:Number(state.settings.projectHeapReserveMiB),
+          stackReserveKiB:Number(state.settings.projectStackReserveKiB)
+        });
+      }
+    }else{
+      project={id:"memory-plan",name:"Memory plan",config:configFor("Memory plan"),files:{}};
+    }
     const result=await KernoLocalService.resourceEstimate(project,state.settings);
-    const h=result.host||{};
-    const total=h.totalMiB==null?"unknown":formatBytes(h.totalMiB*1024*1024);
-    const available=h.availableMiB==null?"unknown":formatBytes(h.availableMiB*1024*1024);
-    const fit=result.recommended==null?"capacity unavailable":result.recommended?"capacity estimate looks sufficient":"low available host memory";
-    host.textContent="Host available: "+available+" / "+total+" · "+fit;
-  }catch(error){
-    host.textContent="Unavailable · "+error.message;
-  }
+    const hostMemory=result.host||{};
+    const total=hostMemory.totalMiB==null?"unknown":formatBytes(hostMemory.totalMiB*1024*1024);
+    const available=hostMemory.availableMiB==null?"unknown":formatBytes(hostMemory.availableMiB*1024*1024);
+    const verdict=result.recommended==null?"capacity unavailable":result.recommended?"capacity estimate looks sufficient":"low available host memory";
+    host.textContent="Host available: "+available+" / "+total+" · "+verdict;
+  }catch(error){host.textContent="Unavailable · "+error.message;}
 }
-function renderMemory(){const s=state.settings,ram=Number(state.project?s.projectGuestMemoryMiB:s.guestMemoryMiB)||0,res=Number(state.project?s.projectHeapReserveMiB:s.heapReserveMiB||0)+Number(state.project?s.projectStackReserveKiB:s.stackReserveKiB||0)/1024+1,free=Math.max(0,ram-res);if($("#memoryMeterFill"))$("#memoryMeterFill").style.width=Math.min(100,res/Math.max(ram,1)*100)+"%";if($("#memoryReservedLabel"))$("#memoryReservedLabel").textContent="Planned reserve: "+res.toFixed(2)+" MiB";if($("#memoryAvailableLabel"))$("#memoryAvailableLabel").textContent="Unreserved guest RAM: "+free.toFixed(2)+" MiB";if($("#memoryPlanNote"))$("#memoryPlanNote").textContent=res>=ram?"Invalid plan: kernel reservations exceed guest RAM.":"Estimate only. It does not allocate physical host RAM or implement an allocator.";}
-async function renderStorageSettings(){if($("#storedProjectCount"))$("#storedProjectCount").textContent=(await all("projects")).length;if($("#browserStorageEstimate")){if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();$("#browserStorageEstimate").textContent=formatBytes(e.usage||0)+" / "+formatBytes(e.quota||0);}else $("#browserStorageEstimate").textContent="Unavailable";}}
 async function exportAll(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
 async function clearAllProjects(){if(state.settings.confirmDestructive&&!confirm("Delete all locally stored projects? This cannot be undone."))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
 function renderMachine(){if(!state.project)return;const c=state.project.config;$("#machineArchitecture").textContent=c.architecture;$("#machineType").textContent=c.qemu.machine;$("#machineMemory").textContent=c.memory.guestMiB+" MiB";$("#machineCpus").textContent=c.qemu.vcpus;$("#machineDisplaySpec").textContent=c.qemu.display==="std"?"Standard VGA":c.qemu.display==="virtio"?"Virtio GPU":"Headless";}
@@ -891,35 +899,127 @@ function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"
 function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=msg||tr("connectQemuPrompt");}
 function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
 async function testService(){try{KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);const h=await KernoLocalService.health();setServiceStatus(true,"Local service connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Connected · API "+(h.apiVersion||"unknown");notify("Local service connected");return true;}catch(e){setServiceStatus(false,"QEMU not connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Unavailable · "+e.message;notify("Local service unavailable",e.message);return false;}}
-async function connectService(){if(!await testService())return;try{const s=await KernoLocalService.emulatorStatus();if(s.status==="running"){setServiceStatus(true,"QEMU running");if(s.displayUrl)showDisplay(s.displayUrl);if(s.serialOutput)$("#serialOutput").textContent=String(s.serialOutput).slice(-12000);}else renderMachineEmpty("Local service connected; no guest is running.");}catch(_){}}
+function stopQemuPolling(){
+  if(state.qemuPollTimer){clearInterval(state.qemuPollTimer);state.qemuPollTimer=null;}
+}
+async function pollQemuStatus(){
+  if(!state.localConnected)return;
+  try{
+    const result=await KernoLocalService.emulatorStatus();
+    if(result.status==="running"){
+      setServiceStatus(true,"QEMU running");
+      if(result.displayUrl&&state.currentDisplayUrl!==result.displayUrl)showDisplay(result.displayUrl);
+      const serial=String(result.serialOutput||"");
+      if(serial!==state.lastSerialOutput){
+        state.lastSerialOutput=serial;
+        $("#serialOutput").textContent=serial||"Waiting for serial output…";
+        const consolePanel=$("#serialOutput");if(consolePanel)consolePanel.scrollTop=consolePanel.scrollHeight;
+      }
+      $("#stopQemuButton").disabled=false;
+      $("#startQemuButton").disabled=true;
+    }else{
+      stopQemuPolling();
+      if(window.KernoNoVNC)window.KernoNoVNC.disconnect();
+      state.currentDisplayUrl="";
+      state.lastSerialOutput="";
+      $("#serialOutput").textContent="QEMU is stopped. No serial output is available.";
+      renderMachineEmpty("Local service connected; no QEMU guest is running.");
+      setServiceStatus(true,"Service connected · machine stopped");
+      $("#startQemuButton").disabled=false;
+      $("#stopQemuButton").disabled=true;
+    }
+  }catch(error){
+    stopQemuPolling();
+    setServiceStatus(false,"Local service disconnected");
+    $("#machineControlNote").textContent=error.message;
+    $("#startQemuButton").disabled=true;
+    $("#stopQemuButton").disabled=true;
+  }
+}
+function startQemuPolling(){
+  if(state.qemuPollTimer)return;
+  pollQemuStatus();
+  state.qemuPollTimer=window.setInterval(pollQemuStatus,1500);
+}
+
+async function connectService(){
+  if(!await testService())return;
+  await pollQemuStatus();
+  if(state.localConnected){
+    try{
+      const status=await KernoLocalService.emulatorStatus();
+      if(status.status==="running")startQemuPolling();
+      else renderMachineEmpty("Local service connected; no QEMU guest is running.");
+    }catch(error){notify("Could not read emulator status",error.message);}
+  }
+}
 function showDisplay(value){
-  let u;
-  try{u=new URL(value);}catch(_){notify("Invalid emulator display URL");return;}
-  const host=u.hostname.replace(/^\[|\]$/g,"");
-  if(!["localhost","127.0.0.1","::1"].includes(host)||!["ws:","wss:","http:","https:"].includes(u.protocol)){
+  let url;
+  try{url=new URL(value);}catch(_){notify("Invalid emulator display URL");return;}
+  const host=url.hostname.replace(/^\[|\]$/g,"");
+  if(!["localhost","127.0.0.1","::1"].includes(host)||!["ws:","wss:","http:","https:"].includes(url.protocol)){
     notify("Display URL rejected","The QEMU display must use a loopback address.");return;
   }
-  const v=$("#machineViewport");
-  v.innerHTML="";
-  if(u.protocol==="ws:"||u.protocol==="wss:"){
+  if(state.currentDisplayUrl===url.href)return;
+  if(window.KernoNoVNC)window.KernoNoVNC.disconnect();
+  state.currentDisplayUrl=url.href;
+  const viewport=$("#machineViewport");
+  viewport.innerHTML="";
+  if(url.protocol==="ws:"||url.protocol==="wss:"){
     if(!window.KernoNoVNC){
       const error=document.createElement("p");
       error.className="viewport-error";
-      error.textContent="noVNC client is unavailable. Check the CDN connection and reload Kerno.";
-      v.append(error);return;
+      error.textContent="noVNC client is not loaded. Check the CDN connection and reload Kerno.";
+      viewport.append(error);return;
     }
-    try{window.KernoNoVNC.connect(v,u.href,status=>{$("#qemuStatusText").textContent=status;});}
+    try{window.KernoNoVNC.connect(viewport,url.href,status=>{$("#qemuStatusText").textContent=status;});}
     catch(error){notify("Could not attach QEMU display",error.message);}
     return;
   }
   const frame=document.createElement("iframe");
-  frame.src=u.href;frame.title="QEMU guest display";
+  frame.src=url.href;frame.title="QEMU guest display";
   frame.setAttribute("sandbox","allow-scripts allow-same-origin");
-  v.append(frame);
+  viewport.append(frame);
 }
-
-async function startQemu(){if(!state.project)return;if(!state.localConnected&&!await testService())return;$("#startQemuButton").disabled=true;try{const r=await KernoLocalService.startEmulator(payload(),state.settings);if(r.status!=="running"&&!r.displayUrl)throw Error(r.message||"Service did not confirm a running QEMU session.");setServiceStatus(true,"QEMU running");if(r.displayUrl)showDisplay(r.displayUrl);if(r.serialOutput)$("#serialOutput").textContent=String(r.serialOutput).slice(-12000);notify("QEMU session started","Runtime service confirmed the guest session.");}catch(e){notify("QEMU could not start",e.message);}finally{$("#startQemuButton").disabled=false;}}
-async function stopQemu(){if(!state.localConnected){notify("Local service is not connected");return;}$("#stopQemuButton").disabled=true;try{const r=await KernoLocalService.stopEmulator();if(r.status&&r.status!=="stopped")throw Error(r.message||"Service did not confirm process termination.");renderMachineEmpty("QEMU stopped by local service.");setServiceStatus(true,"Service connected · machine stopped");notify("QEMU stopped");}catch(e){notify("Could not stop QEMU",e.message);}finally{$("#stopQemuButton").disabled=false;}}
+async function startQemu(){
+  if(!state.project)return;
+  if(!state.localConnected&&!await testService())return;
+  $("#startQemuButton").disabled=true;
+  try{
+    const result=await KernoLocalService.startEmulator(payload(),state.settings);
+    if(result.status!=="running"&&!result.displayUrl)throw Error(result.message||"The service did not confirm a running QEMU guest.");
+    setServiceStatus(true,"QEMU running");
+    if(result.displayUrl)showDisplay(result.displayUrl);
+    state.lastSerialOutput=String(result.serialOutput||"");
+    $("#serialOutput").textContent=state.lastSerialOutput||"Waiting for serial output…";
+    $("#stopQemuButton").disabled=false;
+    startQemuPolling();
+    notify("QEMU session started","The local service confirmed the guest process.");
+  }catch(error){
+    $("#startQemuButton").disabled=false;
+    notify("QEMU could not start",error.message);
+  }
+}
+async function stopQemu(){
+  if(!state.localConnected){notify("Local service is not connected");return;}
+  $("#stopQemuButton").disabled=true;
+  try{
+    const result=await KernoLocalService.stopEmulator();
+    if(result.status&&result.status!=="stopped")throw Error(result.message||"The service did not confirm process termination.");
+    stopQemuPolling();
+    if(window.KernoNoVNC)window.KernoNoVNC.disconnect();
+    state.currentDisplayUrl="";
+    state.lastSerialOutput="";
+    $("#serialOutput").textContent="QEMU stopped. Serial output is closed.";
+    renderMachineEmpty("QEMU was stopped by Kerno Local Service.");
+    setServiceStatus(true,"Service connected · machine stopped");
+    $("#startQemuButton").disabled=false;
+    notify("QEMU stopped");
+  }catch(error){
+    $("#stopQemuButton").disabled=false;
+    notify("Could not stop QEMU",error.message);
+  }
+}
 function payload(){syncEditor();return {id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files};}
 function renderArtifactDownload(artifact){
   const host=$("#artifactDownloads");if(!host)return;
@@ -962,7 +1062,11 @@ async function nativeBuild(bootAfter){
       if(boot.status!=="running"&&!boot.displayUrl)throw Error(boot.message||"Build succeeded, but QEMU did not confirm a running guest.");
       setServiceStatus(true,"QEMU running");
       if(boot.displayUrl)showDisplay(boot.displayUrl);
-      if(boot.serialOutput)$("#serialOutput").textContent=String(boot.serialOutput).slice(-12000);
+      state.lastSerialOutput=String(boot.serialOutput||"");
+      $("#serialOutput").textContent=state.lastSerialOutput||"Waiting for serial output…";
+      $("#startQemuButton").disabled=true;
+      $("#stopQemuButton").disabled=false;
+      startQemuPolling();
       $("#buildLog").textContent+="QEMU session confirmed by local service.\\n";
       $("#buildStateLabel").textContent="BUILD + BOOT READY";
       switchWorkspace("machine");
