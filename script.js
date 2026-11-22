@@ -859,7 +859,92 @@ async function renderSettings(category){
   $("#clearProjectsButton")&&$("#clearProjectsButton").addEventListener("click",clearAllProjects);
 }
 function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale")translate();if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density")applyDensity();if(["editorFontSize","tabSize","wordWrap","lineNumbers","minimap"].includes(k))applyEditorSettings();if(["guestMemoryMiB","heapReserveMiB","stackReserveKiB"].includes(k))renderMemory();}
-function validateSettings(){const s=state.settings;for(const [k,min,max] of [["editorFontSize",10,22],["guestMemoryMiB",64,32768],["heapReserveMiB",1,8192],["stackReserveKiB",64,1048576],["qemuVcpus",1,32],["qemuVncPort",5900,5999]])if(!Number.isInteger(Number(s[k]))||s[k]<min||s[k]>max)throw Error(k+" is outside the permitted range.");if(s.heapReserveMiB+s.stackReserveKiB/1024+1>=s.guestMemoryMiB)throw Error("Kernel reservations exceed guest RAM.");if(!/^0x[0-9a-fA-F]{6,16}$/.test(s.kernelBase))throw Error("Kernel base must be hexadecimal, e.g. 0x00100000.");KernoLocalService.configure(s.localServiceUrl);}
+function validateSettings(){
+  const s=state.settings;
+  const requireInteger=(key,min,max,step=1)=>{
+    const value=Number(s[key]);
+    if(!Number.isInteger(value)||value<min||value>max||(step>1&&value%step!==0)){
+      throw Error(key+" must be an integer between "+min+" and "+max+(step>1?" in steps of "+step:"")+".");
+    }
+  };
+  const requireMemory=(ramKey,heapKey,stackKey,label)=>{
+    const ram=Number(s[ramKey]),heap=Number(s[heapKey]),stack=Number(s[stackKey]);
+    if(heap+stack/1024+1>=ram)throw Error(label+" heap and stack reservations exceed guest RAM.");
+  };
+  const requireHex=(key)=>{
+    if(!/^0x[0-9a-fA-F]{6,16}$/.test(String(s[key]||""))){
+      throw Error(key+" must be hexadecimal, for example 0x00100000.");
+    }
+  };
+  const requireCommandLine=(key)=>{
+    const value=String(s[key]||"");
+    if(value.length>256||/[^A-Za-z0-9_.,=:+\/ -]/.test(value)){
+      throw Error(key+" contains unsupported characters or exceeds 256 characters.");
+    }
+  };
+  const requireEnum=(key,values)=>{
+    if(!values.includes(s[key]))throw Error(key+" has an unsupported value.");
+  };
+
+  requireInteger("editorFontSize",10,24);
+  requireInteger("autoSaveDelayMs",250,5000,50);
+  requireInteger("guestMemoryMiB",64,32768,64);
+  requireInteger("heapReserveMiB",1,8192);
+  requireInteger("stackReserveKiB",64,1048576,64);
+  requireInteger("qemuVcpus",1,32);
+  requireInteger("qemuVncPort",5900,5999);
+  requireInteger("grubTimeout",0,30);
+  requireInteger("grubDefault",0,20);
+  requireMemory("guestMemoryMiB","heapReserveMiB","stackReserveKiB","Default");
+  requireHex("kernelBase");
+  requireCommandLine("kernelCommandLine");
+
+  requireEnum("defaultArchitecture",["x86_64","i686","aarch64","riscv64"]);
+  requireEnum("defaultFirmware",["bios","uefi"]);
+  requireEnum("defaultBootloader",["grub","uefi-app","custom"]);
+  requireEnum("defaultKernelLanguage",["cpp","c"]);
+  requireEnum("optimization",["debug","size","speed"]);
+  requireEnum("qemuMachine",["q35","pc","virt"]);
+  requireEnum("qemuCpuModel",["max","qemu64","Nehalem"]);
+  requireEnum("qemuDisplay",["std","virtio","none"]);
+  requireEnum("qemuAcceleration",["auto","kvm","whpx","tcg"]);
+  requireEnum("qemuNetwork",["none","user"]);
+  requireEnum("serialBackend",["file","null"]);
+  requireEnum("kernelLogLevel",["quiet","error","warn","info","debug"]);
+  requireEnum("defaultTemplate",["kernel-text","kernel-framebuffer","kernel-minimal"]);
+  requireEnum("theme",["dark","light"]);
+  requireEnum("accent",["sage","cyan","blue","amber"]);
+  requireEnum("density",["compact","balanced","comfortable"]);
+  requireEnum("wordWrap",["off","on"]);
+  requireEnum("cursorStyle",["line","block","underline"]);
+  requireEnum("renderWhitespace",["none","selection","boundary","all"]);
+  if(![90,100,110,120].includes(Number(s.uiScale)))throw Error("Interface scale must be 90%, 100%, 110% or 120%.");
+
+  if(state.project){
+    requireInteger("projectGuestMemoryMiB",64,32768,64);
+    requireInteger("projectHeapReserveMiB",1,8192);
+    requireInteger("projectStackReserveKiB",64,1048576,64);
+    requireInteger("projectQemuVcpus",1,32);
+    requireInteger("projectQemuVncPort",5900,5999);
+    requireInteger("projectGrubTimeout",0,30);
+    requireInteger("projectGrubDefault",0,20);
+    requireMemory("projectGuestMemoryMiB","projectHeapReserveMiB","projectStackReserveKiB","Current project");
+    requireHex("projectKernelBase");
+    requireCommandLine("projectKernelCommandLine");
+    requireEnum("projectArchitecture",["x86_64","i686","aarch64","riscv64"]);
+    requireEnum("projectFirmware",["bios","uefi"]);
+    requireEnum("projectBootloader",["grub","uefi-app","custom"]);
+    requireEnum("projectKernelLanguage",["cpp","c"]);
+    requireEnum("projectOptimization",["debug","size","speed"]);
+    requireEnum("projectQemuMachine",["q35","pc","virt"]);
+    requireEnum("projectQemuCpuModel",["max","qemu64","Nehalem"]);
+    requireEnum("projectQemuDisplay",["std","virtio","none"]);
+    requireEnum("projectQemuAcceleration",["auto","kvm","whpx","tcg"]);
+    requireEnum("projectQemuNetwork",["none","user"]);
+  }
+
+  KernoLocalService.configure(s.localServiceUrl,s.localServiceToken);
+}
 async function applySettings(){
   try{validateSettings();}catch(error){notify("Settings need attention",error.message);return;}
   await saveSettings();
