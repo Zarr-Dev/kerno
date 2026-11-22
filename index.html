@@ -27,6 +27,7 @@
       </div>
       <button class="command-trigger" id="commandButton" title="Search files and commands (Ctrl+Shift+P)">⌕ <span>Search files and actions</span><kbd>Ctrl ⇧ P</kbd></button>
       <div class="top-actions">
+        <button class="tool-button" id="newProjectButton">＋ New OS</button>
         <button class="tool-button" id="importButton" title="Import source files or a Kerno ZIP project"><span class="button-icon">⇧</span> Import</button>
         <button class="tool-button" id="exportFileButton" title="Export the active source file"><span class="button-icon">↓</span> Export file</button>
         <button class="tool-button secondary" id="exportProjectButton" title="Export the complete project as a ZIP archive"><span class="button-icon">▣</span> Export project</button>
@@ -125,7 +126,7 @@
     </footer>
   </div>
 
-  <input type="file" id="importInput" multiple hidden accept=".zip,.kerno,.c,.cc,.cpp,.cxx,.h,.hh,.hpp,.hxx,.asm,.s,.inc,.ld,.cfg,.ini,.json,.txt,.md,. Makefile,.mk">
+  <input type="file" id="importInput" multiple hidden accept=".zip,.kerno,.c,.cc,.cpp,.cxx,.h,.hh,.hpp,.hxx,.asm,.s,.inc,.ld,.cfg,.ini,.json,.txt,.md,.mk">
   <input type="file" id="folderInput" multiple hidden webkitdirectory directory>
 
   <div class="toast-region" id="toastRegion" aria-live="polite"></div>
