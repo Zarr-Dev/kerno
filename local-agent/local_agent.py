@@ -348,7 +348,7 @@ def virtualbox_start(payload: dict) -> dict:
             raise ValueError("That VirtualBox machine is not registered on this computer.")
         if machine["state"] == "running":
             return {"status": "running", "uuid": uuid, "name": machine["name"], "mode": mode}
-        run_virtualbox(["startvm", uuid, "--type", mode], timeout=45)
+        run_virtualbox(["startvm", uuid, "--type", mode], timeout=45, binary=virtualbox_executable())
         return {"status": "started", "uuid": uuid, "name": machine["name"], "mode": mode}
 
 
@@ -364,7 +364,7 @@ def virtualbox_shutdown(payload: dict) -> dict:
             raise ValueError("That VirtualBox machine is not registered on this computer.")
         if machine["state"] != "running":
             return {"status": "not-running", "uuid": uuid, "name": machine["name"]}
-        run_virtualbox(["controlvm", uuid, "acpipowerbutton"], timeout=15)
+        run_virtualbox(["controlvm", uuid, "acpipowerbutton"], timeout=15, binary=virtualbox_executable())
         return {"status": "shutdown-requested", "uuid": uuid, "name": machine["name"]}
 
 
