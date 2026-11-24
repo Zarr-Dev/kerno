@@ -131,10 +131,12 @@ kerno/
 ## Development checks
 
 The GitHub Actions validation workflow checks:
-- JavaScript syntax for the browser scripts.
-- Python syntax for the local service.
+- JavaScript syntax for the browser scripts and Python syntax for the local service.
+- Eleven mocked VirtualBox tests covering VM inventory, parsing, selection, start mode, and graceful ACPI shutdown.
+- HTML structure, bilingual copy coverage, editor loading/diagnostics and the landing/tutorial selector regressions.
+- Chromium browser smoke tests at 320, 375, 390, 768, 1366 and 1920 pixels wide, including Hero visibility, horizontal overflow, tutorial navigation and project setup.
 
-These syntax checks do not replace a native toolchain build, QEMU boot test, visual browser test or hardware test.
+These automated checks do not replace a native toolchain build, a real QEMU ISO boot, testing against VirtualBox installed on the target PC, or a full manual cross-browser and hardware review.
 
 ## Roadmap
 
