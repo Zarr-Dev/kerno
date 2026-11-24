@@ -1435,7 +1435,7 @@ async function renderSettings(category){
   $$(".settings-nav-item").forEach(button=>button.classList.toggle("active",button.dataset.category===category));
   const titleKeys={architecture:"osArchitecture",boot:"bootSettings",diagnostics:"diagnostics",accessibility:"accessibility",shortcuts:"shortcuts"};
   $("#settingsTitle").textContent=tr(titleKeys[category]||category);
-  $("#settingsEyebrow").textContent=(category==="osArchitecture"?"OS & ARCHITECTURE":category).replace(/-/g," ").toUpperCase();
+  $("#settingsEyebrow").textContent=(category==="osArchitecture"?(activeLocale()==="id"?"OS & ARSITEKTUR":"OS & ARCHITECTURE"):category).replace(/-/g," ").toUpperCase();
   const descriptions={
     general:"Workspace lifecycle, project defaults and save behavior.",
     appearance:"Typography, theme, accent, density and interface scaling.",
@@ -1452,7 +1452,8 @@ async function renderSettings(category){
     accessibility:"Make the interface more readable and reduce visual motion.",
     shortcuts:"Keyboard commands available throughout Kernel Studio."
   };
-  $("#settingsDescription").textContent=descriptions[category]||"Configure the Kerno development environment.";
+  const descriptionsId={general:"Atur siklus workspace, default proyek, dan perilaku penyimpanan.",appearance:"Atur tipografi, tema, warna aksen, kepadatan, dan skala antarmuka.",language:"Pilih bahasa yang digunakan pada antarmuka Kerno.",editor:"Atur perilaku Monaco, tampilan kode, dan kenyamanan penyuntingan.",architecture:"Tentukan target default proyek OS baru dan target workspace aktif.",memory:"Rencanakan RAM guest, reservasi kernel, ukuran halaman, dan penempatan linker.",emulator:"Atur mesin QEMU, tampilan, prosesor, jaringan, dan perilaku runtime.",toolchain:"Pilih compiler, assembler, linker, dan executable pengemasan image native.",storage:"Periksa penyimpanan lokal browser dan kelola cadangan proyek.",advanced:"Pasangkan layanan eksekusi lokal dan tinjau batas keamanannya.",boot:"Atur firmware, perilaku menu GRUB, dan argumen command-line kernel.",diagnostics:"Atur diagnostik compiler, log kernel, dan keluaran serial.",accessibility:"Tingkatkan keterbacaan antarmuka dan kurangi gerakan visual.",shortcuts:"Pintasan keyboard yang tersedia di Kernel Studio."};
+  $("#settingsDescription").textContent=activeLocale()==="id"?(descriptionsId[category]||"Konfigurasikan lingkungan pengembangan Kerno."):descriptions[category]||"Configure the Kerno development environment.";
   const host=$("#settingsFields");
   const s=state.settings;
   const esc=value=>String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -1474,7 +1475,7 @@ async function renderSettings(category){
     :[["q35","q35 · modern PC"],["pc","pc · legacy PC"]];
   const displayItems=[["std","Standard VGA"],["virtio","Virtio GPU"],["none","Headless / serial only"]];
   const accelerationItems=[["auto","Automatic"],["kvm","KVM · Linux"],["whpx","WHPX · Windows"],["tcg","TCG · software"]];
-  const languageItems=[["auto","Deteksi otomatis"],["id","Bahasa Indonesia"],["en","English"]];
+  const languageItems=[["auto",activeLocale()==="id"?"Deteksi otomatis":"Detect automatically"],["id","Bahasa Indonesia"],["en","English"]];
   let html="";
 
   if(category==="general"){
