@@ -37,7 +37,7 @@ The current course intentionally teaches the validated x86_64 + BIOS + GRUB + Mu
 
 ## Build health and ISO verification
 
-The Local Agent build pipeline reports explicit stages and health checks. Before registering an ISO artifact it validates:
+The editor provides syntax highlighting, indentation, snippets, completions and debounced structural diagnostics for unmatched brackets and unfinished strings/comments. JSON files also receive syntax validation. These lightweight editor checks are not a C/C++ compiler or a semantic language server: misspelled identifiers, type errors and target-specific issues are confirmed by the native compiler during a build. The Local Agent build pipeline reports explicit stages and health checks. Before registering an ISO artifact it validates:
 
 - ELF64 little-endian x86_64 executable type, program-header bounds, and an entry point inside an executable load segment.
 - Multiboot2 header alignment, magic, architecture field, length, checksum, and end tag.
@@ -60,7 +60,7 @@ python -m http.server 8000
 
 Open http://localhost:8000.
 
-Monaco Editor, JSZip and the noVNC client are loaded from version-pinned CDNs, so an internet connection is required for those features. A basic text editor remains available if Monaco does not load.
+Monaco Editor and JSZip are loaded from version-pinned CDNs only when the editor or archive feature is opened; the noVNC client is loaded for the machine display. An internet connection is required for these features. If Monaco cannot load, a basic text editor remains available, but it does not provide syntax highlighting or live diagnostics.
 
 ## Host PC and Command Prompt diagnostics
 

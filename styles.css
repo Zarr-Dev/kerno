@@ -987,3 +987,34 @@ body.light-theme .hero-footnote{border-color:#d4e0da;color:#657a72}body.light-th
   .hero-proof span{align-items:flex-start}
   .hero-footnote>span{line-height:1.55}
 }
+
+
+/* Editor startup, fallback and readable code-workflow states */
+.editor-loading{
+  position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;gap:14px;
+  padding:24px;background:rgba(12,18,24,.96);color:var(--text);backdrop-filter:blur(5px);
+}
+.editor-loading-copy{display:flex;flex-direction:column;gap:5px;max-width:360px}
+.editor-loading-copy strong{font:700 13px var(--heading);color:var(--text)}
+.editor-loading-copy small{font-size:11px;line-height:1.6;color:var(--muted)}
+.editor-loading-spinner{width:24px;height:24px;flex:0 0 24px;border:2px solid #4b6158;border-top-color:#9bd2b6;border-radius:50%;animation:kernoEditorSpin .8s linear infinite}
+@keyframes kernoEditorSpin{to{transform:rotate(360deg)}}
+.editor-engine-fallback{
+  position:absolute;z-index:5;top:10px;right:12px;left:12px;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;max-width:760px;margin:0 auto;padding:10px 12px;border:1px solid #8a6847;border-radius:8px;
+  background:#2b2118;color:#f0d8b9;box-shadow:0 8px 25px rgba(0,0,0,.2)
+}
+.editor-engine-fallback>span{display:flex;min-width:0;flex-direction:column;gap:4px}
+.editor-engine-fallback strong{font-size:11px}
+.editor-engine-fallback small{font-size:10px;line-height:1.5;color:#dcc5a9}
+.editor-engine-fallback button{flex:0 0 auto;min-height:30px;border-color:#8a6847;color:#f7e4ce}
+.editor-loading.hidden,.editor-engine-fallback.hidden{display:none!important}
+body.light-theme .editor-loading{background:rgba(248,251,249,.97)}
+body.light-theme .editor-engine-fallback{background:#fff6e9;border-color:#d5b58c;color:#61451f}
+body.light-theme .editor-engine-fallback small{color:#765d3a}
+body.monochrome-theme .editor-loading{background:rgba(5,5,5,.97);color:#fff}
+body.monochrome-theme .editor-loading-spinner{border-color:#555;border-top-color:#fff}
+body.monochrome-theme .editor-engine-fallback{background:#171717;border-color:#888;color:#fff}
+body.monochrome-theme .editor-engine-fallback small{color:#ddd}
+@media(prefers-reduced-motion:reduce){.editor-loading-spinner{animation:none}}
+@media(max-width:600px){.editor-engine-fallback{align-items:flex-start;flex-direction:column;gap:7px}.editor-engine-fallback button{align-self:flex-start}}

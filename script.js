@@ -8,7 +8,9 @@ const FILE_LIMIT = 2 * 1024 * 1024;
 const PROJECT_LIMIT = 20 * 1024 * 1024;
 let database = null;
 let monacoLoad = null;
+let jszipLoad = null;
 let monacoAssistRegistered = false;
+const externalScriptLoads = new Map();
 const quickCheckTimers = new WeakMap();
 
 const DEFAULTS = {
@@ -545,6 +547,34 @@ function activeLocale(){
   return detected==="id"?"id":"en";
 }
 function tr(k){const locale=activeLocale();return (LANGUAGES[locale]&&LANGUAGES[locale][k])||LANGUAGES.en[k]||k;}
+const EDITOR_MESSAGES = {
+  en:{loadingTitle:"Loading Monaco Editor",loadingDetail:"Preparing syntax highlighting, completions and diagnostics…",fallbackTitle:"Advanced editor unavailable",fallbackBody:"Basic text editing is active. Syntax highlighting and live diagnostics are unavailable until Monaco loads. Check your connection, then retry.",retry:"Retry editor",loadingStatus:"Loading editor engine…",ready:"Monaco Editor ready",basicReady:"Basic text editor active",modified:"Modified · autosave scheduled",saved:"Workspace saved in this browser",clean:"No structural issues detected",count:"{errors} error(s) · {warnings} warning(s)",paused:"Live checks paused for this large file",stringLine:"String literal is not closed on this line.",stringOpen:"String literal is not closed.",commentOpen:"Block comment is not closed.",unexpectedClose:"Unexpected closing {token}.",unexpectedExpected:"Unexpected {token}; expected {expected}.",openingMissing:"Opening {token} has no matching {expected}.",jsonError:"Invalid JSON syntax: {message}"},
+  id:{loadingTitle:"Memuat Monaco Editor",loadingDetail:"Menyiapkan pewarnaan sintaks, pelengkapan otomatis, dan diagnostik…",fallbackTitle:"Editor lanjutan tidak tersedia",fallbackBody:"Mode teks dasar tetap dapat digunakan. Pewarnaan sintaks dan diagnostik langsung belum tersedia sampai Monaco berhasil dimuat. Periksa koneksi internet, lalu coba lagi.",retry:"Coba muat ulang editor",loadingStatus:"Memuat mesin editor…",ready:"Monaco Editor siap",basicReady:"Editor teks dasar aktif",modified:"Diubah · penyimpanan otomatis dijadwalkan",saved:"Workspace tersimpan di browser ini",clean:"Tidak ditemukan masalah struktur",count:"{errors} error · {warnings} peringatan",paused:"Pemeriksaan langsung dijeda untuk file berukuran besar",stringLine:"Literal string belum ditutup pada baris ini.",stringOpen:"Literal string belum ditutup.",commentOpen:"Komentar blok belum ditutup.",unexpectedClose:"Kurung penutup {token} tidak memiliki pasangan.",unexpectedExpected:"Token {token} tidak sesuai; seharusnya {expected}.",openingMissing:"Kurung pembuka {token} belum memiliki pasangan {expected}.",jsonError:"Sintaks JSON tidak valid: {message}"}
+};
+function editorText(key, values={}){const locale=activeLocale(),dict=EDITOR_MESSAGES[locale]||EDITOR_MESSAGES.en,template=dict[key]||EDITOR_MESSAGES.en[key]||key;return String(template).replace(/\{(\w+)\}/g,(_,name)=>String(values[name]??""));}
+function refreshEditorLabels(){const labels={editorLoadingTitle:"loadingTitle",editorLoadingDetail:"loadingDetail",editorFallbackTitle:"fallbackTitle",editorFallbackMessage:"fallbackBody"};for(const [id,key] of Object.entries(labels)){const node=$("#"+id);if(node)node.textContent=editorText(key);}const retry=$("#retryEditorButton");if(retry)retry.textContent=editorText("retry");}
+function loadExternalScript(src,key,ready){
+  if(ready())return Promise.resolve();
+  if(externalScriptLoads.has(key))return externalScriptLoads.get(key);
+  const task=new Promise((resolve,reject)=>{
+    const script=document.createElement("script");let settled=false;
+    let timer;
+    const finish=error=>{if(settled)return;settled=true;window.clearTimeout(timer);if(error)reject(error);else resolve();};
+    timer=window.setTimeout(()=>finish(new Error("Timed out while loading "+key+".")),25000);
+    script.src=src;script.async=true;script.dataset.kernoLoader=key;
+    script.onload=()=>ready()?finish():finish(new Error(key+" loaded without exposing the expected API."));
+    script.onerror=()=>finish(new Error("Could not load "+key+" from the CDN."));
+    document.head.append(script);
+  }).catch(error=>{const script=document.querySelector('script[data-kerno-loader="'+key+'"]');if(script)script.remove();externalScriptLoads.delete(key);throw error;});
+  externalScriptLoads.set(key,task);return task;
+}
+function loadJSZip(){
+  if(typeof window.JSZip==="function")return Promise.resolve(window.JSZip);
+  if(!jszipLoad)jszipLoad=loadExternalScript("https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js","jszip",()=>typeof window.JSZip==="function").then(()=>window.JSZip).catch(error=>{jszipLoad=null;throw error;});
+  return jszipLoad;
+}
+const INDONESIAN_NOTIFICATIONS={"Theme changed":"Tema berhasil diubah","Settings could not be saved":"Pengaturan tidak dapat disimpan","Browser storage is unavailable.":"Penyimpanan browser tidak tersedia.","Tutorial progress could not be saved":"Progres tutorial tidak dapat disimpan","Learning path completed":"Jalur pembelajaran selesai","You have checked off every Kerno tutorial stage.":"Semua tahap tutorial Kerno telah ditandai selesai.","Create a project first":"Buat proyek terlebih dahulu","The Build workspace needs a kernel project.":"Workspace Build memerlukan proyek kernel.","Invalid project name":"Nama proyek tidak valid","Use letters, numbers, spaces, dots, dashes or underscores.":"Gunakan huruf, angka, spasi, titik, tanda hubung, atau garis bawah.","Invalid resources":"Konfigurasi sumber daya tidak valid","RAM must be 64–32768 MiB; vCPU must be 1–32.":"RAM harus 64–32768 MiB; vCPU harus 1–32.","OS workspace created":"Workspace OS berhasil dibuat","Workspace exceeds browser project limit":"Ukuran workspace melebihi batas browser","Export files in smaller groups or remove large text artifacts.":"Ekspor file dalam kelompok lebih kecil atau hapus artefak teks berukuran besar.","Workspace saved":"Workspace tersimpan","Project files are stored locally in IndexedDB.":"File proyek disimpan secara lokal di IndexedDB.","Save failed":"Penyimpanan gagal","File tab closed":"Tab file ditutup","Could not load project":"Proyek tidak dapat dimuat","Invalid source path":"Path source tidak valid","Use a new relative path such as src/interrupts.cpp.":"Gunakan path relatif baru, misalnya src/interrupts.cpp.","Source file created":"File source berhasil dibuat","Source file exported":"File source berhasil diekspor","Project archive exported":"Arsip proyek berhasil diekspor","Settings need attention":"Pengaturan memerlukan perhatian","Settings applied":"Pengaturan diterapkan","No projects to export":"Tidak ada proyek untuk diekspor","ZIP library unavailable":"Library ZIP tidak tersedia","Local project storage cleared":"Penyimpanan proyek lokal telah dibersihkan","Local service connected":"Layanan lokal terhubung","Local service unavailable":"Layanan lokal tidak tersedia","Kernel entry not confirmed":"Entri kernel belum terkonfirmasi","QEMU session started":"Sesi QEMU dimulai","QEMU could not start":"QEMU tidak dapat dijalankan","Local service is not connected":"Layanan lokal belum terhubung","Could not stop QEMU":"QEMU tidak dapat dihentikan","No tutorial progress to reset":"Tidak ada progres tutorial untuk direset","Could not read emulator status":"Status emulator tidak dapat dibaca","Invalid emulator display URL":"URL tampilan emulator tidak valid","Display URL rejected":"URL tampilan ditolak","The QEMU display must use a loopback address.":"Tampilan QEMU harus menggunakan alamat loopback.","Process confirmed. Kerno will verify kernel entry using the serial marker.":"Proses terkonfirmasi. Kerno akan memverifikasi entri kernel melalui penanda serial.","Process confirmed. Kernel entry will be verified from serial output.":"Proses terkonfirmasi. Entri kernel akan diverifikasi melalui keluaran serial.","QEMU stopped":"QEMU dihentikan","Kernel entry confirmed":"Entri kernel terkonfirmasi","ISO artifact downloaded":"Artefak ISO berhasil diunduh","ISO download failed":"Pengunduhan ISO gagal","Native build completed":"Build native selesai","Build / Boot operation failed":"Operasi Build / Boot gagal","PC diagnostics completed":"Diagnostik PC selesai","PC diagnostics unavailable":"Diagnostik PC tidak tersedia","CMD diagnostics copied":"Diagnostik CMD disalin","Could not copy CMD checks":"Pemeriksaan CMD tidak dapat disalin","File not found":"File tidak ditemukan","No matching source file":"Tidak ditemukan file source yang cocok","Project loaded":"Proyek berhasil dimuat","Tutorial progress reset":"Progres tutorial berhasil direset","Project load failed":"Pemuatan proyek gagal","No supported source files found":"Tidak ditemukan file source yang didukung","No open file":"Tidak ada file terbuka","IndexedDB unavailable":"IndexedDB tidak tersedia"};
+function notificationText(value){const text=String(value??"");if(activeLocale()!=="id")return text;return INDONESIAN_NOTIFICATIONS[text]||(text.startsWith("Native build ")?"Build native "+text.slice("Native build ".length):text);}
 function translate(){
   const locale=activeLocale(),copy=UI_COPY[locale]||UI_COPY.en;
   $$("[data-i18n]").forEach(node=>{const key=node.dataset.i18n,value=copy[key]??tr(key);if(value!==undefined&&value!==key)node.textContent=value;});
@@ -554,6 +584,7 @@ function translate(){
   document.documentElement.dir="ltr";
   document.title=copy["meta.title"]||"Kerno — Operating System Builder";
   const description=$('meta[name="description"]');if(description)description.content=copy["meta.description"]||"Kerno is an operating-system development environment.";
+  refreshEditorLabels();
 }
 function notify(title,detail,type){
   const region=$("#toastRegion");
@@ -565,9 +596,9 @@ function notify(title,detail,type){
   node.setAttribute("role",kind==="error"?"alert":"status");
   const mark=document.createElement("span");mark.className="toast-mark";mark.textContent=kind==="error"?"!":"✓";
   const copy=document.createElement("div");copy.className="toast-copy";
-  const heading=document.createElement("strong");heading.textContent=String(title||"Kerno");
+  const heading=document.createElement("strong");heading.textContent=notificationText(title||"Kerno");
   copy.append(heading);
-  if(detail){const small=document.createElement("small");small.textContent=String(detail);copy.append(small);}
+  if(detail){const small=document.createElement("small");small.textContent=notificationText(detail);copy.append(small);}
   const dismiss=document.createElement("button");dismiss.className="toast-dismiss";dismiss.type="button";dismiss.textContent="×";dismiss.setAttribute("aria-label","Dismiss notification");
   dismiss.onclick=()=>node.remove();
   node.append(mark,copy,dismiss);region.append(node);
@@ -1121,7 +1152,7 @@ function ensureModel(path){
   const m=window.monaco.editor.getModel(uri)||window.monaco.editor.createModel(state.project.files[path],langOf(path),uri);
   m.onDidChangeContent(()=>{
     state.project.files[path]=m.getValue();
-    $("#editorStatus").textContent="Modified · local autosave scheduled";
+    $("#editorStatus").textContent=editorText("modified");
     scheduleQuickDiagnostics(m);
     if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),Math.max(250,Math.min(5000,Number(state.settings.autoSaveDelayMs)||800)));}
   });
@@ -1137,7 +1168,7 @@ function saveProject(silent){
   }
   state.project.updatedAt=Date.now();
   return put("projects",state.project).then(()=>{
-    if($("#editorStatus")) $("#editorStatus").textContent="Workspace saved in this browser";
+    if($("#editorStatus")) $("#editorStatus").textContent=editorText("saved");
     if($("#editorStatus")) $("#editorStatus").style.color="";
     if($("#sourceTree")) renderTree();
     if(!silent) notify("Workspace saved","Project files are stored locally in IndexedDB.");
@@ -1161,8 +1192,8 @@ function syncWizardDefaults(){
   $("#scaffoldPreview").textContent=arch+" target\\n├── boot/\\n│   └── entry.asm\\n├── include/kernel/\\n├── src/\\n│   ├── kernel."+s.defaultKernelLanguage+"\\n│   ├── console."+s.defaultKernelLanguage+"\\n│   └── memory."+s.defaultKernelLanguage+"\\n├── linker.ld\\n└── kerno.project.json";
 }
 function syncEditor(){if(!state.project||!state.activeFile)return;if(state.models[state.activeFile])state.project.files[state.activeFile]=state.models[state.activeFile].getValue();else if($("#plainEditor").style.display==="block")state.project.files[state.activeFile]=$("#plainEditor").value;}
-function renderEditor(){const empty=!state.activeFile||!(state.activeFile in state.project.files);$("#editorEmpty").classList.toggle("hidden",!empty);if(empty){$("#editorBreadcrumb").textContent="No source file selected";$("#plainEditor").style.display="none";return;}$("#editorBreadcrumb").textContent=state.activeFile;$("#languageMode").textContent=langLabel(state.activeFile);if(state.editor&&state.models[state.activeFile]){state.editor.setModel(state.models[state.activeFile]);$("#plainEditor").style.display="none";}else{$("#plainEditor").value=state.project.files[state.activeFile];$("#plainEditor").style.display="block";}}
-function openFile(path){if(!(path in state.project.files))return;syncEditor();state.activeFile=path;if(!state.tabs.includes(path))state.tabs.push(path);renderTree();renderTabs();renderEditor();if(state.editor&&state.models[path])state.editor.setModel(state.models[path]);}
+function renderEditor(){if(!state.project)return;const empty=!state.activeFile||!(state.activeFile in state.project.files);$("#editorEmpty").classList.toggle("hidden",!empty);if(empty){$("#editorBreadcrumb").textContent=activeLocale()==="id"?"Pilih file source":"No source file selected";$("#plainEditor").style.display="none";$("#editorLoading").classList.add("hidden");$("#editorEngineFallback").classList.add("hidden");return;}$("#editorBreadcrumb").textContent=state.activeFile;$("#languageMode").textContent=langLabel(state.activeFile);const model=state.editor&&window.monaco?ensureModel(state.activeFile):null;if(state.editor&&model){if(state.editor.getModel()!==model)state.editor.setModel(model);$("#plainEditor").style.display="none";}else{$("#plainEditor").value=state.project.files[state.activeFile];$("#plainEditor").style.display="block";}}
+function openFile(path){if(!state.project||!(path in state.project.files))return;syncEditor();state.activeFile=path;if(!state.tabs.includes(path))state.tabs.push(path);renderTree();renderTabs();renderEditor();if(state.editor){const model=ensureModel(path);if(model&&state.editor.getModel()!==model)state.editor.setModel(model);}}
 function closeTab(path){
   if(!state.project||!path)return;
   syncEditor();
@@ -1244,26 +1275,32 @@ function updateQuickDiagnosticSummary(model,markers){
   const summary=$("#diagnosticSummary");
   if(!summary||!state.project||state.models[state.activeFile]!==model)return;
   const errors=markers.filter(item=>item.severity===window.monaco.MarkerSeverity.Error).length,warnings=markers.length-errors;
-  summary.textContent=markers.length?(errors+" error(s) · "+warnings+" warning(s)"):"Quick check: no structural issue";
+  summary.textContent=markers.length?editorText("count",{errors,warnings}):editorText("clean");
   summary.classList.toggle("has-issues",warnings>0);summary.classList.toggle("has-errors",errors>0);
 }
 function runQuickDiagnostics(model){
   if(!window.monaco||!model)return;
   if(!state.settings.quickDiagnostics){window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);updateQuickDiagnosticSummary(model,[]);return;}
   const language=model.getLanguageId();
-  if(!["c","cpp","python","kerno-asm","kerno-gas","kerno-linker"].includes(language))return;
   const source=model.getValue();
-  if(source.length>600000){
-    window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);
-    const status=$("#diagnosticSummary");if(status&&state.models[state.activeFile]===model)status.textContent="Quick check paused · large file";
-    return;
+  if(source.length>600000){window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);const status=$("#diagnosticSummary");if(status&&state.models[state.activeFile]===model)status.textContent=editorText("paused");return;}
+  if(language==="json"){
+    const jsonMarkers=[];
+    try{JSON.parse(source);}catch(error){
+      const match=String(error&&error.message||"").match(/position\s+(\d+)/i);
+      const offset=match?Math.max(0,Math.min(source.length,Number(match[1]))):0;
+      let line=1,column=1;for(let i=0;i<offset;i++){if(source[i]==="\n"){line++;column=1;}else column++;}
+      jsonMarkers.push({severity:window.monaco.MarkerSeverity.Error,message:editorText("jsonError",{message:String(error&&error.message||"Invalid JSON")}),source:"Kerno Diagnostics",startLineNumber:line,startColumn:column,endLineNumber:line,endColumn:column+1});
+    }
+    window.monaco.editor.setModelMarkers(model,"kerno-quick-check",jsonMarkers);updateQuickDiagnosticSummary(model,jsonMarkers);return;
   }
+  if(!["c","cpp","python","kerno-asm","kerno-gas","kerno-linker"].includes(language)){window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);updateQuickDiagnosticSummary(model,[]);return;}
   const markers=[],stack=[],pairs={"(":")","[":"]","{":"}"},reverse={")":"(","]":"[","}":"{"};
   const blockComments=["c","cpp","kerno-linker"].includes(language),slashComments=["c","cpp","kerno-linker","kerno-gas"].includes(language);
   const hashComments=["python","kerno-gas"].includes(language),semicolonComments=language==="kerno-asm";
   let index=0,line=1,column=1,blockComment=false,lineComment=false,quote=null,triple=false,escaped=false,quoteStart=null;
   const advance=()=>{if(source[index]==="\n"){index++;line++;column=1;}else{index++;column++;}};
-  const add=(severity,message,startLine,startColumn)=>markers.push({severity,message,source:"Kerno Quick Check",startLineNumber:startLine,startColumn:startColumn,endLineNumber:startLine,endColumn:startColumn+1});
+  const add=(severity,message,startLine,startColumn)=>markers.push({severity,message,source:"Kerno Diagnostics",startLineNumber:startLine,startColumn:startColumn,endLineNumber:startLine,endColumn:startColumn+1});
   while(index<source.length&&markers.length<24){
     const ch=source[index],next=source[index+1];
     if(blockComment){if(ch==="*"&&next==="/"){advance();advance();blockComment=false;continue;}advance();continue;}
@@ -1273,7 +1310,7 @@ function runQuickDiagnostics(model){
       if(ch==="\\"){escaped=true;advance();continue;}
       if(triple&&source.startsWith(quote.repeat(3),index)){advance();advance();advance();quote=null;triple=false;quoteStart=null;continue;}
       if(!triple&&ch===quote){advance();quote=null;quoteStart=null;continue;}
-      if(ch==="\n"&&!triple){add(window.monaco.MarkerSeverity.Warning,"String literal is not closed on this line.",quoteStart.line,quoteStart.column);quote=null;quoteStart=null;escaped=false;advance();continue;}
+      if(ch==="\n"&&!triple){add(window.monaco.MarkerSeverity.Warning,editorText("stringLine"),quoteStart.line,quoteStart.column);quote=null;quoteStart=null;escaped=false;advance();continue;}
       advance();continue;
     }
     if(ch==="\n"){advance();continue;}
@@ -1285,15 +1322,15 @@ function runQuickDiagnostics(model){
     if(pairs[ch]){stack.push({token:ch,line,column});advance();continue;}
     if(reverse[ch]){
       const top=stack[stack.length-1];
-      if(!top||top.token!==reverse[ch])add(window.monaco.MarkerSeverity.Error,top?"Unexpected "+ch+"; expected "+pairs[top.token]+".":"Unexpected closing "+ch+".",line,column);
+      if(!top||top.token!==reverse[ch])add(window.monaco.MarkerSeverity.Error,top?editorText("unexpectedExpected",{token:ch,expected:pairs[top.token]}):editorText("unexpectedClose",{token:ch}),line,column);
       else stack.pop();
       advance();continue;
     }
     advance();
   }
-  if(quote&&quoteStart)add(window.monaco.MarkerSeverity.Warning,"String literal is not closed.",quoteStart.line,quoteStart.column);
-  if(blockComment)add(window.monaco.MarkerSeverity.Warning,"Block comment is not closed.",line,column);
-  stack.slice(-8).reverse().forEach(item=>markers.push({severity:window.monaco.MarkerSeverity.Warning,message:"Opening "+item.token+" has no matching "+pairs[item.token]+".",source:"Kerno Quick Check",startLineNumber:item.line,startColumn:item.column,endLineNumber:item.line,endColumn:item.column+1}));
+  if(quote&&quoteStart)add(window.monaco.MarkerSeverity.Warning,editorText("stringOpen"),quoteStart.line,quoteStart.column);
+  if(blockComment)add(window.monaco.MarkerSeverity.Warning,editorText("commentOpen"),line,column);
+  stack.slice(-8).reverse().forEach(item=>markers.push({severity:window.monaco.MarkerSeverity.Warning,message:editorText("openingMissing",{token:item.token,expected:pairs[item.token]}),source:"Kerno Diagnostics",startLineNumber:item.line,startColumn:item.column,endLineNumber:item.line,endColumn:item.column+1}));
   const limited=markers.slice(0,24);window.monaco.editor.setModelMarkers(model,"kerno-quick-check",limited);updateQuickDiagnosticSummary(model,limited);
 }
 function defineThemes(m){m.editor.defineTheme("kerno-dark",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"778B9B",fontStyle:"italic"},{token:"keyword",foreground:"C5A4DF"},{token:"string",foreground:"A8D3B3"},{token:"number",foreground:"DDB77B"},{token:"type",foreground:"8CB9ED"},{token:"variable",foreground:"8DC8B2"}],colors:{"editor.background":"#0E141B","editor.foreground":"#E1E9F0","editorLineNumber.foreground":"#526476","editorLineNumber.activeForeground":"#C7D2DC","editor.lineHighlightBackground":"#17212A","editor.selectionBackground":"#3A586F88","editorCursor.foreground":"#A4D4BE","editorIndentGuide.background1":"#263440","editorIndentGuide.activeBackground1":"#557C6B","editorWidget.background":"#1C2833"}});m.editor.defineTheme("kerno-light",{base:"vs",inherit:true,rules:[{token:"comment",foreground:"788A96",fontStyle:"italic"},{token:"keyword",foreground:"8C50A8"},{token:"string",foreground:"357A51"},{token:"number",foreground:"9B641B"},{token:"type",foreground:"2767A5"}],colors:{"editor.background":"#FFFFFF","editor.foreground":"#263540","editorLineNumber.foreground":"#9BA8B2","editorLineNumber.activeForeground":"#526372","editor.lineHighlightBackground":"#F1F6F5","editorCursor.foreground":"#26795E"}});m.editor.defineTheme("kerno-mono",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"A0A0A0",fontStyle:"italic"},{token:"keyword",foreground:"FFFFFF",fontStyle:"bold"},{token:"string",foreground:"D8D8D8"},{token:"number",foreground:"BDBDBD"},{token:"type",foreground:"F0F0F0"},{token:"variable",foreground:"E0E0E0"}],colors:{"editor.background":"#050505","editor.foreground":"#F5F5F5","editorLineNumber.foreground":"#777777","editorLineNumber.activeForeground":"#FFFFFF","editor.lineHighlightBackground":"#171717","editor.selectionBackground":"#55555588","editorCursor.foreground":"#FFFFFF","editorIndentGuide.background1":"#333333","editorIndentGuide.activeBackground1":"#AAAAAA","editorWidget.background":"#111111"}});}
@@ -1301,7 +1338,7 @@ function monacoOptions(model){return {
   model,theme:state.settings.theme==="light"?"kerno-light":state.settings.theme==="mono"?"kerno-mono":"kerno-dark",automaticLayout:true,
   quickSuggestions:state.settings.codeAssist?{other:true,comments:false,strings:false}:false,
   suggestOnTriggerCharacters:!!state.settings.codeAssist,acceptSuggestionOnEnter:"on",snippetSuggestions:"inline",
-  parameterHints:{enabled:!!state.settings.codeAssist},hover:{enabled:true},matchBrackets:"always",autoClosingQuotes:"always",
+  parameterHints:{enabled:!!state.settings.codeAssist},hover:{enabled:true},matchBrackets:"always",autoIndent:"full",formatOnPaste:true,formatOnType:true,autoClosingBrackets:"always",autoClosingQuotes:"always",autoSurround:"languageDefined",wordBasedSuggestions:"currentDocument",suggestSelection:"first",tabCompletion:"on",stickyScroll:{enabled:true},unicodeHighlight:{invisibleCharacters:true,ambiguousCharacters:false},
   fontFamily:(state.settings.editorFontFamily||"DM Mono")+", Consolas, monospace",
   fontSize:Number(state.settings.editorFontSize),lineHeight:Math.max(20,Math.round(Number(state.settings.editorFontSize)*1.65)),
   minimap:{enabled:!!state.settings.minimap},padding:{top:17,bottom:20},scrollBeyondLastLine:false,
@@ -1310,9 +1347,44 @@ function monacoOptions(model){return {
   smoothScrolling:!!state.settings.smoothScrolling,tabSize:Number(state.settings.tabSize),
   wordWrap:state.settings.wordWrap,lineNumbers:state.settings.lineNumbers?"on":"off",
   glyphMargin:false,folding:true,bracketPairColorization:{enabled:!!state.settings.bracketPairColorization},
-  guides:{indentation:true},autoClosingBrackets:"always"
+  guides:{indentation:true}
 };}
-async function initMonaco(){if(!state.project)return;try{if(!monacoLoad)monacoLoad=new Promise((resolve,reject)=>{if(!window.require){reject(Error("Monaco loader unavailable"));return;}window.require.config({paths:{vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs"}});window.MonacoEnvironment={getWorkerUrl:()=> "data:text/javascript;charset=utf-8,"+encodeURIComponent("self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/'};importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/base/worker/workerMain.js');")};window.require(["vs/editor/editor.main"],()=>resolve(window.monaco),reject);});const m=await monacoLoad;defineLanguages(m);defineThemes(m);registerEditorEnhancements(m);Object.keys(state.project.files).forEach(ensureModel);if(!state.editor){state.editor=m.editor.create($("#monacoPane"),monacoOptions(ensureModel(state.activeFile)));state.editor.onDidChangeCursorPosition(e=>$("#cursorPosition").textContent="Ln "+e.position.lineNumber+", Col "+e.position.column);}else if(state.activeFile)state.editor.setModel(ensureModel(state.activeFile));$("#plainEditor").style.display="none";if(!$("#splitPane").classList.contains("hidden"))openSplit();applyEditorSettings();}catch(e){$("#plainEditor").style.display=state.activeFile?"block":"none";if(state.activeFile)$("#plainEditor").value=state.project.files[state.activeFile];$("#editorStatus").textContent="Basic editor active · Monaco unavailable";}}
+async function loadMonacoEngine(){
+  const cdn="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/";
+  await loadExternalScript(cdn+"vs/loader.js","monaco-loader",()=>typeof window.require==="function");
+  window.MonacoEnvironment={getWorkerUrl:()=> "data:text/javascript;charset=utf-8,"+encodeURIComponent("self.MonacoEnvironment={baseUrl:'"+cdn+"'};importScripts('"+cdn+"vs/base/worker/workerMain.js');")};
+  window.require.config({paths:{vs:cdn+"vs"}});
+  return new Promise((resolve,reject)=>{
+    const timer=window.setTimeout(()=>reject(new Error("Monaco editor modules timed out.")),30000);
+    try{window.require(["vs/editor/editor.main"],()=>{window.clearTimeout(timer);if(window.monaco&&window.monaco.editor)resolve(window.monaco);else reject(new Error("Monaco editor API was not initialized."));},error=>{window.clearTimeout(timer);reject(error||new Error("Monaco editor modules could not be loaded."));});}
+    catch(error){window.clearTimeout(timer);reject(error);}
+  });
+}
+async function initMonaco(){
+  if(!state.project||!state.activeFile)return;
+  $("#editorLoading").classList.remove("hidden");$("#editorEngineFallback").classList.add("hidden");$("#editorStatus").textContent=editorText("loadingStatus");
+  try{
+    if(!monacoLoad)monacoLoad=loadMonacoEngine().catch(error=>{monacoLoad=null;throw error;});
+    const m=await monacoLoad;
+    if(!state.project||!state.activeFile)return;
+    defineLanguages(m);defineThemes(m);registerEditorEnhancements(m);
+    if(m.languages.json&&m.languages.json.jsonDefaults)m.languages.json.jsonDefaults.setDiagnosticsOptions({validate:true,allowComments:false,enableSchemaRequest:false,schemas:[]});
+    const activeModel=ensureModel(state.activeFile);
+    if(!state.editor){
+      state.editor=m.editor.create($("#monacoPane"),monacoOptions(activeModel));
+      state.editor.onDidChangeCursorPosition(e=>$("#cursorPosition").textContent="Ln "+e.position.lineNumber+", Col "+e.position.column);
+      state.editor.onDidChangeModel(()=>{const model=state.editor&&state.editor.getModel();if(model)scheduleQuickDiagnostics(model);});
+    }else if(activeModel&&state.editor.getModel()!==activeModel)state.editor.setModel(activeModel);
+    $("#plainEditor").style.display="none";$("#editorEngineFallback").classList.add("hidden");
+    if(!$("#splitPane").classList.contains("hidden"))openSplit();
+    applyEditorSettings();$("#editorStatus").textContent=editorText("ready");
+  }catch(error){
+    $("#plainEditor").style.display=state.activeFile?"block":"none";
+    if(state.activeFile)$("#plainEditor").value=state.project.files[state.activeFile];
+    $("#editorEngineFallback").classList.toggle("hidden",!state.activeFile);$("#editorFallbackMessage").textContent=editorText("fallbackBody");
+    $("#editorStatus").textContent=editorText("basicReady");
+  }finally{$("#editorLoading").classList.add("hidden");}
+}
 function applyEditorSettings(){
   const options={
     fontFamily:(state.settings.editorFontFamily||"DM Mono")+", Consolas, monospace",
@@ -1327,7 +1399,7 @@ function applyEditorSettings(){
     bracketPairColorization:{enabled:!!state.settings.bracketPairColorization},
     quickSuggestions:state.settings.codeAssist?{other:true,comments:false,strings:false}:false,
     suggestOnTriggerCharacters:!!state.settings.codeAssist,acceptSuggestionOnEnter:"on",snippetSuggestions:"inline",
-    parameterHints:{enabled:!!state.settings.codeAssist},hover:{enabled:true},matchBrackets:"always",autoClosingQuotes:"always"
+    parameterHints:{enabled:!!state.settings.codeAssist},hover:{enabled:true},matchBrackets:"always",autoIndent:"full",formatOnPaste:true,formatOnType:true,autoClosingBrackets:"always",autoClosingQuotes:"always",autoSurround:"languageDefined",wordBasedSuggestions:"currentDocument",suggestSelection:"first",tabCompletion:"on",stickyScroll:{enabled:true},unicodeHighlight:{invisibleCharacters:true,ambiguousCharacters:false}
   };
   [state.editor,state.splitEditor].forEach(e=>{if(e)e.updateOptions(options);});
   if(window.monaco)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":state.settings.theme==="mono"?"kerno-mono":"kerno-dark");
@@ -1349,17 +1421,17 @@ async function createSourceFile(){
   state.tabs.push(path);openFile(path);await saveProject(true);notify("Source file created",path);
 }
 function binaryPath(p){return /\.(iso|elf|bin|o|a|so|dll|exe|png|jpe?g|gif|webp|ico|pdf|mp3|mp4|woff2?|ttf)$/i.test(p);}
-async function importZip(file){if(!window.JSZip)throw Error("ZIP library unavailable.");const zip=await JSZip.loadAsync(file);let n=0,skip=0,total=fileSize(state.project);const entries=[];zip.forEach((p,e)=>{if(!e.dir)entries.push([p,e]);});for(const [raw,e] of entries){const p=normalizePath(raw);if(!p||binaryPath(p)||p==="KernoProject.json"){skip++;continue;}const content=await e.async("string"),size=new Blob([content]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT){skip++;continue;}total+=size;state.project.files[p]=content;n++;}const m=zip.file("KernoProject.json");if(m){try{const data=JSON.parse(await m.async("string"));if(data.config)state.project.config=Object.assign(state.project.config,data.config);if(data.name)state.project.name=data.name;}catch(_){}}return {n,skip};}
+async function importZip(file){const Zip=await loadJSZip();const zip=await Zip.loadAsync(file);let n=0,skip=0,total=fileSize(state.project);const entries=[];zip.forEach((p,e)=>{if(!e.dir)entries.push([p,e]);});for(const [raw,e] of entries){const p=normalizePath(raw);if(!p||binaryPath(p)||p==="KernoProject.json"){skip++;continue;}const content=await e.async("string"),size=new Blob([content]).size;if(size>FILE_LIMIT||total+size>PROJECT_LIMIT){skip++;continue;}total+=size;state.project.files[p]=content;n++;}const m=zip.file("KernoProject.json");if(m){try{const data=JSON.parse(await m.async("string"));if(data.config)state.project.config=Object.assign(state.project.config,data.config);if(data.name)state.project.name=data.name;}catch(_){}}return {n,skip};}
 async function importMany(list,strip){const files=Array.from(list||[]);let n=0,skip=0,total=fileSize(state.project);const root=files.length&&files.every(f=>f.webkitRelativePath)&&files.map(f=>f.webkitRelativePath.split("/")[0]).every(x=>x===files[0].webkitRelativePath.split("/")[0])?files[0].webkitRelativePath.split("/")[0]:"";for(const f of files){try{if(/\.(zip|kerno)$/i.test(f.name)){const r=await importZip(f);n+=r.n;skip+=r.skip;continue;}let p=f.webkitRelativePath||f.name;if(strip&&root)p=p.split("/").slice(1).join("/");p=normalizePath(p);if(!p||binaryPath(p)||f.size>FILE_LIMIT||total+f.size>PROJECT_LIMIT){skip++;continue;}state.project.files[p]=await f.text();total+=f.size;n++;}catch(_){skip++;}}if(n){const next=Object.keys(state.project.files).find(x=>!state.tabs.includes(x));if(next)openFile(next);renderTree();renderTabs();await saveProject(true);}notify(n+" file(s) imported",skip?skip+" item(s) skipped due to type/path/size limits.":"Project updated.");}
 function exportFile(){if(!state.project||!state.activeFile)return;syncEditor();download(new Blob([state.project.files[state.activeFile]],{type:"text/plain;charset=utf-8"}),state.activeFile.split("/").pop());notify("Source file exported",state.activeFile);}
-async function exportProject(){if(!state.project)return;syncEditor();const manifest={format:"kerno-project",version:1,id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files,createdAt:state.project.createdAt,exportedAt:new Date().toISOString()};if(!window.JSZip){download(new Blob([JSON.stringify(manifest,null,2)],{type:"application/json"}),safeName(state.project.name)+".kerno-project.json");return;}const z=new JSZip();Object.entries(state.project.files).forEach(([p,v])=>z.file(p,v));z.file("KernoProject.json",JSON.stringify(manifest,null,2));download(await z.generateAsync({type:"blob",compression:"DEFLATE"}),safeName(state.project.name)+".kerno.zip");notify("Project archive exported",Object.keys(state.project.files).length+" files included.");}
+async function exportProject(){if(!state.project)return;syncEditor();const manifest={format:"kerno-project",version:1,id:state.project.id,name:state.project.name,config:state.project.config,files:state.project.files,createdAt:state.project.createdAt,exportedAt:new Date().toISOString()};let Zip;try{Zip=await loadJSZip();}catch(_){download(new Blob([JSON.stringify(manifest,null,2)],{type:"application/json"}),safeName(state.project.name)+".kerno-project.json");notify("ZIP library unavailable","A JSON project manifest was exported instead.");return;}const z=new Zip();Object.entries(state.project.files).forEach(([p,v])=>z.file(p,v));z.file("KernoProject.json",JSON.stringify(manifest,null,2));download(await z.generateAsync({type:"blob",compression:"DEFLATE"}),safeName(state.project.name)+".kerno.zip");notify("Project archive exported",Object.keys(state.project.files).length+" files included.");}
 function cleanProjectFiles(files){const out={};let size=0;Object.entries(files).forEach(([raw,text])=>{const p=normalizePath(raw);if(!p||binaryPath(p)||typeof text!=="string")return;const n=new Blob([text]).size;if(n>FILE_LIMIT||size+n>PROJECT_LIMIT)return;size+=n;out[p]=text;});return out;}
 async function renderSettings(category){
   state.category=category;
   $$(".settings-nav-item").forEach(button=>button.classList.toggle("active",button.dataset.category===category));
   const titleKeys={architecture:"osArchitecture",boot:"bootSettings",diagnostics:"diagnostics",accessibility:"accessibility",shortcuts:"shortcuts"};
   $("#settingsTitle").textContent=tr(titleKeys[category]||category);
-  $("#settingsEyebrow").textContent=(category==="osArchitecture"?"OS & ARCHITECTURE":category).replace(/-/g," ").toUpperCase();
+  $("#settingsEyebrow").textContent=(category==="osArchitecture"?(activeLocale()==="id"?"OS & ARSITEKTUR":"OS & ARCHITECTURE"):category).replace(/-/g," ").toUpperCase();
   const descriptions={
     general:"Workspace lifecycle, project defaults and save behavior.",
     appearance:"Typography, theme, accent, density and interface scaling.",
@@ -1376,7 +1448,8 @@ async function renderSettings(category){
     accessibility:"Make the interface more readable and reduce visual motion.",
     shortcuts:"Keyboard commands available throughout Kernel Studio."
   };
-  $("#settingsDescription").textContent=descriptions[category]||"Configure the Kerno development environment.";
+  const descriptionsId={general:"Atur siklus workspace, default proyek, dan perilaku penyimpanan.",appearance:"Atur tipografi, tema, warna aksen, kepadatan, dan skala antarmuka.",language:"Pilih bahasa yang digunakan pada antarmuka Kerno.",editor:"Atur perilaku Monaco, tampilan kode, dan kenyamanan penyuntingan.",architecture:"Tentukan target default proyek OS baru dan target workspace aktif.",memory:"Rencanakan RAM guest, reservasi kernel, ukuran halaman, dan penempatan linker.",emulator:"Atur mesin QEMU, tampilan, prosesor, jaringan, dan perilaku runtime.",toolchain:"Pilih compiler, assembler, linker, dan executable pengemasan image native.",storage:"Periksa penyimpanan lokal browser dan kelola cadangan proyek.",advanced:"Pasangkan layanan eksekusi lokal dan tinjau batas keamanannya.",boot:"Atur firmware, perilaku menu GRUB, dan argumen command-line kernel.",diagnostics:"Atur diagnostik compiler, log kernel, dan keluaran serial.",accessibility:"Tingkatkan keterbacaan antarmuka dan kurangi gerakan visual.",shortcuts:"Pintasan keyboard yang tersedia di Kernel Studio."};
+  $("#settingsDescription").textContent=activeLocale()==="id"?(descriptionsId[category]||"Konfigurasikan lingkungan pengembangan Kerno."):descriptions[category]||"Configure the Kerno development environment.";
   const host=$("#settingsFields");
   const s=state.settings;
   const esc=value=>String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -1398,7 +1471,7 @@ async function renderSettings(category){
     :[["q35","q35 · modern PC"],["pc","pc · legacy PC"]];
   const displayItems=[["std","Standard VGA"],["virtio","Virtio GPU"],["none","Headless / serial only"]];
   const accelerationItems=[["auto","Automatic"],["kvm","KVM · Linux"],["whpx","WHPX · Windows"],["tcg","TCG · software"]];
-  const languageItems=[["auto","Deteksi otomatis"],["id","Bahasa Indonesia"],["en","English"]];
+  const languageItems=[["auto",activeLocale()==="id"?"Deteksi otomatis":"Detect automatically"],["id","Bahasa Indonesia"],["en","English"]];
   let html="";
 
   if(category==="general"){
@@ -1657,6 +1730,178 @@ async function renderSettings(category){
       "Check host capacity":"Periksa kapasitas host","Estimate host capacity":"Estimasi kapasitas host",
       "Source code and compiler output are not translated.":"Kode sumber dan output compiler tidak diterjemahkan."
     };
+    Object.assign(dictionary,{
+      "The local execution bridge accepts up to 20 MiB of text source per project.":"Jembatan eksekusi lokal menerima source teks hingga 20 MiB per proyek.",
+      "Large binary artifacts are kept out of the source editor.":"Artefak biner berukuran besar tidak dimasukkan ke editor source.",
+      "Projects and settings remain in this browser profile.":"Proyek dan pengaturan disimpan di profil browser ini.",
+      "Applied across the Project Hub, settings, workspace and source editor.":"Diterapkan pada Project Hub, pengaturan, workspace, dan editor source.",
+      "Used for selection, focus and active controls.":"Digunakan untuk seleksi, fokus, dan kontrol aktif.",
+      "Controls vertical spacing in panels and settings.":"Mengatur jarak vertikal pada panel dan pengaturan.",
+      "Increase text and controls together.":"Perbesar teks dan kontrol secara bersamaan.",
+      "Pilih Bahasa Indonesia atau English untuk antarmuka Project Hub dan Kerno Academy.":"Pilih Bahasa Indonesia atau English untuk antarmuka Project Hub dan Kerno Academy.",
+      "Syntax highlighting and editor support.":"Pewarnaan sintaks dan dukungan editor.",
+      "Python is editor-supported for scripts and tools, but is not compiled into the current freestanding kernel target.":"Python didukung editor untuk skrip dan tool, tetapi tidak dikompilasi ke target kernel freestanding saat ini.",
+      "Project Hub dan Kerno Academy tersedia dalam Bahasa Indonesia dan English. Source code, identifier teknis, serta keluaran compiler dipertahankan dalam bahasa aslinya.":"Project Hub dan Kerno Academy tersedia dalam Bahasa Indonesia dan English. Source code, identifier teknis, dan keluaran compiler tetap menggunakan bahasa aslinya.",
+      "Choose an installed monospaced font.":"Pilih font monospace yang terpasang.",
+      "Changes the source editor and split editor.":"Mengubah tampilan editor source dan editor terpisah.",
+      "Spaces inserted by the Tab key.":"Jumlah spasi yang dimasukkan oleh tombol Tab.",
+      "Wrap long source lines without changing file content.":"Bungkus baris source yang panjang tanpa mengubah isi file.",
+      "Show line numbers in the source editor.":"Tampilkan nomor baris pada editor source.",
+      "Show a compact overview of the open source file.":"Tampilkan ringkasan visual file source yang terbuka.",
+      "Choose the insertion cursor shape.":"Pilih bentuk kursor pengetikan.",
+      "Interpolate scrolling in the source editor.":"Haluskan pengguliran pada editor source.",
+      "Colorize matching bracket pairs.":"Beri warna pada pasangan kurung yang cocok.",
+      "Control when spaces and tabs are visible.":"Atur kapan spasi dan tab ditampilkan.",
+      "Highlight unmatched brackets and unfinished strings while typing.":"Tandai pasangan kurung yang tidak cocok dan string yang belum ditutup saat mengetik.",
+      "Contextual suggestions for C, C++, Python and Assembly.":"Saran kontekstual untuk C, C++, Python, dan Assembly.",
+      "Lightweight editor assistance is local. Native compiler diagnostics remain the source of truth for build errors.":"Bantuan editor ringan berjalan secara lokal. Diagnostik compiler native tetap menjadi acuan utama untuk kesalahan build.",
+      "Architecture selected for this project.":"Arsitektur yang dipilih untuk proyek ini.",
+      "Boot firmware for the target machine.":"Firmware boot untuk mesin target.",
+      "Boot protocol and handoff layer.":"Protokol boot dan lapisan handoff.",
+      "Primary freestanding kernel implementation language.":"Bahasa utama untuk implementasi kernel freestanding.",
+      "Native compiler optimization level.":"Tingkat optimisasi compiler native.",
+      "Applies only to the open project. New-project defaults remain unchanged.":"Hanya berlaku untuk proyek yang sedang dibuka. Default proyek baru tidak berubah.",
+      "Used as the initial target when creating a new workspace.":"Digunakan sebagai target awal saat membuat workspace baru.",
+      "Used the next time you create a project.":"Digunakan saat membuat proyek berikutnya.",
+      "Initial firmware selection for new projects.":"Pilihan firmware awal untuk proyek baru.",
+      "Initial bootloader selection for new projects.":"Pilihan bootloader awal untuk proyek baru.",
+      "Changing a project's architecture, firmware or bootloader updates target metadata. The boot entry, compiler ABI and linker layout must also match; Kerno does not silently rewrite custom kernel code. Native ISO generation is currently gated to x86_64 + BIOS + GRUB / Multiboot2. Other architecture choices remain editable scaffolds.":"Mengubah arsitektur, firmware, atau bootloader proyek akan memperbarui metadata target. Entry boot, ABI compiler, dan tata letak linker juga harus sesuai; Kerno tidak mengubah source kernel kustom secara diam-diam. Pembuatan ISO native saat ini hanya didukung untuk x86_64 + BIOS + GRUB / Multiboot2. Pilihan arsitektur lain masih berupa scaffold yang dapat diedit.",
+      "Memory assigned to the QEMU guest, not physical host memory.":"Memori yang diberikan kepada guest QEMU, bukan RAM fisik host.",
+      "Planning budget for future dynamic allocation.":"Anggaran perencanaan untuk alokasi dinamis di masa mendatang.",
+      "Budget for early boot stacks.":"Anggaran untuk stack pada tahap awal boot.",
+      "Target granularity for paging configuration.":"Granularitas target untuk konfigurasi paging.",
+      "Hexadecimal physical/virtual link base.":"Alamat dasar linker fisik/virtual dalam heksadesimal.",
+      "This is a configuration estimate only. It does not allocate host RAM. The generated physical-frame allocator currently manages a capped identity-mapped region; it is separate from the guest RAM slider.":"Ini hanya estimasi konfigurasi dan tidak mengalokasikan RAM host. Physical-frame allocator yang dihasilkan saat ini mengelola wilayah identity-mapped yang dibatasi; mekanisme tersebut terpisah dari pengaturan RAM guest.",
+      "Virtual motherboard or platform.":"Motherboard atau platform virtual.",
+      "Virtual CPU feature model.":"Model fitur CPU virtual.",
+      "Guest display device.":"Perangkat tampilan guest.",
+      "Number of guest processor cores.":"Jumlah core prosesor guest.",
+      "Loopback VNC display port.":"Port tampilan VNC loopback.",
+      "Host acceleration backend.":"Backend akselerasi host.",
+      "Network exposure for the guest.":"Akses jaringan untuk guest.",
+      "QEMU starts only from the local Kerno service. The browser does not execute emulator binaries.":"QEMU hanya dijalankan melalui layanan lokal Kerno. Browser tidak menjalankan binary emulator.",
+      "Default QEMU preferences for future projects remain in the OS & Architecture and project defaults settings.":"Preferensi default QEMU untuk proyek berikutnya tetap berada di pengaturan OS & Arsitektur dan default proyek.",
+      "Assembler used for x86 assembly entry files.":"Assembler yang digunakan untuk file entry Assembly x86.",
+      "Compiler target must report x86_64-elf.":"Target compiler harus melaporkan x86_64-elf.",
+      "Separate C compiler for .c translation units.":"Compiler C terpisah untuk berkas translasi .c.",
+      "Target ELF linker.":"Linker ELF target.",
+      "Usually grub-mkrescue.":"Biasanya menggunakan grub-mkrescue.",
+      "Optional ELF conversion and inspection tool.":"Tool opsional untuk konversi dan inspeksi ELF.",
+      "ELF metadata inspection utility.":"Utilitas untuk memeriksa metadata ELF.",
+      "Connect Kerno Local Service to inspect this computer safely.":"Hubungkan Kerno Local Service untuk memeriksa komputer ini secara aman.",
+      "Read-only diagnostics. Kerno checks system metadata and PATH-resolved tools; it does not run arbitrary Command Prompt commands or install software.":"Diagnostik hanya-baca. Kerno memeriksa metadata sistem dan tool pada PATH; Kerno tidak menjalankan perintah Command Prompt sembarang atau memasang perangkat lunak.",
+      "The local service resolves executable names through PATH. Arbitrary shell command strings are not accepted.":"Layanan lokal mencari executable melalui PATH. Perintah shell bebas tidak diterima.",
+      "Seconds before the default menu entry starts.":"Waktu dalam detik sebelum entri menu default dijalankan.",
+      "Zero-based menu entry index.":"Indeks entri menu yang dimulai dari nol.",
+      "Plain arguments appended to the Multiboot2 kernel entry.":"Argumen teks biasa yang ditambahkan ke entri kernel Multiboot2.",
+      "New projects use this firmware selection.":"Proyek baru menggunakan pilihan firmware ini.",
+      "New projects use this bootloader selection.":"Proyek baru menggunakan pilihan bootloader ini.",
+      "Boot settings update the generated GRUB menu when the current project uses GRUB. Custom boot stages and UEFI application handoff need their own boot configuration.":"Pengaturan boot memperbarui menu GRUB yang dihasilkan ketika proyek aktif menggunakan GRUB. Tahap boot kustom dan handoff aplikasi UEFI memerlukan konfigurasi boot tersendiri.",
+      "Default verbosity for the generated kernel configuration.":"Tingkat detail log default untuk konfigurasi kernel yang dihasilkan.",
+      "Configure whether the QEMU serial output is captured.":"Atur apakah keluaran serial QEMU direkam.",
+      "Keep build and emulator logs in the local service data folder.":"Simpan log build dan emulator di folder data layanan lokal.",
+      "Include debug information in native object files.":"Sertakan informasi debug pada object file native.",
+      "Treat compiler warnings as build errors.":"Perlakukan peringatan compiler sebagai kesalahan build.",
+      "Compiler diagnostics are applied by the local native builder. Kernel runtime log verbosity is a project configuration value; it does not automatically implement a full logging subsystem.":"Diagnostik compiler diterapkan oleh builder native lokal. Tingkat detail log runtime kernel merupakan nilai konfigurasi proyek dan tidak otomatis membangun subsistem logging lengkap.",
+      "Project source is stored in this browser profile.":"Source proyek disimpan di profil browser ini.",
+      "Local Kerno workspace count.":"Jumlah workspace Kerno lokal.",
+      "Browser-provided quota and usage.":"Kuota dan penggunaan yang dilaporkan browser.",
+      "Export a backup before deleting browser-local project data. This action does not delete files exported to your computer.":"Ekspor cadangan sebelum menghapus data proyek lokal browser. Tindakan ini tidak menghapus file yang telah diekspor ke komputer.",
+      "Loopback URL for Kerno Local Service API.":"URL loopback untuk API Kerno Local Service.",
+      "Token printed when the local service starts. Stored in this browser's settings.":"Token yang ditampilkan saat layanan lokal dijalankan. Token disimpan dalam pengaturan browser ini.",
+      "Kerno sends a structured project manifest to a loopback-only service. The service validates relative paths, applies per-file and project limits, avoids shell execution, serializes builds with a build lock, and controls QEMU process lifetime.":"Kerno mengirim manifest proyek terstruktur ke layanan yang hanya terikat pada loopback. Layanan memvalidasi path relatif, menerapkan batas ukuran per file dan proyek, menghindari eksekusi shell, mengurutkan proses build dengan build lock, serta mengelola siklus hidup proses QEMU.",
+      "The pairing token is a local capability credential. Do not paste it into source files, commit it to Git, or share it in screenshots.":"Token pairing merupakan kredensial akses lokal. Jangan masukkan token ke source code, commit ke Git, atau bagikan melalui tangkapan layar.",
+      "Use a larger global scale for labels, navigation and controls.":"Gunakan skala global lebih besar untuk label, navigasi, dan kontrol.",
+      "Override the selected animation profile for accessibility.":"Abaikan profil animasi terpilih demi aksesibilitas.",
+      "Increase the visibility of keyboard focus indicators.":"Tingkatkan visibilitas indikator fokus keyboard.",
+      "Use the browser zoom alongside these controls when a larger viewport scale is needed.":"Gunakan zoom browser bersama pengaturan ini ketika memerlukan skala tampilan yang lebih besar.",
+      "Shortcut actions are handled by the Kerno workspace while the browser page is focused.":"Aksi pintasan ditangani workspace Kerno selama halaman browser aktif.",
+      "Bare-metal text kernel":"Kernel teks bare-metal",
+      "Framebuffer kernel":"Kernel framebuffer",
+      "Minimal kernel foundation":"Fondasi kernel minimal",
+      "Resume most recent project":"Lanjutkan proyek terakhir",
+      "Black & white · monochrome":"Hitam putih · monokrom",
+      "Sage green":"Hijau sage",
+      "Comfortable":"Lega",
+      "Cascadia Code":"Cascadia Code",
+      "Courier New":"Courier New",
+      "Dark":"Gelap",
+      "Light":"Terang",
+      "Hidden":"Tersembunyi",
+      "On selection":"Saat dipilih",
+      "At boundaries":"Pada batas",
+      "Always":"Selalu",
+      "Off":"Mati",
+      "On":"Aktif",
+      "Line":"Garis",
+      "Block":"Blok",
+      "Underline":"Garis bawah",
+      "2 spaces":"2 spasi",
+      "4 spaces":"4 spasi",
+      "8 spaces":"8 spasi",
+      "Sage green":"Hijau sage",
+      "Cyan":"Sian",
+      "Blue":"Biru",
+      "Amber":"Jingga",
+      "Compact":"Ringkas",
+      "Balanced":"Seimbang",
+      "Enhanced · polished visuals":"Ditingkatkan · visual halus",
+      "Standard · balanced":"Standar · seimbang",
+      "Minimal · subtle only":"Minimal · sangat ringan",
+      "Off · no animation":"Mati · tanpa animasi",
+      "Bare-metal text kernel":"Kernel teks bare-metal",
+      "Framebuffer kernel":"Kernel framebuffer",
+      "Minimal kernel foundation":"Fondasi kernel minimal",
+      "Scan this PC":"Pindai PC ini",
+      "Copy CMD checks":"Salin pemeriksaan CMD",
+      "Not scanned":"Belum dipindai",
+      "Not checked":"Belum diperiksa",
+      "Not connected":"Belum terhubung",
+      "Checking…":"Sedang memeriksa…",
+      "Capture to serial.log":"Rekam ke serial.log",
+      "Disable serial capture":"Nonaktifkan perekaman serial",
+      "User-mode NAT":"NAT mode pengguna",
+      "Standard VGA":"VGA standar",
+      "Virtio GPU":"GPU Virtio",
+      "Automatic":"Otomatis",
+      "Disabled":"Dinonaktifkan",
+      "Quiet":"Senyap",
+      "Error":"Kesalahan",
+      "Warning":"Peringatan",
+      "Information":"Informasi",
+      "Debug":"Debug",
+      "Debug · -O0":"Debug · -O0",
+      "Size · -Os":"Ukuran · -Os",
+      "Speed · -O2":"Kecepatan · -O2",
+      "Current project target":"Target proyek aktif",
+      "Default OS target":"Target OS default",
+      "Current project memory plan":"Rencana memori proyek aktif",
+      "Default memory plan":"Rencana memori default",
+      "Current project QEMU profile":"Profil QEMU proyek aktif",
+      "Default QEMU profile":"Profil QEMU default",
+      "Current project boot profile":"Profil boot proyek aktif",
+      "Default boot profile":"Profil boot default",
+      "New project defaults":"Default proyek baru",
+      "Interface language":"Bahasa antarmuka",
+      "Source languages":"Bahasa source",
+      "Native kernel build":"Build kernel native",
+      "Host PC & Command Prompt":"PC host & Command Prompt",
+      "Local execution bridge":"Jembatan eksekusi lokal",
+      "Connection status":"Status koneksi",
+      "Execution and security boundary":"Batas eksekusi dan keamanan",
+      "Readable interface":"Antarmuka yang mudah dibaca",
+      "Keyboard shortcuts":"Pintasan keyboard",
+      "Tool availability":"Ketersediaan tool",
+      "Native toolchain executables":"Executable toolchain native",
+      "Host capacity":"Kapasitas host",
+      "Estimate host capacity":"Estimasi kapasitas host",
+      "Export all projects":"Ekspor semua proyek",
+      "Delete all local projects":"Hapus semua proyek lokal",
+      "Apply settings":"Terapkan pengaturan",
+      "QEMU & Emulator":"QEMU & Emulator",
+      "Storage & Data":"Penyimpanan & Data",
+      "OS & Architecture":"OS & Arsitektur"
+    });
     for(const [english,indonesian] of Object.entries(dictionary))html=html.split(english).join(indonesian);
   }
   host.innerHTML=html;
@@ -1672,7 +1917,7 @@ async function renderSettings(category){
   $("#exportAllProjectsButton")&&$("#exportAllProjectsButton").addEventListener("click",exportAll);
   $("#clearProjectsButton")&&$("#clearProjectsButton").addEventListener("click",clearAllProjects);
 }
-function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale"){translate();renderSettings(state.category);return;}if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density"||k==="motionLevel"||k==="reduceMotion")applyDensity();
+function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale"){translate();renderSettings(state.category);Object.values(state.models).forEach(model=>scheduleQuickDiagnostics(model));return;}if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density"||k==="motionLevel"||k==="reduceMotion")applyDensity();
   if(["editorFontSize","editorFontFamily","tabSize","wordWrap","lineNumbers","minimap","cursorStyle","smoothScrolling","bracketPairColorization","renderWhitespace","codeAssist"].includes(k))applyEditorSettings();
   if(k==="quickDiagnostics")Object.values(state.models).forEach(model=>scheduleQuickDiagnostics(model));
   if(["guestMemoryMiB","heapReserveMiB","stackReserveKiB"].includes(k))renderMemory();}
@@ -2306,6 +2551,7 @@ function openSettings(from){
 }
 function applyStartup(){applyTheme();applyAccent();applyDensity();translate();if(state.settings.startScreen==="lastProject"){all("projects").then(list=>{list.sort((a,b)=>b.updatedAt-a.updatedAt);if(list[0]){state.project=list[0];openProject();}else show("welcome");}).catch(()=>show("welcome"));}else show("welcome");}
 function bindEvents(){
+ $("#retryEditorButton").onclick=()=>{initMonaco();};
 $("#welcomeNewProject").onclick=()=>{state.newProjectReturn="welcome";syncWizardDefaults();show("newProject");};$("#landingFeaturesButton").onclick=()=>scrollLandingTo("platformSection");
 $("#landingWorkflowButton").onclick=()=>scrollLandingTo("workflowSection");
 $("#landingTutorialButton").onclick=openTutorial;
