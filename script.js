@@ -1917,7 +1917,7 @@ async function renderSettings(category){
   $("#exportAllProjectsButton")&&$("#exportAllProjectsButton").addEventListener("click",exportAll);
   $("#clearProjectsButton")&&$("#clearProjectsButton").addEventListener("click",clearAllProjects);
 }
-function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale"){translate();renderSettings(state.category);return;}if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density"||k==="motionLevel"||k==="reduceMotion")applyDensity();
+function settingChanged(e){const el=e.target,k=el.dataset.setting;if(!k)return;state.settings[k]=el.type==="checkbox"?el.checked:el.type==="number"?Number(el.value):el.value;if(k==="locale"){translate();renderSettings(state.category);Object.values(state.models).forEach(model=>scheduleQuickDiagnostics(model));return;}if(k==="theme")applyTheme();if(k==="accent")applyAccent();if(k==="density"||k==="motionLevel"||k==="reduceMotion")applyDensity();
   if(["editorFontSize","editorFontFamily","tabSize","wordWrap","lineNumbers","minimap","cursorStyle","smoothScrolling","bracketPairColorization","renderWhitespace","codeAssist"].includes(k))applyEditorSettings();
   if(k==="quickDiagnostics")Object.values(state.models).forEach(model=>scheduleQuickDiagnostics(model));
   if(["guestMemoryMiB","heapReserveMiB","stackReserveKiB"].includes(k))renderMemory();}
