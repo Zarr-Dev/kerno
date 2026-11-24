@@ -8,7 +8,9 @@ const FILE_LIMIT = 2 * 1024 * 1024;
 const PROJECT_LIMIT = 20 * 1024 * 1024;
 let database = null;
 let monacoLoad = null;
+let jszipLoad = null;
 let monacoAssistRegistered = false;
+const externalScriptLoads = new Map();
 const quickCheckTimers = new WeakMap();
 
 const DEFAULTS = {
