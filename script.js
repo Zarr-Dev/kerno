@@ -70,21 +70,21 @@ const UI_COPY = {
     "landing.nav.openFolder": "Open folder",
     "landing.nav.theme": "Theme",
     "landing.nav.themeTitle": "Change color theme",
-    "landing.hero.kicker": "KERNEL ENGINEERING · BROWSER IDE",
-    "landing.hero.title": "Build an operating system, starting with the kernel.",
-    "landing.hero.subtitle": "Kerno brings together source editing, project structure, machine configuration and QEMU testing. The current native kernel target uses C/C++ and Assembly; Python is available for scripts and tooling.",
-    "landing.hero.proof.kernel": "C/C++ kernel source",
-    "landing.hero.proof.boot": "Assembly boot code",
-    "landing.hero.proof.iso": "ISO validation + QEMU",
-    "landing.hero.cta.primary": "Create an OS project",
-    "landing.hero.cta.secondary": "Explore the workflow",
+    "landing.hero.kicker": "OS DEVELOPMENT · BROWSER IDE",
+    "landing.hero.title": "Your OS starts with a kernel.",
+    "landing.hero.subtitle": "Write C/C++ and Assembly, organize your kernel files, then try the result in QEMU. Python is there for helper scripts and tools.",
+    "landing.hero.proof.kernel": "C/C++ kernel code",
+    "landing.hero.proof.boot": "Boot code in Assembly",
+    "landing.hero.proof.iso": "Test an ISO in QEMU",
+    "landing.hero.cta.primary": "Start an OS project",
+    "landing.hero.cta.secondary": "See how it works",
     "landing.hero.preview.label": "Example · kernel.cpp",
     "landing.hero.preview.target": "x86_64 · C++",
     "landing.hero.preview.caption": "Example source preview",
     "landing.hero.preview.pipeline": "BUILD → ISO → QEMU",
-    "landing.hero.role.web": "Browser IDE for editing and project setup",
-    "landing.hero.role.local": "Kerno Local Service for native tools and QEMU",
-    "landing.hero.target": "Currently supported native target: x86_64 · BIOS · GRUB · Multiboot2",
+    "landing.hero.role.web": "Write code and organize projects in your browser",
+    "landing.hero.role.local": "Run compilers, QEMU and host tools with Kerno Local Service",
+    "landing.hero.target": "Native ISO builds currently support x86_64 · BIOS · GRUB · Multiboot2.",
     "landing.action.new.title": "New project",
     "landing.action.new.body": "Create a structured OS workspace from a kernel template.",
     "landing.action.new.link": "Start a project →",
@@ -295,7 +295,34 @@ const UI_COPY = {
     "scaffoldNote": "These are editable source files. A verified boot image still requires a matching native toolchain and boot protocol.",
     "machineDesc": "Live guest output is streamed from the connected local QEMU service.",
     "buildConfiguration": "Build configuration",
-    "buildConfigurationDesc": "Review the target before invoking the connected native build service."
+    "buildConfigurationDesc": "Review the target before invoking the connected native build service.",
+    "landing.hero.proof.aria": "What you can do in Kerno",
+    "virtualbox.kicker": "VIRTUALBOX · PC TOOLS",
+    "virtualbox.title": "VirtualBox",
+    "virtualbox.description": "See the VMs already set up on this computer. Start one here or ask it to shut down normally.",
+    "virtualbox.status.idle": "Not checked yet",
+    "virtualbox.status.checking": "Checking VirtualBox…",
+    "virtualbox.status.unavailable": "VirtualBox not found",
+    "virtualbox.status.empty": "No VMs registered",
+    "virtualbox.select": "Virtual machine",
+    "virtualbox.select.placeholder": "Check VirtualBox to load the VM list",
+    "virtualbox.mode": "Start in",
+    "virtualbox.mode.gui": "VirtualBox window",
+    "virtualbox.mode.headless": "In the background",
+    "virtualbox.refresh": "Check VirtualBox",
+    "virtualbox.start": "Start VM",
+    "virtualbox.shutdown": "Request shutdown",
+    "virtualbox.detail.empty": "Choose a VM to see its details.",
+    "virtualbox.note": "Kerno only manages VMs already registered in VirtualBox. Shutdown uses ACPI; Kerno will not force a VM off or change its disks.",
+    "virtualbox.detail.state": "State",
+    "virtualbox.detail.os": "Guest OS",
+    "virtualbox.detail.ram": "Memory",
+    "virtualbox.detail.cpu": "CPU cores",
+    "virtualbox.state.running": "Running",
+    "virtualbox.state.off": "Powered off",
+    "virtualbox.state.shutdown": "Shutdown requested",
+    "virtualbox.error.oldAgent": "Update and restart Kerno Local Service to use the VirtualBox tools.",
+    "virtualbox.error.noService": "Connect Kerno Local Service first."
   },
   "id": {
     "meta.title": "Kerno — Lingkungan Pengembangan Sistem Operasi",
@@ -309,21 +336,21 @@ const UI_COPY = {
     "landing.nav.openFolder": "Buka folder",
     "landing.nav.theme": "Tema",
     "landing.nav.themeTitle": "Ganti tema warna",
-    "landing.hero.kicker": "REKAYASA KERNEL · IDE BERBASIS BROWSER",
-    "landing.hero.title": "Bangun sistem operasi, mulai dari kernel.",
-    "landing.hero.subtitle": "Kerno menyatukan penyuntingan source, struktur proyek, konfigurasi mesin, dan pengujian melalui QEMU. Target kernel native saat ini menggunakan C/C++ dan Assembly; Python tersedia untuk skrip dan tooling.",
-    "landing.hero.proof.kernel": "Source kernel C/C++",
-    "landing.hero.proof.boot": "Kode boot Assembly",
-    "landing.hero.proof.iso": "Verifikasi ISO + QEMU",
-    "landing.hero.cta.primary": "Buat proyek OS",
-    "landing.hero.cta.secondary": "Pelajari alur kerja",
+    "landing.hero.kicker": "ALAT UNTUK MEMBANGUN SISTEM OPERASI",
+    "landing.hero.title": "Mulai dari kernel, lalu bangun OS versimu.",
+    "landing.hero.subtitle": "Tulis kode C/C++ dan Assembly, susun file kernel, lalu uji hasilnya di QEMU. Python juga bisa dipakai untuk skrip pendukung.",
+    "landing.hero.proof.kernel": "Kode kernel C/C++",
+    "landing.hero.proof.boot": "Boot dengan Assembly",
+    "landing.hero.proof.iso": "Uji ISO di QEMU",
+    "landing.hero.cta.primary": "Mulai proyek OS",
+    "landing.hero.cta.secondary": "Lihat panduan",
     "landing.hero.preview.label": "Contoh · kernel.cpp",
     "landing.hero.preview.target": "x86_64 · C++",
     "landing.hero.preview.caption": "Cuplikan source contoh",
     "landing.hero.preview.pipeline": "BUILD → ISO → QEMU",
-    "landing.hero.role.web": "IDE browser untuk penyuntingan dan pengaturan proyek",
-    "landing.hero.role.local": "Kerno Local Service untuk tool native dan QEMU",
-    "landing.hero.target": "Target build native yang saat ini didukung: x86_64 · BIOS · GRUB · Multiboot2",
+    "landing.hero.role.web": "Menulis kode dan mengatur proyek langsung di browser",
+    "landing.hero.role.local": "Menjalankan compiler, QEMU, dan tool PC lewat Kerno Local Service",
+    "landing.hero.target": "Build ISO native saat ini mendukung x86_64 · BIOS · GRUB · Multiboot2.",
     "landing.action.new.title": "Proyek baru",
     "landing.action.new.body": "Buat workspace OS terstruktur dari template kernel.",
     "landing.action.new.link": "Mulai proyek →",
@@ -534,11 +561,38 @@ const UI_COPY = {
     "scaffoldNote": "Berkas kode sumber ini dapat disunting. Citra boot yang tervalidasi tetap memerlukan toolchain native dan protokol boot yang sesuai.",
     "machineDesc": "Keluaran guest secara langsung dialirkan dari layanan QEMU lokal yang terhubung.",
     "buildConfiguration": "Konfigurasi build",
-    "buildConfigurationDesc": "Periksa target proyek sebelum menjalankan layanan build native yang terhubung."
+    "buildConfigurationDesc": "Periksa target proyek sebelum menjalankan layanan build native yang terhubung.",
+    "landing.hero.proof.aria": "Yang bisa kamu kerjakan di Kerno",
+    "virtualbox.kicker": "VIRTUALBOX · TOOL PC",
+    "virtualbox.title": "VirtualBox",
+    "virtualbox.description": "Lihat VM yang sudah ada di komputer ini. Jalankan VM dari Kerno atau minta sistem melakukan shutdown normal.",
+    "virtualbox.status.idle": "Belum diperiksa",
+    "virtualbox.status.checking": "Sedang memeriksa VirtualBox…",
+    "virtualbox.status.unavailable": "VirtualBox tidak ditemukan",
+    "virtualbox.status.empty": "Belum ada VM terdaftar",
+    "virtualbox.select": "Mesin virtual",
+    "virtualbox.select.placeholder": "Periksa VirtualBox untuk memuat daftar VM",
+    "virtualbox.mode": "Jalankan dengan",
+    "virtualbox.mode.gui": "Jendela VirtualBox",
+    "virtualbox.mode.headless": "Di latar belakang",
+    "virtualbox.refresh": "Periksa VirtualBox",
+    "virtualbox.start": "Jalankan VM",
+    "virtualbox.shutdown": "Minta shutdown",
+    "virtualbox.detail.empty": "Pilih VM untuk melihat detailnya.",
+    "virtualbox.note": "Kerno hanya mengelola VM yang sudah terdaftar di VirtualBox. Shutdown memakai ACPI; Kerno tidak mematikan VM secara paksa atau mengubah disk-nya.",
+    "virtualbox.detail.state": "Status",
+    "virtualbox.detail.os": "Sistem operasi guest",
+    "virtualbox.detail.ram": "Memori",
+    "virtualbox.detail.cpu": "Inti CPU",
+    "virtualbox.state.running": "Berjalan",
+    "virtualbox.state.off": "Mati",
+    "virtualbox.state.shutdown": "Permintaan shutdown terkirim",
+    "virtualbox.error.oldAgent": "Perbarui dan jalankan ulang Kerno Local Service untuk memakai tool VirtualBox.",
+    "virtualbox.error.noService": "Hubungkan Kerno Local Service terlebih dahulu."
   }
 };
 
-const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",newProjectReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",newProjectReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,virtualbox:{available:false,version:"",machines:[],selectedUuid:"",loading:false},qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
 function activeLocale(){
   const requested=state.settings.locale||"id";
   if(requested==="id"||requested==="en")return requested;
@@ -547,6 +601,7 @@ function activeLocale(){
   return detected==="id"?"id":"en";
 }
 function tr(k){const locale=activeLocale();return (LANGUAGES[locale]&&LANGUAGES[locale][k])||LANGUAGES.en[k]||k;}
+function uiText(k){const locale=activeLocale();return (UI_COPY[locale]&&UI_COPY[locale][k])||(UI_COPY.en&&UI_COPY.en[k])||tr(k);}
 const EDITOR_MESSAGES = {
   en:{loadingTitle:"Loading Monaco Editor",loadingDetail:"Preparing syntax highlighting, completions and diagnostics…",fallbackTitle:"Advanced editor unavailable",fallbackBody:"Basic text editing is active. Syntax highlighting and live diagnostics are unavailable until Monaco loads. Check your connection, then retry.",retry:"Retry editor",loadingStatus:"Loading editor engine…",ready:"Monaco Editor ready",basicReady:"Basic text editor active",modified:"Modified · autosave scheduled",saved:"Workspace saved in this browser",clean:"No structural issues detected",count:"{errors} error(s) · {warnings} warning(s)",paused:"Live checks paused for this large file",stringLine:"String literal is not closed on this line.",stringOpen:"String literal is not closed.",commentOpen:"Block comment is not closed.",unexpectedClose:"Unexpected closing {token}.",unexpectedExpected:"Unexpected {token}; expected {expected}.",openingMissing:"Opening {token} has no matching {expected}.",jsonError:"Invalid JSON syntax: {message}"},
   id:{loadingTitle:"Memuat Monaco Editor",loadingDetail:"Menyiapkan pewarnaan sintaks, pelengkapan otomatis, dan diagnostik…",fallbackTitle:"Editor lanjutan tidak tersedia",fallbackBody:"Mode teks dasar tetap dapat digunakan. Pewarnaan sintaks dan diagnostik langsung belum tersedia sampai Monaco berhasil dimuat. Periksa koneksi internet, lalu coba lagi.",retry:"Coba muat ulang editor",loadingStatus:"Memuat mesin editor…",ready:"Monaco Editor siap",basicReady:"Editor teks dasar aktif",modified:"Diubah · penyimpanan otomatis dijadwalkan",saved:"Workspace tersimpan di browser ini",clean:"Tidak ditemukan masalah struktur",count:"{errors} error · {warnings} peringatan",paused:"Pemeriksaan langsung dijeda untuk file berukuran besar",stringLine:"Literal string belum ditutup pada baris ini.",stringOpen:"Literal string belum ditutup.",commentOpen:"Komentar blok belum ditutup.",unexpectedClose:"Kurung penutup {token} tidak memiliki pasangan.",unexpectedExpected:"Token {token} tidak sesuai; seharusnya {expected}.",openingMissing:"Kurung pembuka {token} belum memiliki pasangan {expected}.",jsonError:"Sintaks JSON tidak valid: {message}"}
@@ -718,13 +773,13 @@ function renderTutorialProgress(){
   if(pct)pct.textContent=percent+"%";
   const nextIndex=TUTORIAL_STAGES.findIndex((_,index)=>!completed.has(index));
   if(next)next.textContent=nextIndex<0?"All stages completed":("Next: "+TUTORIAL_STAGES[nextIndex]);
-  $("[data-tutorial-step]").forEach(card=>{
+  $$("[data-tutorial-step]").forEach(card=>{
     const index=Number(card.dataset.tutorialStep),isDone=completed.has(index);
     card.classList.toggle("completed",isDone);
     const button=$('[data-complete-step="'+index+'"]',card);
     if(button){button.textContent=isDone?"Completed ✓ · Undo":"Mark stage complete";button.setAttribute("aria-pressed",String(isDone));}
   });
-  $("#tutorialContents a").forEach((link,index)=>link.classList.toggle("completed",completed.has(index)));
+  $$("#tutorialContents a").forEach((link,index)=>link.classList.toggle("completed",completed.has(index)));
 }
 async function toggleTutorialStep(index){
   if(!Number.isInteger(index)||index<0||index>=TUTORIAL_STAGES.length)return;
@@ -744,7 +799,7 @@ function setupTutorialObserver(){
   if(state.tutorialObserver){state.tutorialObserver.disconnect();state.tutorialObserver=null;}
   if(!("IntersectionObserver" in window))return;
   const screen=$("#tutorialScreen");
-  const links=$("#tutorialContents a");
+  const links=$$("#tutorialContents a");
   const observer=new IntersectionObserver(entries=>{
     entries.forEach(entry=>{
       if(entry.isIntersecting){
@@ -753,12 +808,12 @@ function setupTutorialObserver(){
       }
     });
   },{root:screen,rootMargin:"-15% 0px -70% 0px",threshold:0});
-  $("[data-tutorial-step]").forEach(card=>observer.observe(card));
+  $$("[data-tutorial-step]").forEach(card=>observer.observe(card));
   state.tutorialObserver=observer;
 }
 function setupLandingReveal(){
   if(state.landingRevealObserver){state.landingRevealObserver.disconnect();state.landingRevealObserver=null;}
-  const targets=$(".landing-section,.recent-section",$("#welcomeScreen"));
+  const targets=$$(".landing-section,.recent-section",$("#welcomeScreen"));
   document.body.classList.remove("reveal-ready");
   // Product content remains visible regardless of observer support or scroll-root behavior.
   targets.forEach(el=>el.classList.add("is-visible"));
@@ -2130,6 +2185,102 @@ async function refreshHostMemoryEstimate(){
 }
 async function exportAll(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
 async function clearAllProjects(){if(state.settings.confirmDestructive&&!await confirmInApp("This permanently deletes every locally stored Kerno project in this browser profile.","Delete all local projects?"))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
+function vboxMachine(){return state.virtualbox.machines.find(item=>item.uuid===state.virtualbox.selectedUuid)||null;}
+function renderVirtualBoxActions(){
+  const machine=vboxMachine(),busy=!!state.virtualbox.loading,available=!!state.virtualbox.available;
+  $("#virtualboxStartButton").disabled=!available||!machine||machine.state==="running"||busy;
+  $("#virtualboxShutdownButton").disabled=!available||!machine||machine.state!=="running"||busy;
+  $("#virtualboxMachineSelect").disabled=!available||!state.virtualbox.machines.length||busy;
+  $("#virtualboxRefreshButton").disabled=busy;
+}
+function renderVirtualBoxDetail(info,message){
+  const host=$("#virtualboxDetail");host.replaceChildren();
+  if(message){const note=document.createElement("p");note.textContent=message;host.append(note);return;}
+  if(!info){const note=document.createElement("p");note.textContent=uiText("virtualbox.detail.empty");host.append(note);return;}
+  const values=[
+    [uiText("virtualbox.detail.state"),info.state==="running"?uiText("virtualbox.state.running"):uiText("virtualbox.state.off")],
+    [uiText("virtualbox.detail.os"),info.osType||"—"],
+    [uiText("virtualbox.detail.ram"),info.memoryMiB?info.memoryMiB+" MiB":"—"],
+    [uiText("virtualbox.detail.cpu"),info.cpus||"—"]
+  ];
+  const grid=document.createElement("div");grid.className="virtualbox-detail-grid";
+  values.forEach(([label,value])=>{const item=document.createElement("div");item.className="virtualbox-detail-item";const name=document.createElement("span");name.textContent=label;const data=document.createElement("strong");data.textContent=String(value);item.append(name,data);grid.append(item);});
+  host.append(grid);
+}
+async function loadVirtualBoxMachineInfo(uuid){
+  if(!uuid){renderVirtualBoxDetail(null);renderVirtualBoxActions();return;}
+  try{const info=await KernoLocalService.virtualboxMachineInfo(uuid);renderVirtualBoxDetail(info);renderVirtualBoxActions();}
+  catch(error){renderVirtualBoxDetail(null,error.message||uiText("virtualbox.error.oldAgent"));}
+}
+async function refreshVirtualBox(){
+  const status=$("#virtualboxStatus");
+  if(state.virtualbox.loading)return false;
+  state.virtualbox.loading=true;status.textContent=uiText("virtualbox.status.checking");renderVirtualBoxActions();
+  try{
+    if(!state.localConnected&&!await testService())throw new Error(uiText("virtualbox.error.noService"));
+    KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+    const report=await KernoLocalService.virtualboxMachines();
+    state.virtualbox.available=!!report.available;
+    state.virtualbox.version=report.version||"";
+    state.virtualbox.machines=Array.isArray(report.machines)?report.machines:[];
+    if(!state.virtualbox.available){
+      state.virtualbox.selectedUuid="";status.textContent=uiText("virtualbox.status.unavailable");
+      renderVirtualBoxDetail(null,report.message||uiText("virtualbox.status.unavailable"));return false;
+    }
+    const select=$("#virtualboxMachineSelect"),previous=state.virtualbox.selectedUuid;
+    select.replaceChildren();
+    const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent=uiText("virtualbox.select.placeholder");select.append(placeholder);
+    state.virtualbox.machines.forEach(machine=>{
+      const option=document.createElement("option");option.value=machine.uuid;
+      option.textContent=machine.name+(machine.state==="running"?" · "+uiText("virtualbox.state.running"):"");select.append(option);
+    });
+    state.virtualbox.selectedUuid=state.virtualbox.machines.some(machine=>machine.uuid===previous)?previous:(state.virtualbox.machines[0]?.uuid||"");
+    select.value=state.virtualbox.selectedUuid;
+    if(!state.virtualbox.machines.length){
+      status.textContent=uiText("virtualbox.status.empty");renderVirtualBoxDetail(null,uiText("virtualbox.status.empty"));return true;
+    }
+    const count=state.virtualbox.machines.length,running=state.virtualbox.machines.filter(machine=>machine.state==="running").length;
+    status.textContent=state.virtualbox.version+" · "+count+" VM · "+running+(activeLocale()==="id"?" berjalan":" running");
+    await loadVirtualBoxMachineInfo(state.virtualbox.selectedUuid);return true;
+  }catch(error){
+    state.virtualbox.available=false;state.virtualbox.machines=[];state.virtualbox.selectedUuid="";
+    status.textContent=error.status===404?uiText("virtualbox.error.oldAgent"):uiText("virtualbox.status.unavailable");
+    renderVirtualBoxDetail(null,error.status===404?uiText("virtualbox.error.oldAgent"):error.message);
+    if(error.status===404)notify(uiText("virtualbox.title"),uiText("virtualbox.error.oldAgent"),"error");
+    else notify(uiText("virtualbox.title"),error.message,"error");
+    return false;
+  }finally{state.virtualbox.loading=false;renderVirtualBoxActions();}
+}
+async function startVirtualBoxMachine(){
+  const machine=vboxMachine();if(!machine||!state.virtualbox.available)return;
+  const mode=$("#virtualboxStartMode").value;
+  const prompt=activeLocale()==="id"?'Jalankan VM "'+machine.name+'" di VirtualBox?':'Start "'+machine.name+'" in VirtualBox?';
+  if(!await confirmInApp(prompt,uiText("virtualbox.start")))return;
+  state.virtualbox.loading=true;renderVirtualBoxActions();
+  let started=false;
+  try{await KernoLocalService.startVirtualBoxVM(machine.uuid,mode);started=true;notify(uiText("virtualbox.start"),machine.name);}
+  catch(error){notify(uiText("virtualbox.start"),error.message,"error");}
+  finally{state.virtualbox.loading=false;renderVirtualBoxActions();}
+  if(started)await refreshVirtualBox();
+}
+async function shutdownVirtualBoxMachine(){
+  const machine=vboxMachine();if(!machine||machine.state!=="running")return;
+  const prompt=activeLocale()==="id"
+    ?'Kerno akan meminta "'+machine.name+'" melakukan shutdown normal. Simpan pekerjaan di dalam VM terlebih dahulu.'
+    :'Kerno will ask "'+machine.name+'" to shut down normally. Save your work inside the VM first.';
+  if(!await confirmInApp(prompt,uiText("virtualbox.shutdown")))return;
+  state.virtualbox.loading=true;renderVirtualBoxActions();
+  let requested=false;
+  try{
+    const result=await KernoLocalService.shutdownVirtualBoxVM(machine.uuid);
+    requested=result.status==="shutdown-requested";
+    $("#virtualboxStatus").textContent=uiText("virtualbox.state.shutdown");
+    if(requested)notify(uiText("virtualbox.state.shutdown"),machine.name);
+  }catch(error){notify(uiText("virtualbox.shutdown"),error.message,"error");}
+  finally{state.virtualbox.loading=false;renderVirtualBoxActions();}
+  if(requested)window.setTimeout(()=>refreshVirtualBox(),2500);
+  else await refreshVirtualBox();
+}
 function renderMachine(){
   if(!state.project)return;
   const config=state.project.config;
@@ -2147,7 +2298,7 @@ function renderMachine(){
 }
 function renderBuild(){if(!state.project)return;$("#buildTarget").textContent=state.project.config.architecture;$("#buildBootloader").textContent=state.project.config.bootloader;$("#buildLanguage").textContent=state.project.config.kernelLanguage.toUpperCase();}
 function updateProjectHeader(){if(!state.project)return;$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();}
-function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
+function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="machine"&&state.localConnected&&!state.virtualbox.loading&&!state.virtualbox.available)refreshVirtualBox();if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
 function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=msg||tr("connectQemuPrompt");}
 function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
 async function testService(){try{KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);const h=await KernoLocalService.health();setServiceStatus(true,"Local service connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Connected · API "+(h.apiVersion||"unknown");notify("Local service connected");return true;}catch(e){setServiceStatus(false,"QEMU not connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Unavailable · "+e.message;notify("Local service unavailable",e.message);return false;}}
@@ -2591,6 +2742,7 @@ $("#plainEditor").oninput=()=>{if(state.activeFile){state.project.files[state.ac
 $("#plainEditor").onkeyup=plainCursor;$("#plainEditor").onclick=plainCursor;
 $$(".workspace-nav-item").forEach(b=>b.onclick=()=>switchWorkspace(b.dataset.workspace));
 $("#connectLocalServiceButton").onclick=connectService;$("#startQemuButton").onclick=startQemu;$("#stopQemuButton").onclick=stopQemu;$("#clearSerialButton").onclick=()=>$("#serialOutput").textContent="";
+ $("#virtualboxRefreshButton").onclick=refreshVirtualBox;$("#virtualboxMachineSelect").onchange=event=>{state.virtualbox.selectedUuid=event.target.value;loadVirtualBoxMachineInfo(state.virtualbox.selectedUuid);};$("#virtualboxStartButton").onclick=startVirtualBoxMachine;$("#virtualboxShutdownButton").onclick=shutdownVirtualBoxMachine;
 $("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild(true);};$("#runBuildButton").onclick=()=>nativeBuild(false);$("#openSettingsFromBuild").onclick=()=>{state.category="toolchain";openSettings("app");};
 $$(".settings-nav-item").forEach(b=>b.onclick=()=>renderSettings(b.dataset.category));
 $("#architectureSelect").onchange=()=>{const arch=$("#architectureSelect").value;if(arch==="aarch64"||arch==="riscv64"){$("#firmwareSelect").value="uefi";$("#bootloaderSelect").value="uefi-app";}$("#scaffoldPreview").textContent=arch+" target\n├── boot/\n│   └── entry.asm\n├── include/kernel/\n├── src/\n│   ├── kernel.cpp\n│   ├── console.cpp\n│   └── memory.cpp\n├── linker.ld\n└── kerno.project.json";};

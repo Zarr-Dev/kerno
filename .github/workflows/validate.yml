@@ -34,7 +34,9 @@ jobs:
           node --input-type=module --check < novnc-client.js
 
       - name: Validate local service Python
-        run: python -m py_compile local-agent/local_agent.py
+        run: |
+          python -m py_compile local-agent/local_agent.py
+          python -m unittest discover -s tests -p 'test_*.py' -v
 
       - name: Audit HTML structure and tutorial stages
         run: |
@@ -59,3 +61,14 @@ jobs:
 
       - name: Audit editor loading and diagnostics
         run: node tests/audit-editor.cjs
+
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save --no-package-lock playwright@1.65.0
+          npx playwright install --with-deps chromium
+
+      - name: Run responsive browser smoke tests
+        run: |
+          python -m http.server 8000 > /tmp/kerno-http.log 2>&1 &
+          echo $! > /tmp/kerno-http.pid
+          node tests/smoke-browser.cjs

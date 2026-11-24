@@ -21,3 +21,18 @@ assert(!/Object\.keys\(state\.project\.files\)\.forEach\(ensureModel\)/.test(scr
 assert(css.includes(".editor-loading-spinner") && css.includes(".editor-engine-fallback"), "Editor loading and fallback states need dedicated styles.");
 assert(readme.includes("not a C/C++ compiler or a semantic language server"), "The limits of live diagnostics must be documented accurately.");
 console.log("Editor audit passed: lazy dependencies, lazy models, loading/retry states, JSON validation and bounded diagnostics.");
+
+assert(html.includes('id="virtualboxMachineSelect"') && html.includes('id="virtualboxShutdownButton"'), "VirtualBox workspace controls are missing.");
+assert(script.includes("virtualboxMachines") && script.includes("startVirtualBoxVM") && script.includes("shutdownVirtualBoxVM"), "VirtualBox API client methods are missing.");
+assert(script.includes("function refreshVirtualBox") && script.includes("function startVirtualBoxMachine") && script.includes("function shutdownVirtualBoxMachine"), "VirtualBox UI actions are missing.");
+assert(css.includes(".virtualbox-tools") && css.includes("@media(max-width:620px)"), "VirtualBox panel must include responsive styles.");
+assert(script.includes('"landing.hero.title": "Your OS starts with a kernel."') && script.includes('"landing.hero.title": "Mulai dari kernel, lalu bangun OS versimu."'), "Hero copy should use the revised English and Indonesian text.");
+console.log("VirtualBox and Hero audit passed: inventory, actions, safe shutdown, localization and responsive layout.");
+
+console.log("Landing/tutorial selector audit passed: list operations use the collection helper.");
+
+assert(/const targets=\$\$\(/.test(script), "Landing reveal must query a collection before iterating.");
+assert(/\$\$\("\[data-tutorial-step\]"\)\.forEach/.test(script), "Tutorial step cards must be queried as a collection.");
+assert(/\$\$\("#tutorialContents a"\)\.forEach/.test(script), "Tutorial contents links must be queried as a collection.");
+assert(/const links=\$\$\("#tutorialContents a"\)/.test(script), "Tutorial observer must retain a link collection.");
+console.log("Landing/tutorial selector audit passed: list operations use the collection helper.");

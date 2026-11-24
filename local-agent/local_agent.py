@@ -23,9 +23,9 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("KERNO_LOCAL_PORT", "8765"))
 MAX_REQUEST = 24 * 1024 * 1024
@@ -44,6 +44,7 @@ DEFAULT_ORIGINS = {
     "https://kerno-drab.vercel.app",
     "https://kerno-zarr-devs-projects.vercel.app",
     "https://kerno-git-main-zarr-devs-projects.vercel.app",
+    "https://kerno-git-codex-editor-i18n-health-zarr-devs-projects.vercel.app",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:5500",
@@ -71,6 +72,7 @@ else:
 
 BUILD_LOCK = threading.Lock()
 STATE_LOCK = threading.RLock()
+VIRTUALBOX_LOCK = threading.RLock()
 ARTIFACTS: dict[str, dict] = {}
 PROJECT_ARTIFACTS: dict[str, str] = {}
 RUNTIME = {
@@ -192,6 +194,181 @@ def probe_tool(value: object, fallback: str) -> dict:
     return {"available": True, "command": candidate, "path": found, "version": version}
 
 
+VBOX_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
+VBOX_VM_LINE_RE = re.compile(r'^("(?:[^"\\]|\\.)*")\s+\{([0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})\}$')
+
+
+def virtualbox_executable() -> str | None:
+    """Find the installed VirtualBox CLI without accepting a browser-supplied path."""
+    for name in (("VBoxManage.exe", "VBoxManage") if os.name == "nt" else ("VBoxManage",)):
+        found = shutil.which(name)
+        if found:
+            return found
+    if os.name == "nt":
+        roots = [os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")]
+        for root in roots:
+            if root:
+                candidate = Path(root) / "Oracle" / "VirtualBox" / "VBoxManage.exe"
+                if candidate.is_file():
+                    return str(candidate)
+    return None
+
+
+def run_virtualbox(args: list[str], timeout: float = 12.0, binary: str | None = None) -> str:
+    """Run a fixed VBoxManage argument vector. Shell input is never accepted."""
+    executable_path = binary or virtualbox_executable()
+    if not executable_path:
+        raise FileNotFoundError("VBoxManage was not found. Install VirtualBox and add its installation folder to PATH.")
+    if not isinstance(args, list) or not args or any(not isinstance(item, str) or not item or "\x00" in item for item in args):
+        raise ValueError("Invalid VirtualBox operation.")
+    try:
+        result = subprocess.run(
+            [executable_path, *args], capture_output=True, text=True,
+            timeout=timeout, check=False, encoding="utf-8", errors="replace"
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("VirtualBox did not respond before the request timed out.")
+    except OSError as error:
+        raise RuntimeError("Could not start VirtualBox: " + str(error))
+    output = (result.stdout or "").strip()
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "VBoxManage returned a non-zero exit code.").strip()
+        raise RuntimeError(detail[-700:])
+    return output
+
+
+def parse_virtualbox_vm_list(output: str) -> list[dict]:
+    machines = []
+    for line in str(output or "").splitlines():
+        match = VBOX_VM_LINE_RE.fullmatch(line.strip())
+        if not match:
+            continue
+        try:
+            name = json.loads(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        uuid = match.group(2).lower()
+        if isinstance(name, str) and VBOX_UUID_RE.fullmatch(uuid):
+            machines.append({"name": name, "uuid": uuid})
+    return machines
+
+
+def parse_virtualbox_machine_info(output: str) -> dict:
+    values = {}
+    for line in str(output or "").splitlines():
+        key, separator, raw = line.partition("=")
+        if not separator or not key:
+            continue
+        raw = raw.strip()
+        if raw.startswith('"') and raw.endswith('"'):
+            try:
+                values[key] = json.loads(raw)
+                continue
+            except (TypeError, ValueError):
+                pass
+        values[key] = raw
+    return values
+
+
+def validate_virtualbox_uuid(value: object) -> str:
+    uuid = str(value or "").strip()
+    if not VBOX_UUID_RE.fullmatch(uuid):
+        raise ValueError("Choose a valid VirtualBox machine from the list.")
+    return uuid.lower()
+
+
+def virtualbox_inventory() -> dict:
+    binary = virtualbox_executable()
+    if not binary:
+        return {
+            "available": False, "version": None, "machineCount": 0,
+            "runningCount": 0, "machines": [],
+            "message": "VBoxManage was not found. Install VirtualBox and add its installation folder to PATH."
+        }
+    with VIRTUALBOX_LOCK:
+        version = run_virtualbox(["--version"], timeout=5, binary=binary)
+        registered = parse_virtualbox_vm_list(run_virtualbox(["list", "vms"], timeout=10, binary=binary))
+        running_ids = {
+            item["uuid"] for item in parse_virtualbox_vm_list(
+                run_virtualbox(["list", "runningvms"], timeout=10, binary=binary)
+            )
+        }
+        machines = [
+            {**item, "state": "running" if item["uuid"] in running_ids else "powered_off"}
+            for item in registered
+        ]
+        machines.sort(key=lambda item: item["name"].casefold())
+        return {
+            "available": True,
+            "version": version.splitlines()[0][:80] if version else "Version not reported",
+            "machineCount": len(machines),
+            "runningCount": len(running_ids),
+            "machines": machines,
+        }
+
+
+def virtualbox_machine_info(payload: dict) -> dict:
+    uuid = validate_virtualbox_uuid((payload or {}).get("uuid"))
+    with VIRTUALBOX_LOCK:
+        inventory = virtualbox_inventory()
+        if not inventory["available"]:
+            raise FileNotFoundError(inventory["message"])
+        machine = next((item for item in inventory["machines"] if item["uuid"] == uuid), None)
+        if not machine:
+            raise ValueError("That VirtualBox machine is not registered on this computer.")
+        raw = run_virtualbox(
+            ["showvminfo", uuid, "--machinereadable"], timeout=10
+        )
+        info = parse_virtualbox_machine_info(raw)
+        def integer(name):
+            try:
+                return int(info.get(name, 0))
+            except (TypeError, ValueError):
+                return None
+        return {
+            **machine,
+            "osType": str(info.get("ostype") or "Not reported")[:100],
+            "memoryMiB": integer("memory"),
+            "cpus": integer("cpus"),
+        }
+
+
+def virtualbox_start(payload: dict) -> dict:
+    data = payload if isinstance(payload, dict) else {}
+    uuid = validate_virtualbox_uuid(data.get("uuid"))
+    mode = str(data.get("mode") or "gui")
+    if mode not in ("gui", "headless"):
+        raise ValueError("Choose either a VirtualBox window or background mode.")
+    with VIRTUALBOX_LOCK:
+        inventory = virtualbox_inventory()
+        if not inventory["available"]:
+            raise FileNotFoundError(inventory["message"])
+        machine = next((item for item in inventory["machines"] if item["uuid"] == uuid), None)
+        if not machine:
+            raise ValueError("That VirtualBox machine is not registered on this computer.")
+        if machine["state"] == "running":
+            return {"status": "running", "uuid": uuid, "name": machine["name"], "mode": mode}
+        run_virtualbox(["startvm", uuid, "--type", mode], timeout=45, binary=virtualbox_executable())
+        return {"status": "started", "uuid": uuid, "name": machine["name"], "mode": mode}
+
+
+def virtualbox_shutdown(payload: dict) -> dict:
+    data = payload if isinstance(payload, dict) else {}
+    uuid = validate_virtualbox_uuid(data.get("uuid"))
+    with VIRTUALBOX_LOCK:
+        inventory = virtualbox_inventory()
+        if not inventory["available"]:
+            raise FileNotFoundError(inventory["message"])
+        machine = next((item for item in inventory["machines"] if item["uuid"] == uuid), None)
+        if not machine:
+            raise ValueError("That VirtualBox machine is not registered on this computer.")
+        if machine["state"] != "running":
+            return {"status": "not-running", "uuid": uuid, "name": machine["name"]}
+        run_virtualbox(["controlvm", uuid, "acpipowerbutton"], timeout=15, binary=virtualbox_executable())
+        return {"status": "shutdown-requested", "uuid": uuid, "name": machine["name"]}
+
+
+
 def host_memory() -> dict:
     total = available = None
     try:
@@ -238,6 +415,7 @@ def toolchain_report(settings: dict) -> dict:
         "readelf": probe_tool(settings.get("readelf"), "x86_64-elf-readelf"),
         "make": probe_tool("make", "make"),
         "qemu": probe_tool(settings.get("qemuBinary"), "qemu-system-x86_64"),
+        "virtualbox": probe_tool(virtualbox_executable() or ("VBoxManage.exe" if os.name == "nt" else "VBoxManage"), "VBoxManage.exe" if os.name == "nt" else "VBoxManage"),
     }
 
 
@@ -1000,6 +1178,21 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/v1/host/diagnostics":
             self.send_json(200, host_diagnostics({}))
             return
+        if path in ("/api/v1/virtualbox/machines", "/api/v1/virtualbox/machine"):
+            try:
+                if path.endswith("/machine"):
+                    query = parse_qs(urlparse(self.path).query)
+                    result = virtualbox_machine_info({"uuid": (query.get("uuid") or [""])[0]})
+                else:
+                    result = virtualbox_inventory()
+                self.send_json(200, result)
+            except ValueError as error:
+                self.send_json(400, {"status": "failed", "message": str(error)})
+            except FileNotFoundError as error:
+                self.send_json(503, {"status": "failed", "message": str(error)})
+            except RuntimeError as error:
+                self.send_json(409, {"status": "failed", "message": str(error)})
+            return
         if path == "/api/v1/emulator/status":
             self.send_json(200, emulator_status())
             return
@@ -1050,6 +1243,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/v1/emulator/stop":
                 stop_qemu_process()
                 self.send_json(200, {"status": "stopped"})
+                return
+            if path == "/api/v1/virtualbox/start":
+                self.send_json(200, virtualbox_start(data))
+                return
+            if path == "/api/v1/virtualbox/shutdown":
+                self.send_json(200, virtualbox_shutdown(data))
                 return
             if path == "/api/v1/memory/estimate":
                 project = data.get("project") or {}

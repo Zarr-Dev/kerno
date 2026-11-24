@@ -99,6 +99,30 @@
   }
 
 
+  async function virtualboxMachines() {
+    return request("/api/v1/virtualbox/machines", { method: "GET", timeout: 12000 });
+  }
+
+  async function virtualboxMachineInfo(uuid) {
+    return request("/api/v1/virtualbox/machine?uuid=" + encodeURIComponent(uuid), { method: "GET", timeout: 10000 });
+  }
+
+  async function startVirtualBoxVM(uuid, mode) {
+    return request("/api/v1/virtualbox/start", {
+      method: "POST",
+      timeout: 50000,
+      body: { uuid: uuid, mode: mode || "gui" }
+    });
+  }
+
+  async function shutdownVirtualBoxVM(uuid) {
+    return request("/api/v1/virtualbox/shutdown", {
+      method: "POST",
+      timeout: 20000,
+      body: { uuid: uuid }
+    });
+  }
+
   async function resourceEstimate(project, settings) {
     return request("/api/v1/memory/estimate", {
       method: "POST",
@@ -148,6 +172,10 @@
     toolchain: toolchain,
     hostDiagnostics: hostDiagnostics,
     resourceEstimate: resourceEstimate,
+    virtualboxMachines: virtualboxMachines,
+    virtualboxMachineInfo: virtualboxMachineInfo,
+    startVirtualBoxVM: startVirtualBoxVM,
+    shutdownVirtualBoxVM: shutdownVirtualBoxVM,
     downloadArtifact: downloadArtifact
   });
 })();

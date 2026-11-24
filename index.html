@@ -47,14 +47,14 @@
             <span class="section-kicker" data-i18n="landing.hero.kicker">REKAYASA KERNEL · IDE BERBASIS BROWSER</span>
             <h1 id="heroTitle" data-i18n="landing.hero.title">Bangun sistem operasi, mulai dari kernel.</h1>
             <p data-i18n="landing.hero.subtitle">Kerno menyatukan penyuntingan source, struktur proyek, konfigurasi mesin, dan pengujian melalui QEMU. Target kernel native saat ini menggunakan C/C++ dan Assembly; Python tersedia untuk skrip dan tooling.</p>
-            <div class="hero-proof" aria-label="Kapabilitas utama">
-              <span><b>C</b> <span data-i18n="landing.hero.proof.kernel">Source kernel C/C++</span></span>
-              <span><b>ASM</b> <span data-i18n="landing.hero.proof.boot">Kode boot Assembly</span></span>
-              <span><b>ISO</b> <span data-i18n="landing.hero.proof.iso">Verifikasi ISO + QEMU</span></span>
-            </div>
             <div class="hero-cta-row">
-              <button class="primary-button hero-primary-cta" id="heroStartButton" type="button"><span data-i18n="landing.hero.cta.primary">Buat proyek OS</span> <span aria-hidden="true">↗</span></button>
-              <button class="hero-secondary-cta" id="heroTutorialButton" type="button"><span data-i18n="landing.hero.cta.secondary">Pelajari alur kerja</span> <span aria-hidden="true">→</span></button>
+              <button class="primary-button hero-primary-cta" id="heroStartButton" type="button"><span data-i18n="landing.hero.cta.primary">Mulai proyek OS</span> <span aria-hidden="true">↗</span></button>
+              <button class="hero-secondary-cta" id="heroTutorialButton" type="button"><span data-i18n="landing.hero.cta.secondary">Lihat panduan</span> <span aria-hidden="true">→</span></button>
+            </div>
+            <div class="hero-proof" aria-label="Kapabilitas utama" data-i18n-aria="landing.hero.proof.aria">
+              <span><b>C</b> <span data-i18n="landing.hero.proof.kernel">Kode kernel C/C++</span></span>
+              <span><b>ASM</b> <span data-i18n="landing.hero.proof.boot">Boot dengan Assembly</span></span>
+              <span><b>ISO</b> <span data-i18n="landing.hero.proof.iso">Uji ISO di QEMU</span></span>
             </div>
           </div>
           <aside class="hero-visual" aria-label="Cuplikan source kernel contoh">
@@ -263,6 +263,38 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
           <p class="control-note" id="machineControlNote" data-i18n="machine.note">QEMU dikelola oleh Kerno Local Service. Browser tidak menjalankan proses emulator native.</p>
         </aside>
       </div>
+      <section class="virtualbox-tools" aria-labelledby="virtualboxTitle">
+        <div class="virtualbox-heading">
+          <div>
+            <span class="section-kicker" data-i18n="virtualbox.kicker">VIRTUALBOX · TOOL PC</span>
+            <h2 id="virtualboxTitle" data-i18n="virtualbox.title">VirtualBox</h2>
+            <p data-i18n="virtualbox.description">Lihat VM yang sudah ada di komputer ini. Jalankan VM dari Kerno atau minta sistem melakukan shutdown normal.</p>
+          </div>
+          <span class="virtualbox-status" id="virtualboxStatus" role="status" aria-live="polite" data-i18n="virtualbox.status.idle">Belum diperiksa</span>
+        </div>
+        <div class="virtualbox-toolbar">
+          <label class="virtualbox-field">
+            <span data-i18n="virtualbox.select">Mesin virtual</span>
+            <select id="virtualboxMachineSelect" disabled>
+              <option value="" data-i18n="virtualbox.select.placeholder">Periksa VirtualBox untuk memuat daftar VM</option>
+            </select>
+          </label>
+          <label class="virtualbox-field">
+            <span data-i18n="virtualbox.mode">Jalankan dengan</span>
+            <select id="virtualboxStartMode">
+              <option value="gui" data-i18n="virtualbox.mode.gui">Jendela VirtualBox</option>
+              <option value="headless" data-i18n="virtualbox.mode.headless">Di latar belakang</option>
+            </select>
+          </label>
+          <button class="quiet-button" id="virtualboxRefreshButton" type="button" data-i18n="virtualbox.refresh">Periksa VirtualBox</button>
+          <button class="primary-button" id="virtualboxStartButton" type="button" disabled data-i18n="virtualbox.start">Jalankan VM</button>
+          <button class="quiet-button" id="virtualboxShutdownButton" type="button" disabled data-i18n="virtualbox.shutdown">Minta shutdown</button>
+        </div>
+        <div class="virtualbox-detail" id="virtualboxDetail" aria-live="polite">
+          <p data-i18n="virtualbox.detail.empty">Pilih VM untuk melihat detailnya.</p>
+        </div>
+        <p class="virtualbox-note" data-i18n="virtualbox.note">Kerno hanya mengelola VM yang sudah terdaftar di VirtualBox. Shutdown memakai ACPI; Kerno tidak mematikan VM secara paksa atau mengubah disk-nya.</p>
+      </section>
     </section>
 
     <section class="workspace-view hidden" id="buildWorkspace">
