@@ -56,3 +56,6 @@ jobs:
 
       - name: Audit bilingual interface copy
         run: node tests/audit-ui-copy.cjs
+
+      - name: Audit editor loading and diagnostics
+        run: node tests/audit-editor.cjs
