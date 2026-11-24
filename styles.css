@@ -1018,3 +1018,71 @@ body.monochrome-theme .editor-engine-fallback{background:#171717;border-color:#8
 body.monochrome-theme .editor-engine-fallback small{color:#ddd}
 @media(prefers-reduced-motion:reduce){.editor-loading-spinner{animation:none}}
 @media(max-width:600px){.editor-engine-fallback{align-items:flex-start;flex-direction:column;gap:7px}.editor-engine-fallback button{align-self:flex-start}}
+
+
+/* VirtualBox panel and compact-screen layout */
+#machineWorkspace{display:block;overflow:auto;overscroll-behavior:contain}
+#machineWorkspace .machine-layout{
+  height:clamp(500px,calc(100dvh - 142px),740px);
+  min-height:500px;
+}
+.virtualbox-tools{
+  width:min(1180px,calc(100% - 40px));margin:18px auto 32px;padding:22px;
+  border:1px solid var(--line);border-radius:12px;background:var(--surface);
+  box-shadow:0 12px 36px rgba(0,0,0,.08)
+}
+.virtualbox-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
+.virtualbox-heading h2{margin:6px 0;font:700 20px var(--heading);color:var(--text)}
+.virtualbox-heading p{max-width:650px;margin:0;color:var(--muted);font-size:12px;line-height:1.65}
+.virtualbox-status{flex:0 0 auto;padding:7px 10px;border:1px solid var(--line);border-radius:7px;color:var(--muted);font:11px var(--mono)}
+.virtualbox-toolbar{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) auto auto auto;align-items:end;gap:10px;margin-top:20px}
+.virtualbox-field{display:flex;min-width:0;flex-direction:column;gap:7px;color:var(--muted);font-size:11px}
+.virtualbox-field select{width:100%;min-width:0;min-height:40px;padding:0 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2);color:var(--text);font:inherit}
+.virtualbox-toolbar button{min-height:40px;white-space:normal}
+.virtualbox-detail{min-height:64px;margin-top:15px;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--muted);font-size:12px}
+.virtualbox-detail>p{margin:0;line-height:1.6}
+.virtualbox-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.virtualbox-detail-item{display:flex;min-width:0;flex-direction:column;gap:6px}
+.virtualbox-detail-item span{color:var(--muted);font-size:10px}
+.virtualbox-detail-item strong{color:var(--text);font:12px var(--mono);overflow-wrap:anywhere}
+.virtualbox-note{max-width:90ch;margin:13px 0 0;color:var(--muted);font-size:10px;line-height:1.65}
+body.light-theme .virtualbox-tools{box-shadow:0 10px 28px rgba(30,50,40,.06)}
+body.monochrome-theme .virtualbox-tools,body.monochrome-theme .virtualbox-detail{background:var(--surface)}
+.hero-cta-row{position:relative;z-index:2}
+.hero-primary-cta,.hero-secondary-cta{flex:0 0 auto;visibility:visible;opacity:1}
+@media(max-width:820px){
+  #machineWorkspace .machine-layout{height:auto;min-height:0;grid-template-columns:1fr;grid-template-rows:minmax(400px,60vh) auto}
+  .virtualbox-tools{width:calc(100% - 28px);margin:14px auto 24px;padding:17px}
+  .virtualbox-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .virtualbox-toolbar button{width:100%}
+}
+@media(max-width:620px){
+  .hero-banner .welcome-intro h1{font-size:clamp(30px,8.5vw,39px);letter-spacing:-1.5px}
+  .hero-banner .welcome-intro p{font-size:13px;line-height:1.65}
+  .hero-cta-row{align-items:stretch;flex-direction:column;gap:7px;margin-top:18px}
+  .hero-primary-cta{width:100%;justify-content:center;min-height:44px}
+  .hero-secondary-cta{align-self:flex-start;min-height:38px;padding-inline:2px}
+  .hero-proof{margin-top:14px}
+  .hero-footnote{overflow-wrap:anywhere}
+  .virtualbox-heading{flex-direction:column;gap:10px}
+  .virtualbox-status{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  .virtualbox-toolbar{grid-template-columns:1fr}
+  .virtualbox-toolbar button{min-height:42px}
+  .virtualbox-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:390px){
+  .welcome-content{width:calc(100% - 24px);padding-top:28px}
+  .hero-banner{padding:19px 14px}
+  .hero-banner .welcome-intro h1{font-size:30px}
+  .hero-proof{grid-template-columns:1fr;gap:7px}
+  .hero-proof span{font-size:10px}
+  .virtualbox-tools{width:calc(100% - 20px);padding:13px}
+}
+@media(max-height:720px) and (min-width:621px){
+  .welcome-content{padding-top:34px}
+  .hero-banner{margin-top:22px;padding:28px}
+  .hero-banner .welcome-intro h1{font-size:clamp(34px,3.8vw,48px)}
+  .hero-banner .welcome-intro p{line-height:1.65}
+  .hero-cta-row{margin-top:18px}
+  .hero-proof{margin-top:15px}
+}
