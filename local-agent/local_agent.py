@@ -194,7 +194,7 @@ def probe_tool(value: object, fallback: str) -> dict:
 
 
 VBOX_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
-VBOX_VM_LINE_RE = re.compile(r'^("(?:[^"\\\\]|\\\\.)*")\\s+\\{([0-9a-fA-F-]{36})\\}$')
+VBOX_VM_LINE_RE = re.compile(r'^("(?:[^"\\]|\\.)*")\s+\{([0-9a-fA-F-]{36})\}$')
 
 
 def virtualbox_executable() -> str | None:
@@ -1181,12 +1181,20 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/v1/emulator/status":
             self.send_json(200, emulator_status())
             return
-        if path == "/api/v1/virtualbox/machines":
-            self.send_json(200, virtualbox_inventory())
-            return
-        if path == "/api/v1/virtualbox/machine":
-            query = parse_qs(urlparse(self.path).query)
-            self.send_json(200, virtualbox_machine_info({"uuid": (query.get("uuid") or [""])[0]}))
+        if path in ("/api/v1/virtualbox/machines", "/api/v1/virtualbox/machine"):
+            try:
+                if path.endswith("/machine"):
+                    query = parse_qs(urlparse(self.path).query)
+                    result = virtualbox_machine_info({"uuid": (query.get("uuid") or [""])[0]})
+                else:
+                    result = virtualbox_inventory()
+                self.send_json(200, result)
+            except ValueError as error:
+                self.send_json(400, {"status": "failed", "message": str(error)})
+            except FileNotFoundError as error:
+                self.send_json(503, {"status": "failed", "message": str(error)})
+            except RuntimeError as error:
+                self.send_json(409, {"status": "failed", "message": str(error)})
             return
         if path.startswith("/api/v1/artifacts/"):
             artifact_id = path.rsplit("/", 1)[-1]
