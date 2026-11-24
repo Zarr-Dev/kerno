@@ -195,7 +195,7 @@ def probe_tool(value: object, fallback: str) -> dict:
 
 
 VBOX_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
-VBOX_VM_LINE_RE = re.compile(r'^("(?:[^"\\]|\\.)*")\s+\{([0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})\}
+VBOX_VM_LINE_RE = re.compile(r'^("(?:[^"\\]|\\.)*")\s+\{([0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})\}$')
 
 
 def virtualbox_executable() -> str | None:
