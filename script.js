@@ -1283,22 +1283,18 @@ function runQuickDiagnostics(model){
   if(!state.settings.quickDiagnostics){window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);updateQuickDiagnosticSummary(model,[]);return;}
   const language=model.getLanguageId();
   const source=model.getValue();
+  if(source.length>600000){window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);const status=$("#diagnosticSummary");if(status&&state.models[state.activeFile]===model)status.textContent=editorText("paused");return;}
   if(language==="json"){
     const jsonMarkers=[];
     try{JSON.parse(source);}catch(error){
-      const match=String(error&&error.message||"").match(/position\\s+(\\d+)/i);
+      const match=String(error&&error.message||"").match(/position\s+(\d+)/i);
       const offset=match?Math.max(0,Math.min(source.length,Number(match[1]))):0;
-      let line=1,column=1;for(let i=0;i<offset;i++){if(source[i]==="\\n"){line++;column=1;}else column++;}
+      let line=1,column=1;for(let i=0;i<offset;i++){if(source[i]==="\n"){line++;column=1;}else column++;}
       jsonMarkers.push({severity:window.monaco.MarkerSeverity.Error,message:editorText("jsonError",{message:String(error&&error.message||"Invalid JSON")}),source:"Kerno Diagnostics",startLineNumber:line,startColumn:column,endLineNumber:line,endColumn:column+1});
     }
     window.monaco.editor.setModelMarkers(model,"kerno-quick-check",jsonMarkers);updateQuickDiagnosticSummary(model,jsonMarkers);return;
   }
   if(!["c","cpp","python","kerno-asm","kerno-gas","kerno-linker"].includes(language)){window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);updateQuickDiagnosticSummary(model,[]);return;}
-  if(source.length>600000){
-    window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);
-    const status=$("#diagnosticSummary");if(status&&state.models[state.activeFile]===model)status.textContent=editorText("paused");
-    return;
-  }
   const markers=[],stack=[],pairs={"(":")","[":"]","{":"}"},reverse={")":"(","]":"[","}":"{"};
   const blockComments=["c","cpp","kerno-linker"].includes(language),slashComments=["c","cpp","kerno-linker","kerno-gas"].includes(language);
   const hashComments=["python","kerno-gas"].includes(language),semicolonComments=language==="kerno-asm";
@@ -1351,7 +1347,7 @@ function monacoOptions(model){return {
   smoothScrolling:!!state.settings.smoothScrolling,tabSize:Number(state.settings.tabSize),
   wordWrap:state.settings.wordWrap,lineNumbers:state.settings.lineNumbers?"on":"off",
   glyphMargin:false,folding:true,bracketPairColorization:{enabled:!!state.settings.bracketPairColorization},
-  guides:{indentation:true},autoIndent:"full",formatOnPaste:true,formatOnType:true,autoClosingBrackets:"always",autoSurround:"languageDefined",wordBasedSuggestions:"currentDocument",suggestSelection:"first",tabCompletion:"on",stickyScroll:{enabled:true},unicodeHighlight:{invisibleCharacters:true,ambiguousCharacters:false}
+  guides:{indentation:true}
 };}
 async function loadMonacoEngine(){
   const cdn="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/";
@@ -1403,7 +1399,7 @@ function applyEditorSettings(){
     bracketPairColorization:{enabled:!!state.settings.bracketPairColorization},
     quickSuggestions:state.settings.codeAssist?{other:true,comments:false,strings:false}:false,
     suggestOnTriggerCharacters:!!state.settings.codeAssist,acceptSuggestionOnEnter:"on",snippetSuggestions:"inline",
-    parameterHints:{enabled:!!state.settings.codeAssist},hover:{enabled:true},matchBrackets:"always",autoClosingQuotes:"always"
+    parameterHints:{enabled:!!state.settings.codeAssist},hover:{enabled:true},matchBrackets:"always",autoIndent:"full",formatOnPaste:true,formatOnType:true,autoClosingBrackets:"always",autoClosingQuotes:"always",autoSurround:"languageDefined",wordBasedSuggestions:"currentDocument",suggestSelection:"first",tabCompletion:"on",stickyScroll:{enabled:true},unicodeHighlight:{invisibleCharacters:true,ambiguousCharacters:false}
   };
   [state.editor,state.splitEditor].forEach(e=>{if(e)e.updateOptions(options);});
   if(window.monaco)window.monaco.editor.setTheme(state.settings.theme==="light"?"kerno-light":state.settings.theme==="mono"?"kerno-mono":"kerno-dark");
@@ -2555,6 +2551,7 @@ function openSettings(from){
 }
 function applyStartup(){applyTheme();applyAccent();applyDensity();translate();if(state.settings.startScreen==="lastProject"){all("projects").then(list=>{list.sort((a,b)=>b.updatedAt-a.updatedAt);if(list[0]){state.project=list[0];openProject();}else show("welcome");}).catch(()=>show("welcome"));}else show("welcome");}
 function bindEvents(){
+ $("#retryEditorButton").onclick=()=>{initMonaco();};
 $("#welcomeNewProject").onclick=()=>{state.newProjectReturn="welcome";syncWizardDefaults();show("newProject");};$("#landingFeaturesButton").onclick=()=>scrollLandingTo("platformSection");
 $("#landingWorkflowButton").onclick=()=>scrollLandingTo("workflowSection");
 $("#landingTutorialButton").onclick=openTutorial;
