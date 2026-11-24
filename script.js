@@ -773,13 +773,13 @@ function renderTutorialProgress(){
   if(pct)pct.textContent=percent+"%";
   const nextIndex=TUTORIAL_STAGES.findIndex((_,index)=>!completed.has(index));
   if(next)next.textContent=nextIndex<0?"All stages completed":("Next: "+TUTORIAL_STAGES[nextIndex]);
-  $("[data-tutorial-step]").forEach(card=>{
+  $$("[data-tutorial-step]").forEach(card=>{
     const index=Number(card.dataset.tutorialStep),isDone=completed.has(index);
     card.classList.toggle("completed",isDone);
     const button=$('[data-complete-step="'+index+'"]',card);
     if(button){button.textContent=isDone?"Completed ✓ · Undo":"Mark stage complete";button.setAttribute("aria-pressed",String(isDone));}
   });
-  $("#tutorialContents a").forEach((link,index)=>link.classList.toggle("completed",completed.has(index)));
+  $$("#tutorialContents a").forEach((link,index)=>link.classList.toggle("completed",completed.has(index)));
 }
 async function toggleTutorialStep(index){
   if(!Number.isInteger(index)||index<0||index>=TUTORIAL_STAGES.length)return;
@@ -799,7 +799,7 @@ function setupTutorialObserver(){
   if(state.tutorialObserver){state.tutorialObserver.disconnect();state.tutorialObserver=null;}
   if(!("IntersectionObserver" in window))return;
   const screen=$("#tutorialScreen");
-  const links=$("#tutorialContents a");
+  const links=$$("#tutorialContents a");
   const observer=new IntersectionObserver(entries=>{
     entries.forEach(entry=>{
       if(entry.isIntersecting){
@@ -808,12 +808,12 @@ function setupTutorialObserver(){
       }
     });
   },{root:screen,rootMargin:"-15% 0px -70% 0px",threshold:0});
-  $("[data-tutorial-step]").forEach(card=>observer.observe(card));
+  $$("[data-tutorial-step]").forEach(card=>observer.observe(card));
   state.tutorialObserver=observer;
 }
 function setupLandingReveal(){
   if(state.landingRevealObserver){state.landingRevealObserver.disconnect();state.landingRevealObserver=null;}
-  const targets=$(".landing-section,.recent-section",$("#welcomeScreen"));
+  const targets=$$(".landing-section,.recent-section",$("#welcomeScreen"));
   document.body.classList.remove("reveal-ready");
   // Product content remains visible regardless of observer support or scroll-root behavior.
   targets.forEach(el=>el.classList.add("is-visible"));
