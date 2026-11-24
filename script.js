@@ -2257,9 +2257,11 @@ async function startVirtualBoxMachine(){
   const prompt=activeLocale()==="id"?'Jalankan VM "'+machine.name+'" di VirtualBox?':'Start "'+machine.name+'" in VirtualBox?';
   if(!await confirmInApp(prompt,uiText("virtualbox.start")))return;
   state.virtualbox.loading=true;renderVirtualBoxActions();
-  try{await KernoLocalService.startVirtualBoxVM(machine.uuid,mode);notify(uiText("virtualbox.start"),machine.name);await refreshVirtualBox();}
+  let started=false;
+  try{await KernoLocalService.startVirtualBoxVM(machine.uuid,mode);started=true;notify(uiText("virtualbox.start"),machine.name);}
   catch(error){notify(uiText("virtualbox.start"),error.message,"error");}
   finally{state.virtualbox.loading=false;renderVirtualBoxActions();}
+  if(started)await refreshVirtualBox();
 }
 async function shutdownVirtualBoxMachine(){
   const machine=vboxMachine();if(!machine||machine.state!=="running")return;
@@ -2268,15 +2270,17 @@ async function shutdownVirtualBoxMachine(){
     :'Kerno will ask "'+machine.name+'" to shut down normally. Save your work inside the VM first.';
   if(!await confirmInApp(prompt,uiText("virtualbox.shutdown")))return;
   state.virtualbox.loading=true;renderVirtualBoxActions();
+  let requested=false;
   try{
     const result=await KernoLocalService.shutdownVirtualBoxVM(machine.uuid);
+    requested=result.status==="shutdown-requested";
     $("#virtualboxStatus").textContent=uiText("virtualbox.state.shutdown");
-    if(result.status==="shutdown-requested"){notify(uiText("virtualbox.state.shutdown"),machine.name);window.setTimeout(()=>refreshVirtualBox(),2500);}
-    else await refreshVirtualBox();
+    if(requested)notify(uiText("virtualbox.state.shutdown"),machine.name);
   }catch(error){notify(uiText("virtualbox.shutdown"),error.message,"error");}
   finally{state.virtualbox.loading=false;renderVirtualBoxActions();}
+  if(requested)window.setTimeout(()=>refreshVirtualBox(),2500);
+  else await refreshVirtualBox();
 }
-
 function renderMachine(){
   if(!state.project)return;
   const config=state.project.config;
@@ -2294,7 +2298,7 @@ function renderMachine(){
 }
 function renderBuild(){if(!state.project)return;$("#buildTarget").textContent=state.project.config.architecture;$("#buildBootloader").textContent=state.project.config.bootloader;$("#buildLanguage").textContent=state.project.config.kernelLanguage.toUpperCase();}
 function updateProjectHeader(){if(!state.project)return;$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();}
-function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
+function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="machine"&&state.localConnected&&!state.virtualbox.loading&&!state.virtualbox.available)refreshVirtualBox();if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
 function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=msg||tr("connectQemuPrompt");}
 function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
 async function testService(){try{KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);const h=await KernoLocalService.health();setServiceStatus(true,"Local service connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Connected · API "+(h.apiVersion||"unknown");notify("Local service connected");return true;}catch(e){setServiceStatus(false,"QEMU not connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Unavailable · "+e.message;notify("Local service unavailable",e.message);return false;}}
@@ -2738,6 +2742,7 @@ $("#plainEditor").oninput=()=>{if(state.activeFile){state.project.files[state.ac
 $("#plainEditor").onkeyup=plainCursor;$("#plainEditor").onclick=plainCursor;
 $$(".workspace-nav-item").forEach(b=>b.onclick=()=>switchWorkspace(b.dataset.workspace));
 $("#connectLocalServiceButton").onclick=connectService;$("#startQemuButton").onclick=startQemu;$("#stopQemuButton").onclick=stopQemu;$("#clearSerialButton").onclick=()=>$("#serialOutput").textContent="";
+ $("#virtualboxRefreshButton").onclick=refreshVirtualBox;$("#virtualboxMachineSelect").onchange=event=>{state.virtualbox.selectedUuid=event.target.value;loadVirtualBoxMachineInfo(state.virtualbox.selectedUuid);};$("#virtualboxStartButton").onclick=startVirtualBoxMachine;$("#virtualboxShutdownButton").onclick=shutdownVirtualBoxMachine;
 $("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild(true);};$("#runBuildButton").onclick=()=>nativeBuild(false);$("#openSettingsFromBuild").onclick=()=>{state.category="toolchain";openSettings("app");};
 $$(".settings-nav-item").forEach(b=>b.onclick=()=>renderSettings(b.dataset.category));
 $("#architectureSelect").onchange=()=>{const arch=$("#architectureSelect").value;if(arch==="aarch64"||arch==="riscv64"){$("#firmwareSelect").value="uefi";$("#bootloaderSelect").value="uefi-app";}$("#scaffoldPreview").textContent=arch+" target\n├── boot/\n│   └── entry.asm\n├── include/kernel/\n├── src/\n│   ├── kernel.cpp\n│   ├── console.cpp\n│   └── memory.cpp\n├── linker.ld\n└── kerno.project.json";};
