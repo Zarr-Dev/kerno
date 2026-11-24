@@ -21,7 +21,7 @@ The first screen has no account requirement. It provides **New Project**, **Load
 
 ### Machine workspace
 
-The Machine workspace contains a QEMU viewport, serial output, a hardware profile and process controls. The frontend uses the local execution service for QEMU lifecycle operations and a noVNC client for the VNC WebSocket stream.
+The Machine workspace contains a QEMU viewport, serial output and a hardware profile. It also includes optional VirtualBox tools to list registered VMs, inspect guest details, start a VM in a window or headless mode, and request an ACPI shutdown. QEMU and VirtualBox remain separate runtimes: QEMU is used to test Kerno's generated ISO, while VirtualBox manages VMs already registered on the host. The browser uses Kerno Local Service for both integrations.
 
 ### Native build and ISO export
 
@@ -77,7 +77,8 @@ The native service is a separate local process. It does not run inside the brows
 Requirements:
 - Python 3.10 or newer.
 - For native x86_64 ISO builds: NASM, `x86_64-elf-g++`, `x86_64-elf-gcc`, `x86_64-elf-ld`, `grub-mkrescue` and `xorriso`.
-- For emulator testing: `qemu-system-x86_64`.
+- For QEMU testing: `qemu-system-x86_64`.
+- Optional VirtualBox host integration: Oracle VirtualBox with `VBoxManage` installed. Kerno discovers this tool from PATH or the standard Windows installation path.
 
 Start the service:
 
@@ -87,9 +88,13 @@ Start the service:
 
 The service binds only to `127.0.0.1:8765`. On startup it prints a pairing token. Copy that token into **Kerno Settings → Advanced → Pairing token**, keep the terminal service running, then use **Test local service** or **Connect local service** in Kerno.
 
-The service stores its token and working files under `~/.kerno-local` (or the `KERNO_DATA_DIR` override). It exposes a loopback-only API, validates source paths and project-size limits, uses argument arrays rather than shell command strings, limits concurrent builds with a build lock, and manages QEMU process shutdown.
+The service stores its token and working files under `~/.kerno-local` (or the `KERNO_DATA_DIR` override). It exposes a loopback-only API, validates source paths and project-size limits, uses argument arrays rather than shell command strings, limits concurrent builds with a build lock, and manages QEMU process shutdown and uses a fixed `VBoxManage` argument list for registered VM operations. VirtualBox shutdown requests use ACPI; Kerno does not force a guest off or modify its virtual disks.
 
 For a hosted Kerno website, the local service checks its Origin against the allow-list in `local-agent/local_agent.py`. Set `KERNO_ALLOWED_ORIGINS` to a comma-separated list of additional trusted website origins when self-hosting.
+
+## VirtualBox integration boundary
+
+VirtualBox support requires Local Agent 0.4.0 and an installed VirtualBox host runtime. Kerno can read the list of registered VMs, inspect guest OS/RAM/vCPU details, start selected VMs in GUI or headless mode, and request a normal ACPI shutdown. It does not create or remove VMs, change VM hardware settings, mount images, modify virtual disks, or force-stop guests. VirtualBox is optional and is not used to boot Kerno's generated ISO; use the QEMU workspace for that.
 
 ## Native build scope and kernel limitations
 
