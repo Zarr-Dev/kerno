@@ -28,7 +28,7 @@ for(const locale of ["en","id"])for(const key of headerKeys)if(typeof copy[local
 for(const id of ["welcomeScreen","tutorialScreen","newProjectScreen","settingsScreen","appScreen","buildHealthChecks"])if(!ids.includes(id))throw new Error("Missing UI element: "+id);
 if(!html.includes("x86_64 · BIOS · GRUB · Multiboot2"))throw new Error("The supported native target must be stated.");
 if(!/locale:"id"/.test(script))throw new Error("Bahasa Indonesia must be the default locale.");
-if(!/\["auto","Deteksi otomatis"\],\["id","Bahasa Indonesia"\],\["en","English"\]/.test(script))throw new Error("Only complete UI locales should be offered.");
+if(!/const languageItems=\[\["auto",activeLocale\(\)==="id"\?"Deteksi otomatis":"Detect automatically"\],\["id","Bahasa Indonesia"\],\["en","English"\]\]/.test(script))throw new Error("Only complete UI locales should be offered.");
 if(!script.includes('$$("[data-i18n-title]")'))throw new Error("Localized title attributes are not handled.");
 if(!script.includes('$$("[data-i18n-aria]")'))throw new Error("Localized ARIA attributes are not handled.");
 console.log("UI audit passed: "+ids.length+" IDs, nine Academy stages and "+keys.length+" fully covered bilingual interface keys.");
