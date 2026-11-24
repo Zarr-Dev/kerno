@@ -584,6 +584,7 @@ function translate(){
   document.documentElement.dir="ltr";
   document.title=copy["meta.title"]||"Kerno — Operating System Builder";
   const description=$('meta[name="description"]');if(description)description.content=copy["meta.description"]||"Kerno is an operating-system development environment.";
+  refreshEditorLabels();
 }
 function notify(title,detail,type){
   const region=$("#toastRegion");
@@ -595,9 +596,9 @@ function notify(title,detail,type){
   node.setAttribute("role",kind==="error"?"alert":"status");
   const mark=document.createElement("span");mark.className="toast-mark";mark.textContent=kind==="error"?"!":"✓";
   const copy=document.createElement("div");copy.className="toast-copy";
-  const heading=document.createElement("strong");heading.textContent=String(title||"Kerno");
+  const heading=document.createElement("strong");heading.textContent=notificationText(title||"Kerno");
   copy.append(heading);
-  if(detail){const small=document.createElement("small");small.textContent=String(detail);copy.append(small);}
+  if(detail){const small=document.createElement("small");small.textContent=notificationText(detail);copy.append(small);}
   const dismiss=document.createElement("button");dismiss.className="toast-dismiss";dismiss.type="button";dismiss.textContent="×";dismiss.setAttribute("aria-label","Dismiss notification");
   dismiss.onclick=()=>node.remove();
   node.append(mark,copy,dismiss);region.append(node);
