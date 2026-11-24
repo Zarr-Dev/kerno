@@ -1275,18 +1275,28 @@ function updateQuickDiagnosticSummary(model,markers){
   const summary=$("#diagnosticSummary");
   if(!summary||!state.project||state.models[state.activeFile]!==model)return;
   const errors=markers.filter(item=>item.severity===window.monaco.MarkerSeverity.Error).length,warnings=markers.length-errors;
-  summary.textContent=markers.length?(errors+" error(s) · "+warnings+" warning(s)"):"Quick check: no structural issue";
+  summary.textContent=markers.length?editorText("count",{errors,warnings}):editorText("clean");
   summary.classList.toggle("has-issues",warnings>0);summary.classList.toggle("has-errors",errors>0);
 }
 function runQuickDiagnostics(model){
   if(!window.monaco||!model)return;
   if(!state.settings.quickDiagnostics){window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);updateQuickDiagnosticSummary(model,[]);return;}
   const language=model.getLanguageId();
-  if(!["c","cpp","python","kerno-asm","kerno-gas","kerno-linker"].includes(language))return;
   const source=model.getValue();
+  if(language==="json"){
+    const jsonMarkers=[];
+    try{JSON.parse(source);}catch(error){
+      const match=String(error&&error.message||"").match(/position\\s+(\\d+)/i);
+      const offset=match?Math.max(0,Math.min(source.length,Number(match[1]))):0;
+      let line=1,column=1;for(let i=0;i<offset;i++){if(source[i]==="\\n"){line++;column=1;}else column++;}
+      jsonMarkers.push({severity:window.monaco.MarkerSeverity.Error,message:editorText("jsonError",{message:String(error&&error.message||"Invalid JSON")}),source:"Kerno Diagnostics",startLineNumber:line,startColumn:column,endLineNumber:line,endColumn:column+1});
+    }
+    window.monaco.editor.setModelMarkers(model,"kerno-quick-check",jsonMarkers);updateQuickDiagnosticSummary(model,jsonMarkers);return;
+  }
+  if(!["c","cpp","python","kerno-asm","kerno-gas","kerno-linker"].includes(language)){window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);updateQuickDiagnosticSummary(model,[]);return;}
   if(source.length>600000){
     window.monaco.editor.setModelMarkers(model,"kerno-quick-check",[]);
-    const status=$("#diagnosticSummary");if(status&&state.models[state.activeFile]===model)status.textContent="Quick check paused · large file";
+    const status=$("#diagnosticSummary");if(status&&state.models[state.activeFile]===model)status.textContent=editorText("paused");
     return;
   }
   const markers=[],stack=[],pairs={"(":")","[":"]","{":"}"},reverse={")":"(","]":"[","}":"{"};
@@ -1294,7 +1304,7 @@ function runQuickDiagnostics(model){
   const hashComments=["python","kerno-gas"].includes(language),semicolonComments=language==="kerno-asm";
   let index=0,line=1,column=1,blockComment=false,lineComment=false,quote=null,triple=false,escaped=false,quoteStart=null;
   const advance=()=>{if(source[index]==="\n"){index++;line++;column=1;}else{index++;column++;}};
-  const add=(severity,message,startLine,startColumn)=>markers.push({severity,message,source:"Kerno Quick Check",startLineNumber:startLine,startColumn:startColumn,endLineNumber:startLine,endColumn:startColumn+1});
+  const add=(severity,message,startLine,startColumn)=>markers.push({severity,message,source:"Kerno Diagnostics",startLineNumber:startLine,startColumn:startColumn,endLineNumber:startLine,endColumn:startColumn+1});
   while(index<source.length&&markers.length<24){
     const ch=source[index],next=source[index+1];
     if(blockComment){if(ch==="*"&&next==="/"){advance();advance();blockComment=false;continue;}advance();continue;}
@@ -1304,7 +1314,7 @@ function runQuickDiagnostics(model){
       if(ch==="\\"){escaped=true;advance();continue;}
       if(triple&&source.startsWith(quote.repeat(3),index)){advance();advance();advance();quote=null;triple=false;quoteStart=null;continue;}
       if(!triple&&ch===quote){advance();quote=null;quoteStart=null;continue;}
-      if(ch==="\n"&&!triple){add(window.monaco.MarkerSeverity.Warning,"String literal is not closed on this line.",quoteStart.line,quoteStart.column);quote=null;quoteStart=null;escaped=false;advance();continue;}
+      if(ch==="\n"&&!triple){add(window.monaco.MarkerSeverity.Warning,editorText("stringLine"),quoteStart.line,quoteStart.column);quote=null;quoteStart=null;escaped=false;advance();continue;}
       advance();continue;
     }
     if(ch==="\n"){advance();continue;}
@@ -1316,15 +1326,15 @@ function runQuickDiagnostics(model){
     if(pairs[ch]){stack.push({token:ch,line,column});advance();continue;}
     if(reverse[ch]){
       const top=stack[stack.length-1];
-      if(!top||top.token!==reverse[ch])add(window.monaco.MarkerSeverity.Error,top?"Unexpected "+ch+"; expected "+pairs[top.token]+".":"Unexpected closing "+ch+".",line,column);
+      if(!top||top.token!==reverse[ch])add(window.monaco.MarkerSeverity.Error,top?editorText("unexpectedExpected",{token:ch,expected:pairs[top.token]}):editorText("unexpectedClose",{token:ch}),line,column);
       else stack.pop();
       advance();continue;
     }
     advance();
   }
-  if(quote&&quoteStart)add(window.monaco.MarkerSeverity.Warning,"String literal is not closed.",quoteStart.line,quoteStart.column);
-  if(blockComment)add(window.monaco.MarkerSeverity.Warning,"Block comment is not closed.",line,column);
-  stack.slice(-8).reverse().forEach(item=>markers.push({severity:window.monaco.MarkerSeverity.Warning,message:"Opening "+item.token+" has no matching "+pairs[item.token]+".",source:"Kerno Quick Check",startLineNumber:item.line,startColumn:item.column,endLineNumber:item.line,endColumn:item.column+1}));
+  if(quote&&quoteStart)add(window.monaco.MarkerSeverity.Warning,editorText("stringOpen"),quoteStart.line,quoteStart.column);
+  if(blockComment)add(window.monaco.MarkerSeverity.Warning,editorText("commentOpen"),line,column);
+  stack.slice(-8).reverse().forEach(item=>markers.push({severity:window.monaco.MarkerSeverity.Warning,message:editorText("openingMissing",{token:item.token,expected:pairs[item.token]}),source:"Kerno Diagnostics",startLineNumber:item.line,startColumn:item.column,endLineNumber:item.line,endColumn:item.column+1}));
   const limited=markers.slice(0,24);window.monaco.editor.setModelMarkers(model,"kerno-quick-check",limited);updateQuickDiagnosticSummary(model,limited);
 }
 function defineThemes(m){m.editor.defineTheme("kerno-dark",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"778B9B",fontStyle:"italic"},{token:"keyword",foreground:"C5A4DF"},{token:"string",foreground:"A8D3B3"},{token:"number",foreground:"DDB77B"},{token:"type",foreground:"8CB9ED"},{token:"variable",foreground:"8DC8B2"}],colors:{"editor.background":"#0E141B","editor.foreground":"#E1E9F0","editorLineNumber.foreground":"#526476","editorLineNumber.activeForeground":"#C7D2DC","editor.lineHighlightBackground":"#17212A","editor.selectionBackground":"#3A586F88","editorCursor.foreground":"#A4D4BE","editorIndentGuide.background1":"#263440","editorIndentGuide.activeBackground1":"#557C6B","editorWidget.background":"#1C2833"}});m.editor.defineTheme("kerno-light",{base:"vs",inherit:true,rules:[{token:"comment",foreground:"788A96",fontStyle:"italic"},{token:"keyword",foreground:"8C50A8"},{token:"string",foreground:"357A51"},{token:"number",foreground:"9B641B"},{token:"type",foreground:"2767A5"}],colors:{"editor.background":"#FFFFFF","editor.foreground":"#263540","editorLineNumber.foreground":"#9BA8B2","editorLineNumber.activeForeground":"#526372","editor.lineHighlightBackground":"#F1F6F5","editorCursor.foreground":"#26795E"}});m.editor.defineTheme("kerno-mono",{base:"vs-dark",inherit:true,rules:[{token:"comment",foreground:"A0A0A0",fontStyle:"italic"},{token:"keyword",foreground:"FFFFFF",fontStyle:"bold"},{token:"string",foreground:"D8D8D8"},{token:"number",foreground:"BDBDBD"},{token:"type",foreground:"F0F0F0"},{token:"variable",foreground:"E0E0E0"}],colors:{"editor.background":"#050505","editor.foreground":"#F5F5F5","editorLineNumber.foreground":"#777777","editorLineNumber.activeForeground":"#FFFFFF","editor.lineHighlightBackground":"#171717","editor.selectionBackground":"#55555588","editorCursor.foreground":"#FFFFFF","editorIndentGuide.background1":"#333333","editorIndentGuide.activeBackground1":"#AAAAAA","editorWidget.background":"#111111"}});}
