@@ -1152,7 +1152,7 @@ function ensureModel(path){
   const m=window.monaco.editor.getModel(uri)||window.monaco.editor.createModel(state.project.files[path],langOf(path),uri);
   m.onDidChangeContent(()=>{
     state.project.files[path]=m.getValue();
-    $("#editorStatus").textContent="Modified · local autosave scheduled";
+    $("#editorStatus").textContent=editorText("modified");
     scheduleQuickDiagnostics(m);
     if(state.settings.autosave){clearTimeout(state.saveTimer);state.saveTimer=setTimeout(()=>saveProject(true),Math.max(250,Math.min(5000,Number(state.settings.autoSaveDelayMs)||800)));}
   });
@@ -1168,7 +1168,7 @@ function saveProject(silent){
   }
   state.project.updatedAt=Date.now();
   return put("projects",state.project).then(()=>{
-    if($("#editorStatus")) $("#editorStatus").textContent="Workspace saved in this browser";
+    if($("#editorStatus")) $("#editorStatus").textContent=editorText("saved");
     if($("#editorStatus")) $("#editorStatus").style.color="";
     if($("#sourceTree")) renderTree();
     if(!silent) notify("Workspace saved","Project files are stored locally in IndexedDB.");
@@ -1192,8 +1192,8 @@ function syncWizardDefaults(){
   $("#scaffoldPreview").textContent=arch+" target\\n├── boot/\\n│   └── entry.asm\\n├── include/kernel/\\n├── src/\\n│   ├── kernel."+s.defaultKernelLanguage+"\\n│   ├── console."+s.defaultKernelLanguage+"\\n│   └── memory."+s.defaultKernelLanguage+"\\n├── linker.ld\\n└── kerno.project.json";
 }
 function syncEditor(){if(!state.project||!state.activeFile)return;if(state.models[state.activeFile])state.project.files[state.activeFile]=state.models[state.activeFile].getValue();else if($("#plainEditor").style.display==="block")state.project.files[state.activeFile]=$("#plainEditor").value;}
-function renderEditor(){const empty=!state.activeFile||!(state.activeFile in state.project.files);$("#editorEmpty").classList.toggle("hidden",!empty);if(empty){$("#editorBreadcrumb").textContent="No source file selected";$("#plainEditor").style.display="none";return;}$("#editorBreadcrumb").textContent=state.activeFile;$("#languageMode").textContent=langLabel(state.activeFile);if(state.editor&&state.models[state.activeFile]){state.editor.setModel(state.models[state.activeFile]);$("#plainEditor").style.display="none";}else{$("#plainEditor").value=state.project.files[state.activeFile];$("#plainEditor").style.display="block";}}
-function openFile(path){if(!(path in state.project.files))return;syncEditor();state.activeFile=path;if(!state.tabs.includes(path))state.tabs.push(path);renderTree();renderTabs();renderEditor();if(state.editor&&state.models[path])state.editor.setModel(state.models[path]);}
+function renderEditor(){if(!state.project)return;const empty=!state.activeFile||!(state.activeFile in state.project.files);$("#editorEmpty").classList.toggle("hidden",!empty);if(empty){$("#editorBreadcrumb").textContent=activeLocale()==="id"?"Pilih file source":"No source file selected";$("#plainEditor").style.display="none";$("#editorLoading").classList.add("hidden");$("#editorEngineFallback").classList.add("hidden");return;}$("#editorBreadcrumb").textContent=state.activeFile;$("#languageMode").textContent=langLabel(state.activeFile);const model=state.editor&&window.monaco?ensureModel(state.activeFile):null;if(state.editor&&model){if(state.editor.getModel()!==model)state.editor.setModel(model);$("#plainEditor").style.display="none";}else{$("#plainEditor").value=state.project.files[state.activeFile];$("#plainEditor").style.display="block";}}
+function openFile(path){if(!state.project||!(path in state.project.files))return;syncEditor();state.activeFile=path;if(!state.tabs.includes(path))state.tabs.push(path);renderTree();renderTabs();renderEditor();if(state.editor){const model=ensureModel(path);if(model&&state.editor.getModel()!==model)state.editor.setModel(model);}}
 function closeTab(path){
   if(!state.project||!path)return;
   syncEditor();
