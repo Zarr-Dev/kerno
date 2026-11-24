@@ -592,7 +592,7 @@ const UI_COPY = {
   }
 };
 
-const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",newProjectReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",newProjectReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,virtualbox:{available:false,version:"",machines:[],selectedUuid:"",loading:false},qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
 function activeLocale(){
   const requested=state.settings.locale||"id";
   if(requested==="id"||requested==="en")return requested;
@@ -2185,6 +2185,98 @@ async function refreshHostMemoryEstimate(){
 }
 async function exportAll(){const projects=await all("projects");if(!projects.length){notify("No projects to export");return;}if(!window.JSZip){notify("ZIP library unavailable");return;}const z=new JSZip();projects.forEach(p=>{const d=z.folder(safeName(p.name)+"-"+p.id.slice(0,6));Object.entries(p.files).forEach(([path,text])=>d.file(path,text));d.file("KernoProject.json",JSON.stringify({format:"kerno-project",name:p.name,config:p.config,files:p.files},null,2));});download(await z.generateAsync({type:"blob"}),"kerno-workspaces-backup.zip");}
 async function clearAllProjects(){if(state.settings.confirmDestructive&&!await confirmInApp("This permanently deletes every locally stored Kerno project in this browser profile.","Delete all local projects?"))return;await clear("projects");state.project=null;state.recent=[];renderRecent();show("welcome");notify("Local project storage cleared");}
+function vboxMachine(){return state.virtualbox.machines.find(item=>item.uuid===state.virtualbox.selectedUuid)||null;}
+function renderVirtualBoxActions(){
+  const machine=vboxMachine(),busy=!!state.virtualbox.loading,available=!!state.virtualbox.available;
+  $("#virtualboxStartButton").disabled=!available||!machine||machine.state==="running"||busy;
+  $("#virtualboxShutdownButton").disabled=!available||!machine||machine.state!=="running"||busy;
+  $("#virtualboxMachineSelect").disabled=!available||!state.virtualbox.machines.length||busy;
+  $("#virtualboxRefreshButton").disabled=busy;
+}
+function renderVirtualBoxDetail(info,message){
+  const host=$("#virtualboxDetail");host.replaceChildren();
+  if(message){const note=document.createElement("p");note.textContent=message;host.append(note);return;}
+  if(!info){const note=document.createElement("p");note.textContent=uiText("virtualbox.detail.empty");host.append(note);return;}
+  const values=[
+    [uiText("virtualbox.detail.state"),info.state==="running"?uiText("virtualbox.state.running"):uiText("virtualbox.state.off")],
+    [uiText("virtualbox.detail.os"),info.osType||"—"],
+    [uiText("virtualbox.detail.ram"),info.memoryMiB?info.memoryMiB+" MiB":"—"],
+    [uiText("virtualbox.detail.cpu"),info.cpus||"—"]
+  ];
+  const grid=document.createElement("div");grid.className="virtualbox-detail-grid";
+  values.forEach(([label,value])=>{const item=document.createElement("div");item.className="virtualbox-detail-item";const name=document.createElement("span");name.textContent=label;const data=document.createElement("strong");data.textContent=String(value);item.append(name,data);grid.append(item);});
+  host.append(grid);
+}
+async function loadVirtualBoxMachineInfo(uuid){
+  if(!uuid){renderVirtualBoxDetail(null);renderVirtualBoxActions();return;}
+  try{const info=await KernoLocalService.virtualboxMachineInfo(uuid);renderVirtualBoxDetail(info);renderVirtualBoxActions();}
+  catch(error){renderVirtualBoxDetail(null,error.message||uiText("virtualbox.error.oldAgent"));}
+}
+async function refreshVirtualBox(){
+  const status=$("#virtualboxStatus");
+  if(state.virtualbox.loading)return false;
+  state.virtualbox.loading=true;status.textContent=uiText("virtualbox.status.checking");renderVirtualBoxActions();
+  try{
+    if(!state.localConnected&&!await testService())throw new Error(uiText("virtualbox.error.noService"));
+    KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+    const report=await KernoLocalService.virtualboxMachines();
+    state.virtualbox.available=!!report.available;
+    state.virtualbox.version=report.version||"";
+    state.virtualbox.machines=Array.isArray(report.machines)?report.machines:[];
+    if(!state.virtualbox.available){
+      state.virtualbox.selectedUuid="";status.textContent=uiText("virtualbox.status.unavailable");
+      renderVirtualBoxDetail(null,report.message||uiText("virtualbox.status.unavailable"));return false;
+    }
+    const select=$("#virtualboxMachineSelect"),previous=state.virtualbox.selectedUuid;
+    select.replaceChildren();
+    const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent=uiText("virtualbox.select.placeholder");select.append(placeholder);
+    state.virtualbox.machines.forEach(machine=>{
+      const option=document.createElement("option");option.value=machine.uuid;
+      option.textContent=machine.name+(machine.state==="running"?" · "+uiText("virtualbox.state.running"):"");select.append(option);
+    });
+    state.virtualbox.selectedUuid=state.virtualbox.machines.some(machine=>machine.uuid===previous)?previous:(state.virtualbox.machines[0]?.uuid||"");
+    select.value=state.virtualbox.selectedUuid;
+    if(!state.virtualbox.machines.length){
+      status.textContent=uiText("virtualbox.status.empty");renderVirtualBoxDetail(null,uiText("virtualbox.status.empty"));return true;
+    }
+    const count=state.virtualbox.machines.length,running=state.virtualbox.machines.filter(machine=>machine.state==="running").length;
+    status.textContent=state.virtualbox.version+" · "+count+" VM · "+running+(activeLocale()==="id"?" berjalan":" running");
+    await loadVirtualBoxMachineInfo(state.virtualbox.selectedUuid);return true;
+  }catch(error){
+    state.virtualbox.available=false;state.virtualbox.machines=[];state.virtualbox.selectedUuid="";
+    status.textContent=error.status===404?uiText("virtualbox.error.oldAgent"):uiText("virtualbox.status.unavailable");
+    renderVirtualBoxDetail(null,error.status===404?uiText("virtualbox.error.oldAgent"):error.message);
+    if(error.status===404)notify(uiText("virtualbox.title"),uiText("virtualbox.error.oldAgent"),"error");
+    else notify(uiText("virtualbox.title"),error.message,"error");
+    return false;
+  }finally{state.virtualbox.loading=false;renderVirtualBoxActions();}
+}
+async function startVirtualBoxMachine(){
+  const machine=vboxMachine();if(!machine||!state.virtualbox.available)return;
+  const mode=$("#virtualboxStartMode").value;
+  const prompt=activeLocale()==="id"?'Jalankan VM "'+machine.name+'" di VirtualBox?':'Start "'+machine.name+'" in VirtualBox?';
+  if(!await confirmInApp(prompt,uiText("virtualbox.start")))return;
+  state.virtualbox.loading=true;renderVirtualBoxActions();
+  try{await KernoLocalService.startVirtualBoxVM(machine.uuid,mode);notify(uiText("virtualbox.start"),machine.name);await refreshVirtualBox();}
+  catch(error){notify(uiText("virtualbox.start"),error.message,"error");}
+  finally{state.virtualbox.loading=false;renderVirtualBoxActions();}
+}
+async function shutdownVirtualBoxMachine(){
+  const machine=vboxMachine();if(!machine||machine.state!=="running")return;
+  const prompt=activeLocale()==="id"
+    ?'Kerno akan meminta "'+machine.name+'" melakukan shutdown normal. Simpan pekerjaan di dalam VM terlebih dahulu.'
+    :'Kerno will ask "'+machine.name+'" to shut down normally. Save your work inside the VM first.';
+  if(!await confirmInApp(prompt,uiText("virtualbox.shutdown")))return;
+  state.virtualbox.loading=true;renderVirtualBoxActions();
+  try{
+    const result=await KernoLocalService.shutdownVirtualBoxVM(machine.uuid);
+    $("#virtualboxStatus").textContent=uiText("virtualbox.state.shutdown");
+    if(result.status==="shutdown-requested"){notify(uiText("virtualbox.state.shutdown"),machine.name);window.setTimeout(()=>refreshVirtualBox(),2500);}
+    else await refreshVirtualBox();
+  }catch(error){notify(uiText("virtualbox.shutdown"),error.message,"error");}
+  finally{state.virtualbox.loading=false;renderVirtualBoxActions();}
+}
+
 function renderMachine(){
   if(!state.project)return;
   const config=state.project.config;
