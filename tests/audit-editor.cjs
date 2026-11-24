@@ -28,3 +28,10 @@ assert(script.includes("function refreshVirtualBox") && script.includes("functio
 assert(css.includes(".virtualbox-tools") && css.includes("@media(max-width:620px)"), "VirtualBox panel must include responsive styles.");
 assert(script.includes('"landing.hero.title": "Your OS starts with a kernel."') && script.includes('"landing.hero.title": "Mulai dari kernel, lalu bangun OS versimu."'), "Hero copy should use the revised English and Indonesian text.");
 console.log("VirtualBox and Hero audit passed: inventory, actions, safe shutdown, localization and responsive layout.");
+
+assert(script.includes('const targets=$(".landing-section,.recent-section",$("#welcomeScreen"));'), "Landing reveal must query a collection before iterating.");
+assert(script.includes('$("[data-tutorial-step]").forEach'), "Tutorial step cards must be queried as a collection.");
+assert(script.includes('$("#tutorialContents a").forEach'), "Tutorial contents links must be queried as a collection.");
+assert(script.includes('const links=$("#tutorialContents a");'), "Tutorial observer must retain a link collection.");
+console.log("Landing/tutorial selector audit passed: list operations use the collection helper.");
+
