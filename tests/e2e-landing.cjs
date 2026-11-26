@@ -27,6 +27,7 @@ function assert(condition, message) {
     assert(heroText.includes("Buat OS"), "The OS Builder hero title did not render.");
     const animation = await page.locator(".hero-status-dot").evaluate(el => getComputedStyle(el).animationName);
     assert(animation !== "none", "The boot preview animation is not active.");
+    await page.emulateMedia({ reducedMotion: "reduce" });
 
     await page.locator("#landingFeaturesButton").click();
     const featureVisible = await page.locator("#platformSection").evaluate(el => {
