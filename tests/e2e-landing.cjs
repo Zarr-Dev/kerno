@@ -45,7 +45,28 @@ function assert(condition, message) {
 
     await page.locator('[data-kernel-stage="3"]').click();
     await page.locator("#tutorialScreen:not(.hidden)").waitFor();
-    await page.waitForFunction(() => document.querySelector("#tutorialScreen")?.scrollTop > 0);
+    await page.waitForTimeout(120);
+    const tutorialMetrics = await page.locator("#tutorialScreen").evaluate(root => {
+      const target = document.querySelector("#tutorial-stage-3");
+      const header = document.querySelector("#tutorialScreen .tutorial-header");
+      const rootRect = root.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      return {
+        scrollTop: root.scrollTop,
+        scrollHeight: root.scrollHeight,
+        clientHeight: root.clientHeight,
+        rootTop: Math.round(rootRect.top),
+        rootBottom: Math.round(rootRect.bottom),
+        targetTop: Math.round(targetRect.top),
+        targetBottom: Math.round(targetRect.bottom),
+        headerHeight: header ? Math.round(header.getBoundingClientRect().height) : 0
+      };
+    });
+    assert(
+      tutorialMetrics.targetTop < tutorialMetrics.rootBottom &&
+      tutorialMetrics.targetBottom > tutorialMetrics.rootTop + tutorialMetrics.headerHeight,
+      "Kernel topic action did not bring its tutorial stage into view: " + JSON.stringify(tutorialMetrics)
+    );
     const tutorialHeading = await page.locator("#tutorial-stage-3 h2").innerText();
     assert(tutorialHeading.length > 0, "The kernel topic action did not open the related tutorial.");
 
