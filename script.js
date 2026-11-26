@@ -2378,6 +2378,14 @@ function updateIsoEditorDirty(){
  }
  if(repack)repack.disabled=!state.isoEditorDirty;
 }
+function isIsoEditorBootLocked(path){
+ const target=String(path||"").toLowerCase();
+ const protectedPaths=state.importedIso?.inspection?.bootImagePaths||[];
+ return protectedPaths.some(value=>{
+  const boot=String(value||"").toLowerCase();
+  return target===boot||boot.startsWith(target+"/");
+ });
+}
 function renderIsoEditorFileList(){
  const host=$("#isoEditorFileList");if(!host)return;
  const query=String($("#isoEditorSearch")?.value||"").trim().toLowerCase();
@@ -2391,10 +2399,11 @@ function renderIsoEditorFileList(){
  entries.forEach(entry=>{
   const button=document.createElement("button");button.type="button";button.className="iso-editor-file";
   button.classList.toggle("active",entry.path===state.isoEditorSelectedPath);
+  const protectedBoot=isIsoEditorBootLocked(entry.path);
   button.disabled=entry.kind!=="file";
   button.setAttribute("role","option");button.setAttribute("aria-selected",entry.path===state.isoEditorSelectedPath?"true":"false");
   const name=document.createElement("span");name.textContent=entry.path;
-  const meta=document.createElement("small");meta.textContent=entry.kind==="symlink"?"Symbolic link":formatBytes(Number(entry.sizeBytes||0));
+  const meta=document.createElement("small");meta.textContent=entry.kind==="symlink"?"Symbolic link":protectedBoot?"Boot locked":formatBytes(Number(entry.sizeBytes||0));
   button.append(name,meta);
   button.onclick=()=>selectIsoEditorFile(entry.path);
   host.append(button);
@@ -2402,7 +2411,7 @@ function renderIsoEditorFileList(){
 }
 function resetIsoEditorForNewImport(){
  state.isoEditorWorkspace=null;state.isoEditorFiles=[];state.isoEditorSelectedPath="";
- state.isoEditorDirty=false;state.isoEditorTextDirty=false;state.isoEditorOpen=false;
+ state.isoEditorDirty=false;state.isoEditorTextDirty=false;state.isoEditorOpen=false;state.isoEditorSelectedProtected=false;
  $("#isoEditorPanel")?.classList.add("hidden");
  $("#isoEditorText").value="";$("#isoEditorText").disabled=true;
  $("#isoEditorSelectedPath").textContent="Pilih file untuk mulai mengedit";
@@ -2419,6 +2428,7 @@ async function openIsoEditorWorkspace(){
   const result=await KernoLocalService.openIsoWorkspace(state.importedIso.id);
   if(result.status!=="opened"||!result.workspaceId)throw new Error("Local Service did not confirm an editable ISO workspace.");
   state.isoEditorWorkspace=result;state.isoEditorFiles=result.files||[];
+  state.isoEditorSelectedPath="";state.isoEditorTextDirty=false;state.isoEditorSelectedProtected=false;
   state.isoEditorOpen=true;state.isoEditorDirty=!!result.dirty;
   $("#isoEditorPanel").classList.remove("hidden");
   $("#isoEditorText").value="";$("#isoEditorText").disabled=true;
@@ -2446,21 +2456,21 @@ async function selectIsoEditorFile(path){
  }
  const entry=(state.isoEditorFiles||[]).find(item=>item.path===path);
  if(!entry||entry.kind!=="file")return;
- state.isoEditorSelectedPath=path;
+ state.isoEditorSelectedPath=path;state.isoEditorSelectedProtected=isIsoEditorBootLocked(path);
  renderIsoEditorFileList();
  $("#isoEditorSelectedPath").textContent=path;
  $("#isoEditorSelectedMeta").textContent=formatBytes(Number(entry.sizeBytes||0));
  $("#isoEditorText").value="";$("#isoEditorText").disabled=true;
  $("#isoEditorSaveButton").disabled=true;
- $("#isoEditorReplaceButton").disabled=false;
- $("#isoEditorDeleteButton").disabled=false;
+ $("#isoEditorReplaceButton").disabled=state.isoEditorSelectedProtected;
+ $("#isoEditorDeleteButton").disabled=state.isoEditorSelectedProtected;
  state.isoEditorTextDirty=false;
  try{
   KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
   const file=await KernoLocalService.readIsoWorkspaceFile(state.importedIso.id,path);
   $("#isoEditorText").value=file.content;
-  $("#isoEditorText").disabled=false;
-  $("#isoEditorSaveButton").disabled=false;
+  $("#isoEditorText").disabled=state.isoEditorSelectedProtected;
+  $("#isoEditorSaveButton").disabled=state.isoEditorSelectedProtected;
   $("#isoEditorSelectedMeta").textContent=formatBytes(Number(file.sizeBytes||0))+" · UTF-8 text";
   setIsoEditorStatus("File opened. Changes in the editor are not saved until you press Save.");
  }catch(error){
@@ -2469,12 +2479,14 @@ async function selectIsoEditorFile(path){
  }
 }
 function markIsoEditorDirty(){
+ if(state.isoEditorSelectedProtected){setIsoEditorStatus(isoEditorText("protected"));return;}
  state.isoEditorTextDirty=true;
  $("#isoEditorSaveButton").disabled=false;
  setIsoEditorStatus("There are unsaved changes in the text editor.");
 }
 async function saveIsoEditorText(){
  if(!state.isoEditorSelectedPath){notify("No file selected",isoEditorText("selectFirst"),"error");return;}
+ if(state.isoEditorSelectedProtected){setIsoEditorStatus(isoEditorText("protected"));return;}
  const button=$("#isoEditorSaveButton");button.disabled=true;
  try{
   KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
@@ -2494,6 +2506,10 @@ async function addOrReplaceIsoEditorFile(file,replaceSelected){
  }
  path=String(path||"").trim();
  if(!path)return;
+ if(replaceSelected&&state.isoEditorSelectedProtected){setIsoEditorStatus(isoEditorText("protected"));return;}
+ if(!replaceSelected&&(state.isoEditorFiles||[]).some(entry=>entry.path===path)){
+  if(!await confirmInApp("A file with this path already exists. Replace it?", "Replace existing ISO file?"))return;
+ }
  if(state.isoEditorTextDirty){
   const discard=await confirmInApp(isoEditorText("discard"),"Unsaved editor changes");
   if(!discard)return;
