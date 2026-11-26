@@ -2533,7 +2533,10 @@ async function repackEditedIso(){
  $("#isoEditorDownloadButton").disabled=true;
  setIsoEditorStatus(isoEditorText("repacking"));setIsoImportStatus(isoEditorText("repacking"),"working");
  try{
-  if(state.isoEditorTextDirty)await saveIsoEditorText();
+  if(state.isoEditorTextDirty){
+   await saveIsoEditorText();
+   if(state.isoEditorTextDirty)throw new Error("Save the selected text file successfully before rebuilding the ISO.");
+  }
   KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
   const result=await KernoLocalService.repackIsoWorkspace(state.importedIso.id);
   if(result.status!=="repacked"||!result.iso?.sha256)throw new Error("Local Service did not confirm a verified rebuilt ISO.");
