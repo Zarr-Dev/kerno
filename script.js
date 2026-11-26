@@ -833,8 +833,14 @@ function scrollWithinPanel(root,target,stickyHeader){
   const rootRect=root.getBoundingClientRect();
   const targetRect=target.getBoundingClientRect();
   const headerHeight=stickyHeader?stickyHeader.getBoundingClientRect().height:0;
-  const top=root.scrollTop+targetRect.top-rootRect.top-headerHeight-14;
-  root.scrollTo({top:Math.max(0,top),behavior:landingScrollBehavior()});
+  const top=Math.max(0,root.scrollTop+targetRect.top-rootRect.top-headerHeight-14);
+  root.dataset.kernoLastScrollTarget=target.id||"";
+  if(landingScrollBehavior()==="auto"){
+    root.scrollTop=top;
+    target.scrollIntoView({behavior:"auto",block:"start"});
+  }else{
+    root.scrollTo({top,behavior:"smooth"});
+  }
 }
 function scrollLandingTo(id){
   const root=$("#welcomeScreen");
@@ -849,7 +855,10 @@ function openTutorialStage(index){
     return;
   }
   openTutorial();
-  window.requestAnimationFrame(()=>scrollWithinPanel($("#tutorialScreen"),target,$("#tutorialScreen .tutorial-header")));
+  const root=$("#tutorialScreen");
+  const header=$("#tutorialScreen .tutorial-header");
+  scrollWithinPanel(root,target,header);
+  window.requestAnimationFrame(()=>scrollWithinPanel(root,target,header));
 }
 async function handleTutorialAction(action){
   if(action==="settings-toolchain"){
