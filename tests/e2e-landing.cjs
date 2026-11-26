@@ -104,7 +104,7 @@ function assert(condition, message) {
     await page.locator("#clearRecentButton").click();
     await page.locator("#kernoModal:not(.hidden)").waitFor();
     await page.locator("#modalConfirmButton").click();
-    await page.locator("#kernoModal.hidden").waitFor();
+    await page.waitForFunction(() => document.querySelector("#kernoModal")?.classList.contains("hidden"));
     assert(await page.locator("#recentProjects").count() === 1, "Recent projects panel was removed unexpectedly.");
 
     await page.setViewportSize({ width: 390, height: 844 });
