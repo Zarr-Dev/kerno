@@ -2263,7 +2263,9 @@ function renderImportedIso(record){
   (info.bootableBIOS?isoText("bios"):info.bootableEFI?isoText("efi"):isoText("noBios"));
  boot.dataset.bootable=info.bootableBIOS?"true":"false";
  $("#isoExtractButton").disabled=false;
+ $("#isoOpenEditorButton").disabled=false;
  $("#isoBootButton").disabled=!info.bootableBIOS;
+ $("#isoEditorDownloadButton").disabled=!record.edited;
  $("#isoExtractionResult").classList.add("hidden");
 }
 async function importIsoFile(file){
@@ -2276,6 +2278,7 @@ async function importIsoFile(file){
   if(!state.localConnected&&!await testService())throw new Error("Connect Kerno Local Service first.");
   KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
   const imported=await KernoLocalService.importIso(file);
+  resetIsoEditorForNewImport();
   state.importedIso=imported;state.isoArchive=null;
   renderImportedIso(imported);setIsoImportStatus(isoText("imported"),"success");
   notify("ISO imported",imported.name||file.name);
@@ -3010,6 +3013,18 @@ $("#isoImportInput").onchange=async event=>{const file=event.target.files&&event
 $("#isoExtractButton").onclick=extractImportedIso;
 $("#isoBootButton").onclick=startImportedIsoQemu;
 $("#isoDownloadArchiveButton").onclick=downloadExtractedIso;
+ $("#isoOpenEditorButton").onclick=openIsoEditorWorkspace;
+ $("#isoEditorSearch").oninput=renderIsoEditorFileList;
+ $("#isoEditorText").oninput=markIsoEditorDirty;
+ $("#isoEditorSaveButton").onclick=saveIsoEditorText;
+ $("#isoEditorAddButton").onclick=()=>$("#isoEditorAddInput").click();
+ $("#isoEditorAddInput").onchange=async event=>{const file=event.target.files&&event.target.files[0];event.target.value="";if(file)await addOrReplaceIsoEditorFile(file,false);};
+ $("#isoEditorReplaceButton").onclick=()=>$("#isoEditorReplaceInput").click();
+ $("#isoEditorReplaceInput").onchange=async event=>{const file=event.target.files&&event.target.files[0];event.target.value="";if(file)await addOrReplaceIsoEditorFile(file,true);};
+ $("#isoEditorDeleteButton").onclick=deleteIsoEditorSelectedFile;
+ $("#isoEditorRefreshButton").onclick=async()=>{try{await refreshIsoEditorFiles();}catch(error){setIsoEditorStatus(error.message);notify("Could not refresh ISO files",error.message,"error");}};
+ $("#isoEditorRepackButton").onclick=repackEditedIso;
+ $("#isoEditorDownloadButton").onclick=downloadEditedIsoFile;
 $("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild(true);};$("#runBuildButton").onclick=()=>nativeBuild(false);$("#openSettingsFromBuild").onclick=()=>{state.category="toolchain";openSettings("app");};
 $$(".settings-nav-item").forEach(b=>b.onclick=()=>renderSettings(b.dataset.category));
 $("#architectureSelect").onchange=()=>{const arch=$("#architectureSelect").value;if(arch==="aarch64"||arch==="riscv64"){$("#firmwareSelect").value="uefi";$("#bootloaderSelect").value="uefi-app";}$("#scaffoldPreview").textContent=arch+" target\n├── boot/\n│   └── entry.asm\n├── include/kernel/\n├── src/\n│   ├── kernel.cpp\n│   ├── console.cpp\n│   └── memory.cpp\n├── linker.ld\n└── kerno.project.json";};
