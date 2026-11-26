@@ -149,3 +149,131 @@ def extract_workspace(image_path: Path, destination: Path, xorriso_binary: str =
     except Exception:
         shutil.rmtree(workspace_dir, ignore_errors=True)
         raise
+
+def read_text_file(workspace_root: Path, relative_path: str) -> dict:
+    target = _target(workspace_root, relative_path)
+    if target.is_symlink() or not target.is_file():
+        raise ValueError("The selected ISO entry is not a regular file.")
+    size = target.stat().st_size
+    if size > MAX_EDITOR_TEXT_BYTES:
+        raise ValueError("The file is larger than the 2 MiB text-editor limit. Use Replace file to upload a new copy.")
+    raw = target.read_bytes()
+    if b"\x00" in raw:
+        raise ValueError("This is a binary file. Use Replace file to upload a new copy.")
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("This file is not UTF-8 text. Use Replace file to upload a new copy.") from error
+    return {"path": normalize_iso_path(relative_path), "content": content, "sizeBytes": size}
+
+
+def write_file(workspace_root: Path, relative_path: str, data: bytes) -> dict:
+    if not isinstance(data, (bytes, bytearray)):
+        raise TypeError("ISO file content must be bytes.")
+    content = bytes(data)
+    if len(content) > MAX_EDITOR_UPLOAD_BYTES:
+        raise ValueError("A single edited or uploaded ISO file cannot exceed 16 MiB.")
+    normalized = normalize_iso_path(relative_path)
+    target = _target(workspace_root, normalized, create_parents=True)
+    if target.is_symlink() or (target.exists() and not target.is_file()):
+        raise ValueError("Only regular ISO files can be created or replaced.")
+    summary = scan_workspace(workspace_root)
+    previous_size = target.stat().st_size if target.exists() else 0
+    if not target.exists() and summary["fileCount"] >= MAX_EDITOR_FILES:
+        raise ValueError("The ISO already contains the maximum number of regular files.")
+    if summary["totalBytes"] - previous_size + len(content) > MAX_EXTRACTED_BYTES:
+        raise ValueError("The edited ISO would exceed the 2 GiB workspace limit.")
+    temporary = target.parent / (".kerno-write-" + uuid.uuid4().hex + ".part")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+    return {"path": normalized, "sizeBytes": len(content), "created": not target.exists()}
+
+
+def delete_file(workspace_root: Path, relative_path: str) -> dict:
+    normalized = normalize_iso_path(relative_path)
+    target = _target(workspace_root, normalized)
+    if target.is_symlink() or not target.is_file():
+        raise ValueError("Only regular file entries can be removed. Directories and symbolic links are preserved.")
+    target.unlink()
+    return {"path": normalized, "deleted": True}
+
+
+def is_boot_image_path(relative_path: str, protected_paths: list[str]) -> bool:
+    target = normalize_iso_path(relative_path).casefold()
+    for protected in protected_paths or []:
+        try:
+            boot_path = normalize_iso_path(protected).casefold()
+        except ValueError:
+            continue
+        if target == boot_path or target.startswith(boot_path + "/") or boot_path.startswith(target + "/"):
+            return True
+    return False
+
+
+def repack_workspace(
+    image_path: Path,
+    workspace_root: Path,
+    destination: Path,
+    original_inspection: dict,
+    xorriso_binary: str = "xorriso",
+) -> dict:
+    image_path = Path(image_path)
+    workspace_root = Path(workspace_root).resolve(strict=True)
+    destination = Path(destination)
+    if not image_path.is_file() or not workspace_root.is_dir():
+        raise RuntimeError("The ISO image or editing workspace is no longer available.")
+    scan_workspace(workspace_root)
+    tool = shutil.which(xorriso_binary)
+    if not tool:
+        raise FileNotFoundError("xorriso was not found on PATH.")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        raise FileExistsError("The output ISO path already exists.")
+    command = [
+        tool, "-no_rc", "-abort_on", "FAILURE", "-return_with", "FAILURE", "32",
+        "-indev", str(image_path), "-outdev", str(destination),
+        "-follow", "off", "-update_r", str(workspace_root), "/",
+    ]
+    if original_inspection.get("hasElTorito"):
+        command.extend(["-boot_image", "any", "replay"])
+    command.extend(["-commit", "-end"])
+    try:
+        process = subprocess.run(
+            command, cwd=str(workspace_root.parent), capture_output=True, text=True,
+            timeout=900, check=False, encoding="utf-8", errors="replace"
+        )
+    except subprocess.TimeoutExpired as error:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError("xorriso timed out while rebuilding the edited ISO.") from error
+    except OSError as error:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError("Could not start xorriso: " + str(error)) from error
+    output_log = ((process.stdout or "") + "\n" + (process.stderr or "")).strip()
+    if process.returncode != 0 or not destination.is_file() or destination.stat().st_size < 19 * 2048:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError("xorriso failed to rebuild the ISO: " + output_log[-1600:])
+    try:
+        inspection = inspect_iso_image(destination, xorriso_binary)
+        if not inspection.get("iso9660Valid"):
+            raise RuntimeError("The rebuilt ISO did not pass ISO9660 validation.")
+        for flag in ("bootableBIOS", "bootableEFI"):
+            if original_inspection.get(flag) and not inspection.get(flag):
+                raise RuntimeError("The rebuilt ISO lost its original " + flag + " boot entry.")
+        return {
+            "path": str(destination),
+            "sha256": sha256_file(destination),
+            "sizeBytes": destination.stat().st_size,
+            "inspection": inspection,
+            "xorrisoLog": output_log[-5000:],
+        }
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+
