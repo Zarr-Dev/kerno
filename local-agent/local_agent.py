@@ -23,9 +23,11 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path, PurePosixPath
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
-VERSION = "0.3.0"
+from iso_manager import extract_iso_archive, inspect_iso_image, receive_iso_upload
+
+VERSION = "0.4.0"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("KERNO_LOCAL_PORT", "8765"))
 MAX_REQUEST = 24 * 1024 * 1024
@@ -73,6 +75,9 @@ BUILD_LOCK = threading.Lock()
 STATE_LOCK = threading.RLock()
 ARTIFACTS: dict[str, dict] = {}
 PROJECT_ARTIFACTS: dict[str, str] = {}
+IMPORTED_ISOS: dict[str, dict] = {}
+ISO_ARCHIVES: dict[str, dict] = {}
+ISO_LOCK = threading.Lock()
 RUNTIME = {
     "process": None,
     "project_id": None,
@@ -83,6 +88,8 @@ RUNTIME = {
     "started_at": None,
     "command": None,
     "health_checks": [],
+    "boot_mode": None,
+    "iso_name": None,
 }
 
 
@@ -746,7 +753,8 @@ def stop_qemu_process() -> None:
                 process.wait(timeout=3)
         RUNTIME.update({
             "process": None, "project_id": None, "artifact_id": None,
-            "display_url": None, "started_at": None, "command": None, "health_checks": []
+            "display_url": None, "started_at": None, "command": None, "health_checks": [],
+            "boot_mode": None, "iso_name": None
         })
 
 
@@ -885,8 +893,146 @@ def start_qemu(payload: dict) -> dict:
             "started_at": time.time(),
             "command": cmd,
             "health_checks": preflight_checks,
+            "boot_mode": "project",
+            "iso_name": None,
         })
     return emulator_status()
+
+
+def start_imported_iso_qemu(payload: dict) -> dict:
+    """Boot an imported, independently validated BIOS ISO without a Kerno project."""
+    iso_id = str(payload.get("isoId") or "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", iso_id):
+        raise ValueError("A valid imported ISO must be selected before starting QEMU.")
+    metadata = IMPORTED_ISOS.get(iso_id)
+    if not metadata:
+        raise RuntimeError("The imported ISO is not available in this Local Service session. Import it again.")
+    iso_path = Path(metadata.get("path") or "")
+    if not iso_path.is_file():
+        raise RuntimeError("The imported ISO file is no longer available. Import it again.")
+
+    settings = payload.get("settings") or {}
+    if not isinstance(settings, dict):
+        raise ValueError("QEMU settings must be an object.")
+    binary = executable(settings.get("qemuBinary"), "qemu-system-x86_64")
+    xorriso = executable("xorriso", "xorriso")
+    inspection = inspect_iso_image(iso_path, xorriso)
+    expected_sha256 = str(metadata.get("sha256") or "")
+    if not re.fullmatch(r"[a-fA-F0-9]{64}", expected_sha256):
+        raise RuntimeError("Imported ISO has no valid SHA-256 record. Import the image again.")
+    actual_sha256 = sha256_file(iso_path)
+    if not hmac.compare_digest(actual_sha256.lower(), expected_sha256.lower()):
+        raise RuntimeError("ISO SHA-256 integrity check failed. The imported image may have changed.")
+    if not inspection.get("bootableBIOS"):
+        raise RuntimeError("This ISO has no validated El Torito BIOS boot entry. Kerno v0.1 boots BIOS-compatible images; UEFI-only boot is planned for a later stage.")
+
+    with STATE_LOCK:
+        current = RUNTIME.get("process")
+        if current and current.poll() is None:
+            raise RuntimeError("A QEMU machine is already running. Stop it before starting another image.")
+
+    ram = int(settings.get("guestMemoryMiB", 512))
+    cpus = int(settings.get("qemuVcpus", 2))
+    machine = str(settings.get("qemuMachine", "q35"))
+    display = str(settings.get("qemuDisplay", "std"))
+    accel = str(settings.get("qemuAcceleration", "auto"))
+    cpu_model = str(settings.get("qemuCpuModel", "max"))
+    network = str(settings.get("qemuNetwork", "none"))
+    serial_backend = str(settings.get("serialBackend", "file"))
+    vnc_port = int(settings.get("qemuVncPort", 5901))
+    if not 64 <= ram <= 32768 or not 1 <= cpus <= 32:
+        raise ValueError("QEMU guest memory or vCPU count is outside the supported limits.")
+    if machine not in ("q35", "pc"):
+        raise ValueError("For x86_64, choose the q35 or pc machine profile.")
+    if display not in ("std", "virtio", "none"):
+        raise ValueError("Unsupported QEMU display profile.")
+    if accel not in ("auto", "kvm", "whpx", "tcg"):
+        raise ValueError("Unsupported QEMU acceleration setting.")
+    if cpu_model not in ("max", "qemu64", "Nehalem"):
+        raise ValueError("Unsupported QEMU CPU model.")
+    if network not in ("none", "user"):
+        raise ValueError("Unsupported QEMU network mode.")
+    if serial_backend not in ("file", "null"):
+        raise ValueError("Unsupported serial backend.")
+    if not 5900 <= vnc_port <= 5999:
+        raise ValueError("VNC port must be between 5900 and 5999.")
+    display_number = vnc_port - 5900
+    websocket_port = 5700 + display_number
+    if not port_available(vnc_port) or not port_available(websocket_port):
+        raise RuntimeError("QEMU VNC or WebSocket port is already in use. Change the VNC port in Settings.")
+
+    host = host_memory()
+    available_host = host.get("availableMiB")
+    preflight_checks = [
+        {"stage": "Imported ISO integrity", "status": "passed", "detail": "SHA-256 matches the uploaded image."},
+        {"stage": "BIOS boot compatibility", "status": "passed", "detail": "A bootable El Torito BIOS entry was found."},
+    ]
+    if available_host is not None and available_host < ram + max(256, int(ram * 0.1)):
+        preflight_checks.append({"stage": "Host memory capacity", "status": "warning", "detail": "Available host memory is below the recommended guest RAM plus safety margin."})
+    else:
+        preflight_checks.append({"stage": "Host memory capacity", "status": "passed", "detail": "Host memory estimate is sufficient for the configured guest RAM."})
+
+    session_dir = LOGS / ("qemu-iso-" + uuid.uuid4().hex[:12])
+    session_dir.mkdir(parents=True, exist_ok=True)
+    serial_path = session_dir / "serial.log"
+    process_log = session_dir / "qemu-process.log"
+    serial_device = "file:serial.log" if serial_backend == "file" else "null"
+    network_device = "user,model=e1000" if network == "user" else "none"
+    cmd = [
+        binary, "-name", "Kerno-ISO-" + iso_id[:10],
+        "-machine", machine, "-cpu", cpu_model, "-m", str(ram), "-smp", str(cpus),
+        "-cdrom", str(iso_path),
+        "-boot", "order=d", "-nic", network_device, "-monitor", "none",
+        "-serial", serial_device, "-display", "none", "-vga", "std",
+        "-vnc", HOST + ":" + str(display_number) + ",websocket=" + HOST + ":" + str(websocket_port),
+        "-no-reboot", "-no-shutdown",
+    ]
+    if display == "virtio":
+        cmd[cmd.index("-vga") + 1] = "virtio"
+    elif display == "none":
+        cmd[cmd.index("-vga") + 1] = "none"
+    if accel != "auto":
+        cmd.extend(["-accel", accel])
+
+    log_handle = process_log.open("ab")
+    try:
+        kwargs = {
+            "cwd": str(session_dir),
+            "stdin": subprocess.DEVNULL,
+            "stdout": log_handle,
+            "stderr": subprocess.STDOUT,
+            "close_fds": True,
+        }
+        if os.name == "nt":
+            kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        else:
+            kwargs["start_new_session"] = True
+        process = subprocess.Popen(cmd, **kwargs)
+    finally:
+        log_handle.close()
+
+    time.sleep(0.8)
+    if process.poll() is not None:
+        detail = tail_text(process_log, 6000)
+        raise RuntimeError("QEMU exited during startup. " + detail[-1000:])
+
+    display_url = "ws://" + HOST + ":" + str(websocket_port)
+    with STATE_LOCK:
+        RUNTIME.update({
+            "process": process,
+            "project_id": None,
+            "artifact_id": iso_id,
+            "serial_path": serial_path,
+            "process_log_path": process_log,
+            "display_url": display_url,
+            "started_at": time.time(),
+            "command": cmd,
+            "health_checks": preflight_checks,
+            "boot_mode": "external-iso",
+            "iso_name": metadata.get("name") or "Imported ISO",
+        })
+    return emulator_status()
+
 
 
 def emulator_status() -> dict:
@@ -906,6 +1052,8 @@ def emulator_status() -> dict:
             "processLog": tail_text(process_log_path, 4000),
             "startedAt": RUNTIME.get("started_at") if running else None,
             "healthChecks": RUNTIME.get("health_checks") or [],
+            "bootMode": RUNTIME.get("boot_mode") if running else None,
+            "isoName": RUNTIME.get("iso_name") if running else None,
         }
 
 
@@ -1003,6 +1151,35 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/v1/emulator/status":
             self.send_json(200, emulator_status())
             return
+        if path.startswith("/api/v1/iso/archives/"):
+            archive_id = path.rsplit("/", 1)[-1]
+            metadata = ISO_ARCHIVES.get(archive_id)
+            if not metadata:
+                self.send_json(404, {"message": "Extracted ISO archive was not found in this Local Service session."})
+                return
+            file_path = Path(metadata["path"])
+            if not file_path.is_file():
+                self.send_json(404, {"message": "Extracted ISO archive is no longer available."})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Length", str(file_path.stat().st_size))
+            self.send_header("Content-Disposition", 'attachment; filename="' + metadata["name"] + '"')
+            self.send_header("Cache-Control", "no-store")
+            self.send_cors()
+            self.end_headers()
+            with file_path.open("rb") as handle:
+                shutil.copyfileobj(handle, self.wfile)
+            return
+        if path.startswith("/api/v1/iso/imports/"):
+            iso_id = path.rsplit("/", 1)[-1]
+            metadata = IMPORTED_ISOS.get(iso_id)
+            if not metadata:
+                self.send_json(404, {"message": "Imported ISO was not found in this Local Service session."})
+                return
+            response = {key: value for key, value in metadata.items() if key != "path"}
+            self.send_json(200, response)
+            return
         if path.startswith("/api/v1/artifacts/"):
             artifact_id = path.rsplit("/", 1)[-1]
             metadata = ARTIFACTS.get(artifact_id)
@@ -1030,7 +1207,53 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = urlparse(self.path).path
         try:
+            if path == "/api/v1/iso/import":
+                content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+                if content_type != "application/octet-stream":
+                    raise ValueError("ISO upload must use application/octet-stream.")
+                try:
+                    content_length = int(self.headers.get("Content-Length", "0"))
+                except ValueError as error:
+                    raise ValueError("ISO upload Content-Length is invalid.") from error
+                if not ISO_LOCK.acquire(blocking=False):
+                    raise RuntimeError("Another ISO import or extraction is running. Wait for it to finish.")
+                try:
+                    xorriso = executable("xorriso", "xorriso")
+                    query = parse_qs(urlparse(self.path).query)
+                    filename = (query.get("name") or ["uploaded.iso"])[0]
+                    imported = receive_iso_upload(self.rfile, content_length, filename, ARTIFACTS_DIR, xorriso)
+                finally:
+                    ISO_LOCK.release()
+                IMPORTED_ISOS[imported["id"]] = imported
+                response = {key: value for key, value in imported.items() if key != "path"}
+                self.send_json(201, {"status": "imported", "iso": response})
+                return
+
             data = self.read_json()
+            if path == "/api/v1/iso/extract":
+                iso_id = str(data.get("isoId") or "")
+                metadata = IMPORTED_ISOS.get(iso_id)
+                if not metadata:
+                    raise RuntimeError("The selected ISO is not available. Import it again.")
+                iso_path = Path(metadata.get("path") or "")
+                if not iso_path.is_file():
+                    raise RuntimeError("The imported ISO file is no longer available.")
+                if not hmac.compare_digest(sha256_file(iso_path).lower(), str(metadata.get("sha256") or "").lower()):
+                    raise RuntimeError("ISO SHA-256 integrity check failed. Re-import the image before extracting it.")
+                if not ISO_LOCK.acquire(blocking=False):
+                    raise RuntimeError("Another ISO import or extraction is running. Wait for it to finish.")
+                try:
+                    extracted = extract_iso_archive(iso_path, ARTIFACTS_DIR, executable("xorriso", "xorriso"))
+                finally:
+                    ISO_LOCK.release()
+                ISO_ARCHIVES[extracted["id"]] = extracted
+                response = {key: value for key, value in extracted.items() if key != "path"}
+                self.send_json(200, {"status": "extracted", "archive": response})
+                return
+            if path == "/api/v1/emulator/start-iso":
+                result = start_imported_iso_qemu(data)
+                self.send_json(200, result)
+                return
             if path == "/api/v1/toolchain":
                 settings = data.get("settings") or {}
                 self.send_json(200, {"tools": toolchain_report(settings)})
