@@ -155,8 +155,8 @@ def inspect_iso_image(image_path: Path, xorriso_binary: str = "xorriso") -> dict
     # Keep paths of file-backed boot images protected in the editor.
     boot_paths = set()
     for line in report.splitlines():
-        if "bin_path=" not in line and "efi_path=" not in line:
-            continue
+        if not any(key in line for key in ("bin_path=", "efi_path=", "cat_path=")):
+        match = re.search(r"""(?:bin_path|efi_path|cat_path)=(?:'([^']*)'|"([^"]*)"|(\S+))""", line)
         match = re.search(r"""(?:bin_path|efi_path)=(?:'([^']*)'|"([^"]*)"|(\S+))""", line)
         if not match:
             continue
