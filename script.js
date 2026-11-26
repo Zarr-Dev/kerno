@@ -2193,9 +2193,9 @@ const TOOL_RELEASE_TRACKS=[
  {name:"QEMU",role:"System emulator",key:"qemu",development:"11.2.0-rc1",maintenance:"11.0.5",stable:"11.1.3",installedKeys:["qemu"]},
  {name:"NASM",role:"Assembler",key:"assembler",development:"3.02-20260819",maintenance:"—",stable:"3.02",installedKeys:["assembler"]},
  {name:"GNU GRUB",role:"Bootloader / ISO builder",key:"isoBuilder",development:"Upstream Git",maintenance:"—",stable:"2.14",installedKeys:["isoBuilder"]},
- {name:"GCC cross-compiler",role:"C and C++ compiler",key:"crossCompiler",development:"trunk (rolling)",maintenance:"15.3 / 13.5",stable:"16.2",installedKeys:["crossCompiler","cCompiler"]},
+ {name:"GCC cross-compiler",role:"C and C++ compiler",key:"crossCompiler",development:"trunk (rolling)",maintenance:"15.3 / 14.4 / 13.5",stable:"16.2",installedKeys:["crossCompiler","cCompiler"]},
  {name:"GNU xorriso",role:"ISO inspection and extraction",key:"xorriso",development:"1.5.9 snapshot",maintenance:"—",stable:"1.5.8.pl02",installedKeys:["xorriso"]},
- {name:"Python",role:"Kerno Local Service runtime",key:"python",development:"main (rolling)",maintenance:"3.14.10 / 3.12.16",stable:"3.15.2",installedKeys:[]}
+ {name:"Python",role:"Kerno Local Service runtime",key:"python",development:"3.16.0a2",maintenance:"3.14.10 / 3.13.18 / 3.12.16 / 3.11.18",stable:"3.15.2",installedKeys:[]}
 ];
 function renderToolVersionChannels(hostTools,extra){
  const host=hostTools||{},extras=extra||{},target=$("#toolVersionCards");
