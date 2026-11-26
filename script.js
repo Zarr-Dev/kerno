@@ -2160,7 +2160,7 @@ const ISO_UI_COPY={
   extractDone:"Ekstraksi selesai. Hasilnya dikemas dalam arsip ZIP.",
   toolTitle:"Versi toolchain & jalur pembaruan",toolLead:"Bandingkan jalur pengembangan, perbaikan, dan rilis stabil. Versi terpasang dibaca langsung dari komputer host.",
   development:"Development / preview",maintenance:"Fix / maintenance",stable:"Latest stable",installed:"Terpasang di host",
-  notScanned:"Belum dipindai",notAvailable:"Tidak ada rilis maintenance terpisah",
+  notScanned:"Belum dipindai",missing:"Tidak ditemukan / belum terpasang",notAvailable:"Tidak ada rilis maintenance terpisah",
   releaseNote:"Data rilis upstream diperiksa pada 26 November 2026. Ini bukan perintah instalasi atau pembaruan otomatis. Cocokkan versi dengan platform dan arsitektur host."
  },
  en:{
@@ -2173,7 +2173,7 @@ const ISO_UI_COPY={
   extractDone:"Extraction completed. The files are packaged as a ZIP archive.",
   toolTitle:"Toolchain versions & update channels",toolLead:"Compare development, maintenance and stable release tracks. Installed versions are read from the host computer.",
   development:"Development / preview",maintenance:"Fix / maintenance",stable:"Latest stable",installed:"Installed on host",
-  notScanned:"Not scanned",notAvailable:"No separate maintenance release",
+  notScanned:"Not scanned",missing:"Not detected / not installed",notAvailable:"No separate maintenance release",
   releaseNote:"Upstream release data checked on 26 November 2026. This panel does not install or update tools. Match each version to your host platform and architecture."
  }
 };
@@ -2215,12 +2215,20 @@ function renderToolVersionChannels(hostTools,extra){
    const version=document.createElement("strong");version.textContent=value;version.className="tool-version-badge "+kind;
    row.append(caption,version);card.append(row);
   });
-  let installed=[];
-  if(item.key==="python"){if(extras.pythonVersion)installed.push("Python "+extras.pythonVersion);}
-  else installed=item.installedKeys.map(key=>{const entry=host[key];return entry&&entry.available?(entry.version||entry.command||"Available"):null;}).filter(Boolean);
+  let installed=[],scanPerformed=false;
+  if(item.key==="python"){
+   if(extras.pythonVersion){installed.push("Python "+extras.pythonVersion);scanPerformed=true;}
+  }else{
+   scanPerformed=item.installedKeys.some(key=>Object.prototype.hasOwnProperty.call(host,key));
+   installed=item.installedKeys.map(key=>{
+    const entry=host[key];if(!entry)return null;
+    const label=key==="crossCompiler"?"x86_64-elf-g++":key==="cCompiler"?"x86_64-elf-gcc":key;
+    return entry.available?label+" · "+(entry.version||"available"):label+" · "+isoText("missing");
+   }).filter(Boolean);
+  }
   const row=document.createElement("div");row.className="tool-version-row";
   const caption=document.createElement("span");caption.textContent=isoText("installed");
-  const value=document.createElement("strong");value.textContent=installed.length?[...new Set(installed)].join(" · "):isoText("notScanned");
+  const value=document.createElement("strong");value.textContent=installed.length?installed.join(" · "):(scanPerformed?isoText("missing"):isoText("notScanned"));
   row.append(caption,value);card.append(row);target.append(card);
  });
  const note=$("#toolVersionStatus");if(note)note.textContent=isoText("releaseNote");
