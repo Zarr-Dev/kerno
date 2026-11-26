@@ -57,6 +57,45 @@ class ISOManagerTests(unittest.TestCase):
             self.assertFalse(result["bootableBIOS"])
             self.assertTrue(result["bootableEFI"])
 
+    def test_xorriso_report_detects_bios_and_uefi_boot_images(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+
+        report = "\\n".join([
+            "El Torito boot img :   1 BIOS y  none   0x0000   0x0000",
+            "El Torito boot img :   2 UEFI y  none   0x0000   0x0000",
+            "El Torito boot img :   3 BIOS n  none   0x0000   0x0000",
+        ])
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "multi-boot.iso"
+            make_test_iso(path, True, 0)
+            completed = SimpleNamespace(returncode=0, stdout=report, stderr="")
+            with patch("iso_manager.shutil.which", return_value="/usr/bin/xorriso"), \\
+                 patch("iso_manager.subprocess.run", return_value=completed):
+                result = iso_manager.inspect_iso_image(path)
+
+        self.assertTrue(result["bootableBIOS"])
+        self.assertTrue(result["bootableEFI"])
+        self.assertEqual(result["bootPlatforms"], ["BIOS", "EFI"])
+        self.assertTrue(result["bootable"])
+
+    def test_xorriso_report_ignores_non_bootable_entries(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+
+        report = "El Torito boot img :   1 BIOS n  none   0x0000   0x0000"
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "nonboot.iso"
+            make_test_iso(path, False, 0)
+            completed = SimpleNamespace(returncode=0, stdout=report, stderr="")
+            with patch("iso_manager.shutil.which", return_value="/usr/bin/xorriso"), \\
+                 patch("iso_manager.subprocess.run", return_value=completed):
+                result = iso_manager.inspect_iso_image(path)
+
+        self.assertFalse(result["bootableBIOS"])
+        self.assertFalse(result["bootableEFI"])
+        self.assertFalse(result["bootable"])
+
     def test_invalid_iso_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "invalid.iso"
