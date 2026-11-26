@@ -59,7 +59,10 @@ function assert(condition, message) {
         rootBottom: Math.round(rootRect.bottom),
         targetTop: Math.round(targetRect.top),
         targetBottom: Math.round(targetRect.bottom),
-        headerHeight: header ? Math.round(header.getBoundingClientRect().height) : 0
+        headerHeight: header ? Math.round(header.getBoundingClientRect().height) : 0,
+        lastTarget: root.dataset.kernoLastScrollTarget || "",
+        requestedScrollTop: root.dataset.kernoScrollTop || "",
+        actualScrollTop: root.dataset.kernoActualScrollTop || ""
       };
     });
     assert(
