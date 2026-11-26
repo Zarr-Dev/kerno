@@ -178,8 +178,9 @@ def write_file(workspace_root: Path, relative_path: str, data: bytes) -> dict:
     if target.is_symlink() or (target.exists() and not target.is_file()):
         raise ValueError("Only regular ISO files can be created or replaced.")
     summary = scan_workspace(workspace_root)
-    previous_size = target.stat().st_size if target.exists() else 0
-    if not target.exists() and summary["fileCount"] >= MAX_EDITOR_FILES:
+    created = not target.exists()
+    previous_size = target.stat().st_size if not created else 0
+    if created and summary["fileCount"] >= MAX_EDITOR_FILES:
         raise ValueError("The ISO already contains the maximum number of regular files.")
     if summary["totalBytes"] - previous_size + len(content) > MAX_EXTRACTED_BYTES:
         raise ValueError("The edited ISO would exceed the 2 GiB workspace limit.")
@@ -193,7 +194,7 @@ def write_file(workspace_root: Path, relative_path: str, data: bytes) -> dict:
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
-    return {"path": normalized, "sizeBytes": len(content), "created": not target.exists()}
+    return {"path": normalized, "sizeBytes": len(content), "created": created}
 
 
 def delete_file(workspace_root: Path, relative_path: str) -> dict:
