@@ -2334,6 +2334,223 @@ async function startImportedIsoQemu(){
  }catch(error){setIsoImportStatus(error.message,"error");notify("External ISO could not boot",error.message,"error");button.disabled=false;}
 }
 
+
+const ISO_EDITOR_COPY={
+ id:{
+  open:"Buka Editor ISO",openStatus:"Menyiapkan ruang kerja ISO…",opened:"Editor ISO siap. Pilih file di daftar untuk mulai.",empty:"Tidak ada file yang cocok.",files:"file",search:"Cari file",
+  addPath:"Masukkan path relatif untuk file baru. Contoh: docs/catatan.txt",addTitle:"Tambah file ke ISO",replace:"File berhasil diganti.",saved:"Perubahan file berhasil disimpan.",deleted:"File berhasil dihapus dari ruang kerja.",dirty:"Ada perubahan yang belum dibangun ulang",clean:"Belum ada perubahan yang perlu dibangun ulang",binary:"File ini bukan teks UTF-8. Gunakan Ganti file terpilih untuk memasukkan file lain.",protected:"File boot El Torito dilindungi agar konfigurasi boot tidak rusak.",
+  repacking:"Membangun ulang ISO dan memeriksa struktur boot…",repacked:"ISO hasil edit berhasil dibangun dan divalidasi.",download:"ISO hasil edit berhasil diunduh.",discard:"Ada perubahan teks yang belum disimpan. Buang perubahan tersebut?",
+  confirmDelete:"Hapus file ini dari ruang kerja ISO? Perubahan baru berlaku setelah ISO dibangun ulang.",
+  openFirst:"Buka Editor ISO terlebih dahulu.",selectFirst:"Pilih file dari daftar terlebih dahulu.",noChanges:"Belum ada perubahan untuk dibangun ulang.",
+  loaded:"Daftar file diperbarui.",upload:"Pilih file yang akan ditambahkan atau mengganti file yang dipilih."
+ },
+ en:{
+  open:"Open ISO Editor",openStatus:"Preparing the ISO workspace…",opened:"ISO Editor is ready. Select a file from the list to begin.",empty:"No matching files.",files:"files",search:"Search files",
+  addPath:"Enter a relative path for the new file. Example: docs/notes.txt",addTitle:"Add file to ISO",replace:"File replaced successfully.",saved:"File changes saved successfully.",deleted:"File removed from the ISO workspace.",dirty:"There are changes waiting to be rebuilt",clean:"There are no changes waiting to be rebuilt",binary:"This file is not UTF-8 text. Use Replace selected file to upload another file.",protected:"This El Torito boot image is protected to avoid breaking the boot configuration.",
+  repacking:"Rebuilding the ISO and checking its boot structure…",repacked:"The edited ISO was rebuilt and validated.",download:"Edited ISO downloaded.",discard:"There are unsaved text changes. Discard them?",
+  confirmDelete:"Remove this file from the ISO workspace? The change takes effect after rebuilding the ISO.",
+  openFirst:"Open the ISO Editor first.",selectFirst:"Select a file from the list first.",noChanges:"There are no changes to rebuild.",
+  loaded:"File list refreshed.",upload:"Choose a file to add or replace the selected file."
+ }
+};
+function isoEditorText(key){
+ const copy=ISO_EDITOR_COPY[activeLocale()]||ISO_EDITOR_COPY.en;
+ return copy[key]||ISO_EDITOR_COPY.en[key]||key;
+}
+function setIsoEditorStatus(message){
+ const node=$("#isoEditorFileStatus");if(node)node.textContent=message;
+}
+function updateIsoEditorDirty(){
+ const label=$("#isoEditorDirtyState"),repack=$("#isoEditorRepackButton");
+ if(label){
+  label.textContent=state.isoEditorDirty?isoEditorText("dirty"):isoEditorText("clean");
+  label.dataset.dirty=state.isoEditorDirty?"true":"false";
+ }
+ if(repack)repack.disabled=!state.isoEditorDirty;
+}
+function renderIsoEditorFileList(){
+ const host=$("#isoEditorFileList");if(!host)return;
+ const query=String($("#isoEditorSearch")?.value||"").trim().toLowerCase();
+ host.textContent="";
+ const entries=(state.isoEditorFiles||[]).filter(entry=>!query||entry.path.toLowerCase().includes(query));
+ $("#isoEditorFileCount").textContent=(state.isoEditorWorkspace?.fileCount||0)+" "+isoEditorText("files")+
+  (state.isoEditorWorkspace?.previewTruncated?" · showing first 2,000":"");
+ if(!entries.length){
+  const empty=document.createElement("p");empty.className="iso-editor-empty";empty.textContent=isoEditorText("empty");host.append(empty);return;
+ }
+ entries.forEach(entry=>{
+  const button=document.createElement("button");button.type="button";button.className="iso-editor-file";
+  button.classList.toggle("active",entry.path===state.isoEditorSelectedPath);
+  button.disabled=entry.kind!=="file";
+  button.setAttribute("role","option");button.setAttribute("aria-selected",entry.path===state.isoEditorSelectedPath?"true":"false");
+  const name=document.createElement("span");name.textContent=entry.path;
+  const meta=document.createElement("small");meta.textContent=entry.kind==="symlink"?"Symbolic link":formatBytes(Number(entry.sizeBytes||0));
+  button.append(name,meta);
+  button.onclick=()=>selectIsoEditorFile(entry.path);
+  host.append(button);
+ });
+}
+function resetIsoEditorForNewImport(){
+ state.isoEditorWorkspace=null;state.isoEditorFiles=[];state.isoEditorSelectedPath="";
+ state.isoEditorDirty=false;state.isoEditorTextDirty=false;state.isoEditorOpen=false;
+ $("#isoEditorPanel")?.classList.add("hidden");
+ $("#isoEditorText").value="";$("#isoEditorText").disabled=true;
+ $("#isoEditorSelectedPath").textContent="Pilih file untuk mulai mengedit";
+ $("#isoEditorSelectedMeta").textContent="File teks UTF-8 dapat diedit langsung. File biner dapat diganti dengan file baru.";
+ $("#isoEditorSaveButton").disabled=true;$("#isoEditorReplaceButton").disabled=true;$("#isoEditorDeleteButton").disabled=true;
+ updateIsoEditorDirty();
+}
+async function openIsoEditorWorkspace(){
+ if(!state.importedIso){notify("No ISO selected",isoEditorText("openFirst"),"error");return;}
+ const button=$("#isoOpenEditorButton");button.disabled=true;setIsoEditorStatus(isoEditorText("openStatus"));
+ try{
+  if(!state.localConnected&&!await testService())throw new Error("Connect Kerno Local Service first.");
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const result=await KernoLocalService.openIsoWorkspace(state.importedIso.id);
+  if(result.status!=="opened"||!result.workspaceId)throw new Error("Local Service did not confirm an editable ISO workspace.");
+  state.isoEditorWorkspace=result;state.isoEditorFiles=result.files||[];
+  state.isoEditorOpen=true;state.isoEditorDirty=!!result.dirty;
+  $("#isoEditorPanel").classList.remove("hidden");
+  $("#isoEditorText").value="";$("#isoEditorText").disabled=true;
+  $("#isoEditorSelectedPath").textContent="Pilih file untuk mulai mengedit";
+  $("#isoEditorSaveButton").disabled=true;$("#isoEditorReplaceButton").disabled=true;$("#isoEditorDeleteButton").disabled=true;
+  renderIsoEditorFileList();updateIsoEditorDirty();
+  setIsoEditorStatus(isoEditorText("opened"));
+  notify("ISO Editor ready",result.fileCount+" files indexed.");
+ }catch(error){setIsoEditorStatus(error.message);notify("Could not open ISO Editor",error.message,"error");}
+ finally{button.disabled=false;}
+}
+async function refreshIsoEditorFiles(){
+ if(!state.importedIso||!state.isoEditorOpen)throw new Error(isoEditorText("openFirst"));
+ KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+ const result=await KernoLocalService.listIsoWorkspaceFiles(state.importedIso.id);
+ state.isoEditorFiles=result.files||[];
+ state.isoEditorWorkspace=Object.assign({},state.isoEditorWorkspace,result);
+ renderIsoEditorFileList();updateIsoEditorDirty();
+ setIsoEditorStatus(isoEditorText("loaded"));
+}
+async function selectIsoEditorFile(path){
+ if(state.isoEditorTextDirty){
+  const discard=await confirmInApp(isoEditorText("discard"),"Unsaved editor changes");
+  if(!discard)return;
+ }
+ const entry=(state.isoEditorFiles||[]).find(item=>item.path===path);
+ if(!entry||entry.kind!=="file")return;
+ state.isoEditorSelectedPath=path;
+ renderIsoEditorFileList();
+ $("#isoEditorSelectedPath").textContent=path;
+ $("#isoEditorSelectedMeta").textContent=formatBytes(Number(entry.sizeBytes||0));
+ $("#isoEditorText").value="";$("#isoEditorText").disabled=true;
+ $("#isoEditorSaveButton").disabled=true;
+ $("#isoEditorReplaceButton").disabled=false;
+ $("#isoEditorDeleteButton").disabled=false;
+ state.isoEditorTextDirty=false;
+ try{
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const file=await KernoLocalService.readIsoWorkspaceFile(state.importedIso.id,path);
+  $("#isoEditorText").value=file.content;
+  $("#isoEditorText").disabled=false;
+  $("#isoEditorSaveButton").disabled=false;
+  $("#isoEditorSelectedMeta").textContent=formatBytes(Number(file.sizeBytes||0))+" · UTF-8 text";
+  setIsoEditorStatus("File opened. Changes in the editor are not saved until you press Save.");
+ }catch(error){
+  $("#isoEditorSelectedMeta").textContent=error.message;
+  setIsoEditorStatus(isoEditorText("binary"));
+ }
+}
+function markIsoEditorDirty(){
+ state.isoEditorTextDirty=true;
+ $("#isoEditorSaveButton").disabled=false;
+ setIsoEditorStatus("There are unsaved changes in the text editor.");
+}
+async function saveIsoEditorText(){
+ if(!state.isoEditorSelectedPath){notify("No file selected",isoEditorText("selectFirst"),"error");return;}
+ const button=$("#isoEditorSaveButton");button.disabled=true;
+ try{
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const result=await KernoLocalService.writeIsoWorkspaceFile(state.importedIso.id,state.isoEditorSelectedPath,$("#isoEditorText").value);
+  state.isoEditorTextDirty=false;state.isoEditorDirty=true;
+  await refreshIsoEditorFiles();
+  setIsoEditorStatus(isoEditorText("saved")+" · "+formatBytes(Number(result.file?.sizeBytes||0)));
+ }catch(error){setIsoEditorStatus(error.message);notify("Could not save ISO file",error.message,"error");}
+ finally{button.disabled=false;}
+}
+async function addOrReplaceIsoEditorFile(file,replaceSelected){
+ if(!file)return;
+ let path=replaceSelected?state.isoEditorSelectedPath:"";
+ if(!replaceSelected){
+  path=await promptInApp(isoEditorText("addPath"),file.name,isoEditorText("addTitle"));
+  if(!path)return;
+ }
+ path=String(path||"").trim();
+ if(!path)return;
+ if(state.isoEditorTextDirty){
+  const discard=await confirmInApp(isoEditorText("discard"),"Unsaved editor changes");
+  if(!discard)return;
+ }
+ try{
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  await KernoLocalService.writeIsoWorkspaceFile(state.importedIso.id,path,file);
+  state.isoEditorSelectedPath=path;state.isoEditorTextDirty=false;state.isoEditorDirty=true;
+  await refreshIsoEditorFiles();
+  await selectIsoEditorFile(path);
+  setIsoEditorStatus(isoEditorText("replace")+" · "+path);
+  notify("ISO file updated",path);
+ }catch(error){setIsoEditorStatus(error.message);notify("Could not update ISO file",error.message,"error");}
+}
+async function deleteIsoEditorSelectedFile(){
+ const path=state.isoEditorSelectedPath;
+ if(!path){notify("No file selected",isoEditorText("selectFirst"),"error");return;}
+ if(state.isoEditorTextDirty){
+  const discard=await confirmInApp(isoEditorText("discard"),"Unsaved editor changes");
+  if(!discard)return;
+ }
+ if(!await confirmInApp(isoEditorText("confirmDelete"),"Remove ISO file?"))return;
+ try{
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  await KernoLocalService.deleteIsoWorkspaceFile(state.importedIso.id,path);
+  state.isoEditorSelectedPath="";state.isoEditorTextDirty=false;state.isoEditorDirty=true;
+  $("#isoEditorText").value="";$("#isoEditorText").disabled=true;
+  $("#isoEditorSelectedPath").textContent="Pilih file untuk mulai mengedit";
+  $("#isoEditorSelectedMeta").textContent="Select another file from the list.";
+  $("#isoEditorSaveButton").disabled=true;$("#isoEditorReplaceButton").disabled=true;$("#isoEditorDeleteButton").disabled=true;
+  await refreshIsoEditorFiles();setIsoEditorStatus(isoEditorText("deleted"));
+ }catch(error){setIsoEditorStatus(error.message);notify("Could not remove ISO file",error.message,"error");}
+}
+async function repackEditedIso(){
+ if(!state.isoEditorDirty){notify("No unsaved ISO changes",isoEditorText("noChanges"));return;}
+ const button=$("#isoEditorRepackButton");button.disabled=true;
+ $("#isoEditorDownloadButton").disabled=true;
+ setIsoEditorStatus(isoEditorText("repacking"));setIsoImportStatus(isoEditorText("repacking"),"working");
+ try{
+  if(state.isoEditorTextDirty)await saveIsoEditorText();
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const result=await KernoLocalService.repackIsoWorkspace(state.importedIso.id);
+  if(result.status!=="repacked"||!result.iso?.sha256)throw new Error("Local Service did not confirm a verified rebuilt ISO.");
+  state.importedIso=result.iso;state.isoEditorDirty=false;state.isoEditorTextDirty=false;
+  renderImportedIso(state.importedIso);updateIsoEditorDirty();
+  $("#isoEditorDownloadButton").disabled=false;
+  await refreshIsoEditorFiles();
+  setIsoEditorStatus(isoEditorText("repacked"));
+  setIsoImportStatus(isoEditorText("repacked"),"success");
+  notify("Edited ISO rebuilt",state.importedIso.name+" · SHA-256 "+state.importedIso.sha256.slice(0,16)+"…");
+ }catch(error){
+  setIsoEditorStatus(error.message);setIsoImportStatus(error.message,"error");
+  notify("Could not rebuild ISO",error.message,"error");
+ }finally{button.disabled=!state.isoEditorDirty;}
+}
+async function downloadEditedIsoFile(){
+ if(!state.importedIso?.edited){notify("No rebuilt ISO is available");return;}
+ const button=$("#isoEditorDownloadButton");button.disabled=true;
+ try{
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const blob=await KernoLocalService.downloadEditedIso(state.importedIso.id);
+  download(blob,state.importedIso.name||"kerno-edited.iso");
+  setIsoEditorStatus(isoEditorText("download"));
+ }catch(error){setIsoEditorStatus(error.message);notify("ISO download failed",error.message,"error");}
+ finally{button.disabled=false;}
+}
+
 function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build"){renderBuild();if(!$("#toolVersionCards").children.length)renderToolVersionChannels();}if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
 function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=msg||tr("connectQemuPrompt");}
 function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
