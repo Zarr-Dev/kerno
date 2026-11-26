@@ -30,7 +30,7 @@ from iso_editor import (
     delete_file as delete_iso_file,
     extract_workspace as extract_iso_workspace,
     is_boot_image_path,
-    list_iso_workspace_files,
+    scan_workspace as list_iso_workspace_files,
     read_text_file as read_iso_text_file,
     repack_workspace as repack_iso_workspace,
     write_file as write_iso_workspace_file,
@@ -1184,15 +1184,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith("/api/v1/iso/workspaces/"):
             parts = path.strip("/").split("/")
-            if len(parts) < 6:
+            if len(parts) != 6:
                 self.send_json(404, {"message": "ISO workspace route was not found."})
                 return
-            iso_id = parts[5]
+            iso_id = parts[4]
             workspace = ISO_WORKSPACES.get(iso_id)
             if not workspace:
                 self.send_json(404, {"message": "Open the ISO Editor workspace first."})
                 return
-            if len(parts) == 7 and parts[6] == "files":
+            if parts[5] == "files":
                 summary = list_iso_workspace_files(Path(workspace["root"]))
                 query = parse_qs(urlparse(self.path).query)
                 prefix = (query.get("prefix") or [""])[0].strip().casefold()
@@ -1200,7 +1200,7 @@ class Handler(BaseHTTPRequestHandler):
                     summary["files"] = [entry for entry in summary["files"] if entry["path"].casefold().startswith(prefix)]
                 self.send_json(200, {"workspaceId": workspace["id"], **summary})
                 return
-            if len(parts) == 7 and parts[6] == "file":
+            if parts[5] == "file":
                 query = parse_qs(urlparse(self.path).query)
                 relative_path = (query.get("path") or [""])[0]
                 result = read_iso_text_file(Path(workspace["root"]), relative_path)
@@ -1396,7 +1396,9 @@ class Handler(BaseHTTPRequestHandler):
                 metadata["sha256"] = result["sha256"]
                 metadata["sizeBytes"] = result["sizeBytes"]
                 metadata["inspection"] = result["inspection"]
-                metadata["name"] = Path(metadata.get("name") or "uploaded.iso").stem + "-edited.iso"
+                if "originalName" not in metadata:
+                    metadata["originalName"] = metadata.get("name") or "uploaded.iso"
+                metadata["name"] = Path(metadata["originalName"]).stem + "-edited.iso"
                 metadata["edited"] = True
                 metadata["parentSha256"] = expected_sha
                 workspace["dirty"] = False
