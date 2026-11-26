@@ -61,7 +61,7 @@ class ISOManagerTests(unittest.TestCase):
         from unittest.mock import patch
         from types import SimpleNamespace
 
-        report = "\\n".join([
+        report = "\n".join([
             "El Torito boot img :   1 BIOS y  none   0x0000   0x0000",
             "El Torito boot img :   2 UEFI y  none   0x0000   0x0000",
             "El Torito boot img :   3 BIOS n  none   0x0000   0x0000",
