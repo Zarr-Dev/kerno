@@ -828,9 +828,18 @@ function setupLandingReveal(){
 function landingScrollBehavior(){
   return state.settings.reduceMotion||(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)?"auto":"smooth";
 }
+function scrollWithinPanel(root,target,stickyHeader){
+  if(!root||!target)return;
+  const rootRect=root.getBoundingClientRect();
+  const targetRect=target.getBoundingClientRect();
+  const headerHeight=stickyHeader?stickyHeader.getBoundingClientRect().height:0;
+  const top=root.scrollTop+targetRect.top-rootRect.top-headerHeight-14;
+  root.scrollTo({top:Math.max(0,top),behavior:landingScrollBehavior()});
+}
 function scrollLandingTo(id){
+  const root=$("#welcomeScreen");
   const target=$("#"+id);
-  if(target)target.scrollIntoView({behavior:landingScrollBehavior(),block:"start"});
+  scrollWithinPanel(root,target,$("#welcomeScreen .welcome-top"));
 }
 function openTutorialStage(index){
   const stage=Number(index);
@@ -840,7 +849,7 @@ function openTutorialStage(index){
     return;
   }
   openTutorial();
-  window.requestAnimationFrame(()=>target.scrollIntoView({behavior:landingScrollBehavior(),block:"start"}));
+  window.requestAnimationFrame(()=>scrollWithinPanel($("#tutorialScreen"),target,$("#tutorialScreen .tutorial-header")));
 }
 async function handleTutorialAction(action){
   if(action==="settings-toolchain"){
