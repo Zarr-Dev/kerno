@@ -55,6 +55,7 @@ DEFAULT_ORIGINS = {
     "https://kerno-drab.vercel.app",
     "https://kerno-zarr-devs-projects.vercel.app",
     "https://kerno-git-main-zarr-devs-projects.vercel.app",
+    "https://kerno-git-feature-os-landing-refresh-v012-zarr-devs-projects.vercel.app",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:5500",
