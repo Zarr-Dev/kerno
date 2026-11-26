@@ -163,7 +163,7 @@ def inspect_iso_image(image_path: Path, xorriso_binary: str = "xorriso") -> dict
         value = next((part for part in match.groups() if part is not None), "").strip()
         if value.startswith("/") and not value.startswith("--interval:"):
             try:
-                boot_paths.add(_safe_iso_relative_path(value[1:]))
+                boot_paths.add(PurePosixPath(value[1:]).as_posix())
             except ValueError:
                 pass
     result["bootImagePaths"] = sorted(boot_paths)
