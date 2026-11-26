@@ -1291,12 +1291,13 @@ body.monochrome-theme .kernel-topic-symbol{background:#222;border-color:#666;col
 .hero-code>div:nth-child(5){animation-delay:.48s}
 .hero-boot-node{animation:bootNodeGlow 5.6s ease-in-out infinite}
 .hero-boot-node:nth-of-type(1){animation-delay:0s}
-.hero-boot-node:nth-of-type(3){animation-delay:1.3s}
-.hero-boot-node:nth-of-type(5){animation-delay:2.6s}
-.hero-boot-node:nth-of-type(7){animation-delay:3.9s}
+.hero-boot-node:nth-of-type(2){animation-delay:1.3s}
+.hero-boot-node:nth-of-type(3){animation-delay:2.6s}
+.hero-boot-node:nth-of-type(4){animation-delay:3.9s}
 .hero-flow-arrow{animation:flowNudge 1.7s ease-in-out infinite}
-.hero-flow-arrow:nth-of-type(4){animation-delay:.25s}
-.hero-flow-arrow:nth-of-type(6){animation-delay:.5s}
+.hero-flow-arrow:nth-of-type(1){animation-delay:.15s}
+.hero-flow-arrow:nth-of-type(2){animation-delay:.3s}
+.hero-flow-arrow:nth-of-type(3){animation-delay:.45s}
 .hero-status-dot{animation:statusPulse 2s ease-in-out infinite}
 .hero-qemu-icon{animation:qemuPulse 3.4s ease-in-out infinite}
 .kernel-topic-card{transform:translateZ(0)}
