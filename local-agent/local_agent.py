@@ -1471,7 +1471,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, result)
                 return
             if path == "/api/v1/emulator/stop":
-                stop_qemu_process()
+                if not ISO_LOCK.acquire(blocking=False):
+                    raise RuntimeError("Another ISO operation is running. Wait for it to finish.")
+                try:
+                    stop_qemu_process()
+                finally:
+                    ISO_LOCK.release()
                 self.send_json(200, {"status": "stopped"})
                 return
             if path == "/api/v1/memory/estimate":
