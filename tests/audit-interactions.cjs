@@ -55,7 +55,7 @@ for (const stage of [3, 5, 8]) {
   if (!html.includes('data-kernel-stage="' + stage + '"')) failures.push("Missing kernel topic action for tutorial stage " + stage + ".");
   if (!html.includes('id="tutorial-stage-' + stage + '"')) failures.push("Missing tutorial target " + stage + ".");
 }
-if (!script.includes('$("#kernelMapGrid").addEventListener("click"') || !script.includes("function openTutorialStage(index)")) {
+if (!script.includes('$("[data-kernel-stage]").forEach') || !script.includes("function openTutorialStage(index)")) {
   failures.push("Kernel topic cards are not wired to tutorial navigation.");
 }
 if (!script.includes("function landingScrollBehavior()") || !script.includes("prefers-reduced-motion: reduce")) {
