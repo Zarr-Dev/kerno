@@ -29,21 +29,32 @@ A local build service can run the configured assembler, C/C++ cross-compilers, l
 
 **Current native build gate:** x86_64 + BIOS + GRUB + Multiboot2. The i686, AArch64 and RISC-V selections remain editable scaffolds; they are not currently claimed to produce bootable images.
 
-### External ISO Workbench (development branch, v0.1 scope)
+### External ISO Workbench & ISO Editor (development branch, v0.1.1)
 
-The Machine workspace has a separate ISO Workbench for importing external `.iso` files, inspecting their ISO9660 and El Torito metadata, extracting their files with xorriso, downloading the extracted tree as ZIP, and starting compatible images in QEMU. External images are validated independently from Kerno's own kernel build output: Linux installers and rescue images are not expected to contain Kerno-specific kernel paths.
+The Machine workspace includes an ISO Workbench for importing external `.iso` images, inspecting ISO9660 and El Torito metadata, extracting an archive, editing the extracted filesystem tree, rebuilding an edited image, and testing compatible images through QEMU. External images are validated independently from Kerno's own kernel build output; they are not expected to contain Kerno-specific kernel paths.
 
-The initial direct-boot path is limited to images with a validated **El Torito BIOS boot entry**. EFI/UEFI metadata is reported, but UEFI-only external boot is not yet enabled in this Kerno v0.1 stage. QEMU starting successfully means the emulator process and display endpoint are active; it does not prove that the guest OS completed its boot sequence. The existing Kerno kernel-entry marker is deliberately not applied to external images.
+**ISO Editor capabilities in v0.1.1:**
+- Browse and search a bounded listing of files in an isolated local workspace.
+- Edit UTF-8 text files (up to 2 MiB per file).
+- Add files, replace regular files (including binary files up to 16 MiB), and delete regular files.
+- Rebuild a new ISO using xorriso `-update_r`; when the source has an El Torito catalog, Kerno asks xorriso to replay its recognized boot configuration.
+- Validate the rebuilt ISO structure, recheck detected BIOS/EFI boot entries, and calculate a new SHA-256 checksum before making the rebuilt image current.
+- Download the edited ISO and boot BIOS-compatible images through QEMU.
+
+The editor protects file paths reported by xorriso as El Torito boot images or catalog files from direct replacement and deletion. It rejects path traversal and symbolic-link traversal, limits the workspace to 50,000 regular files and 2 GiB of file data, and serializes edits, repacks and QEMU startup in the Local Service. The imported source image is retained; a rebuild creates and validates a separate ISO before advancing the active edited copy.
+
+**Current boot boundary:** direct external-ISO boot is limited to images with a validated El Torito BIOS boot entry. EFI/UEFI metadata is reported and preserved when recognized, but UEFI-only boot is not yet enabled. QEMU starting successfully confirms that the emulator process and display endpoint are active; it does not prove that the guest OS completed boot. The Kerno kernel-entry marker is deliberately not applied to external images.
 
 The staged ISO Workbench roadmap is:
-- **v0.1 (current):** external ISO import, ISO9660/El Torito inspection, SHA-256 checks, safe ZIP extraction, and BIOS boot through QEMU.
-- **v0.2 (planned):** UEFI boot through OVMF firmware and EFI boot-path checks.
+- **v0.1:** external ISO import, ISO9660/El Torito inspection, SHA-256 checks, extraction, and BIOS boot through QEMU.
+- **v0.1.1 (current):** ISO file editor, safe add/replace/delete, and boot-preserving remaster through xorriso.
+- **v0.2 (planned):** UEFI boot through OVMF firmware and EFI boot-path validation.
 - **v0.3 (planned):** a persistent local ISO library with import history and image metadata.
-- **v0.4 (planned):** ISO editing/remaster workflows and broader boot-profile validation.
+- **v0.4 (planned):** broader ISO editing/remaster workflows and additional boot profiles.
 
-Only v0.1 is implemented in this branch. Later stages are roadmap targets, not available features.
+Only v0.1 and v0.1.1 are implemented in this branch. Later stages remain roadmap items.
 
-Default limits are 4 GiB per ISO upload, 2 GiB of extracted regular files, 50,000 extracted files, and a 500-entry UI preview. Imported images are streamed to the local machine, hashed with SHA-256, and inspected before being registered. The extraction archive skips symbolic links and is served from the loopback Local Service. See [local-agent/README.md](local-agent/README.md) for endpoints, limits and operating details.
+Default editor limits are 2 MiB per text file, 16 MiB per file upload, a 2 GiB workspace, 50,000 regular files, and a 2,000-entry editor listing. The imported ISO upload limit remains 4 GiB. The Local Service keeps workspace/import metadata in process memory; after restarting it, re-import the ISO and reopen its editor workspace. See [local-agent/README.md](local-agent/README.md) for API routes, limits and operating details.
 
 ## Kerno Academy
 
@@ -133,9 +144,11 @@ kerno/
 ├── local-agent.js
 ├── novnc-client.js
 ├── tests/
-│   └── test_iso_manager.py
+│   ├── test_iso_manager.py
+│   └── test_iso_editor.py
 └── local-agent/
     ├── iso_manager.py
+    ├── iso_editor.py
     ├── local_agent.py
     ├── start-local-agent.bat
     ├── start-local-agent.sh
@@ -146,10 +159,13 @@ kerno/
 
 The GitHub Actions validation workflow checks:
 - JavaScript syntax for the browser scripts.
-- Python syntax for the local service and ISO manager.
-- ISO9660 / El Torito parser unit tests.
+- Python syntax for the Local Service, ISO manager and ISO Editor.
+- ISO9660 / El Torito parser tests.
+- ISO Editor path, symlink, text/binary file-operation tests.
+- An xorriso integration test that builds a BIOS-bootable ISO, edits its filesystem tree, rebuilds it, reopens it, and verifies the edited files and preserved BIOS boot entry.
+- HTML structure, bilingual UI coverage, and editor-loading diagnostics.
 
-These syntax checks do not replace a native toolchain build, QEMU boot test, visual browser test or hardware test.
+Automated ISO integration tests do not replace a boot test on the user's host with its installed QEMU build, firmware, display backend and target hardware.
 
 ## Roadmap
 
