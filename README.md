@@ -29,6 +29,14 @@ A local build service can run the configured assembler, C/C++ cross-compilers, l
 
 **Current native build gate:** x86_64 + BIOS + GRUB + Multiboot2. The i686, AArch64 and RISC-V selections remain editable scaffolds; they are not currently claimed to produce bootable images.
 
+### External ISO Workbench (development branch, v0.1 scope)
+
+The Machine workspace has a separate ISO Workbench for importing external `.iso` files, inspecting their ISO9660 and El Torito metadata, extracting their files with xorriso, downloading the extracted tree as ZIP, and starting compatible images in QEMU. External images are validated independently from Kerno's own kernel build output: Linux installers and rescue images are not expected to contain Kerno-specific kernel paths.
+
+The initial direct-boot path is limited to images with a validated **El Torito BIOS boot entry**. EFI/UEFI metadata is reported, but UEFI-only external boot is not yet enabled in this Kerno v0.1 stage. QEMU starting successfully means the emulator process and display endpoint are active; it does not prove that the guest OS completed its boot sequence. The existing Kerno kernel-entry marker is deliberately not applied to external images.
+
+Default limits are 4 GiB per ISO upload, 2 GiB of extracted regular files, 50,000 extracted files, and a 500-entry UI preview. Imported images are streamed to the local machine, hashed with SHA-256, and inspected before being registered. The extraction archive skips symbolic links and is served from the loopback Local Service. See [local-agent/README.md](local-agent/README.md) for endpoints, limits and operating details.
+
 ## Kerno Academy
 
 The Project Hub now includes a guided Tutorial Center with nine stages: IDE orientation, host setup, project scaffolding, the BIOS/GRUB/Multiboot2 boot chain, kernel source and linker layout, low-level memory/console/interrupt modules, toolchain health, ISO validation, and QEMU boot inspection. Stage completion is saved locally in IndexedDB.
@@ -116,7 +124,10 @@ kerno/
 ├── script.js
 ├── local-agent.js
 ├── novnc-client.js
+├── tests/
+│   └── test_iso_manager.py
 └── local-agent/
+    ├── iso_manager.py
     ├── local_agent.py
     ├── start-local-agent.bat
     ├── start-local-agent.sh
@@ -127,7 +138,8 @@ kerno/
 
 The GitHub Actions validation workflow checks:
 - JavaScript syntax for the browser scripts.
-- Python syntax for the local service.
+- Python syntax for the local service and ISO manager.
+- ISO9660 / El Torito parser unit tests.
 
 These syntax checks do not replace a native toolchain build, QEMU boot test, visual browser test or hardware test.
 
