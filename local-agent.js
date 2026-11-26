@@ -211,6 +211,87 @@
     }
   }
 
+
+
+  async function openIsoWorkspace(isoId) {
+    return request("/api/v1/iso/workspace/open", {
+      method: "POST",
+      timeout: 600000,
+      body: { isoId: isoId }
+    });
+  }
+
+  async function listIsoWorkspaceFiles(isoId, prefix) {
+    const query = prefix ? "?prefix=" + encodeURIComponent(prefix) : "";
+    return request("/api/v1/iso/workspaces/" + encodeURIComponent(isoId) + "/files" + query, {
+      method: "GET",
+      timeout: 15000
+    });
+  }
+
+  async function readIsoWorkspaceFile(isoId, path) {
+    const url = "/api/v1/iso/workspaces/" + encodeURIComponent(isoId) + "/file?path=" + encodeURIComponent(path);
+    return request(url, { method: "GET", timeout: 15000 });
+  }
+
+  async function writeIsoWorkspaceFile(isoId, path, fileOrBlob) {
+    if (!pairingToken) throw new Error("Pairing token is missing. Configure it in Settings → Advanced.");
+    const body = fileOrBlob instanceof Blob ? fileOrBlob : new Blob([String(fileOrBlob)], { type: "text/plain;charset=utf-8" });
+    if (body.size > 16 * 1024 * 1024) throw new Error("An edited ISO file cannot exceed 16 MiB.");
+    const url = baseUrl + "/api/v1/iso/workspace/file?isoId=" + encodeURIComponent(isoId) + "&path=" + encodeURIComponent(path);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-Kerno-Token": pairingToken },
+      body: body,
+      cache: "no-store"
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || ("ISO file save failed with HTTP " + response.status));
+    return result;
+  }
+
+  async function deleteIsoWorkspaceFile(isoId, path) {
+    return request("/api/v1/iso/workspace/delete", {
+      method: "POST",
+      timeout: 15000,
+      body: { isoId: isoId, path: path }
+    });
+  }
+
+  async function repackIsoWorkspace(isoId) {
+    return request("/api/v1/iso/workspace/repack", {
+      method: "POST",
+      timeout: 900000,
+      body: { isoId: isoId }
+    });
+  }
+
+  async function downloadEditedIso(isoId) {
+    if (!pairingToken) throw new Error("Pairing token is missing. Configure it in Settings → Advanced.");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15 * 60 * 1000);
+    try {
+      const response = await fetch(baseUrl + "/api/v1/iso/download/" + encodeURIComponent(isoId), {
+        method: "GET",
+        headers: { "X-Kerno-Token": pairingToken },
+        cache: "no-store",
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        let message = "Edited ISO download failed with HTTP " + response.status;
+        try { const body = await response.json(); message = body.message || message; } catch (_) {}
+        throw new Error(message);
+      }
+      return await response.blob();
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("Edited ISO download timed out.");
+      if (error instanceof TypeError) throw new Error("Could not reach Kerno Local Service to download the edited ISO.");
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
   window.KernoLocalService = Object.freeze({
     defaultUrl: DEFAULT_URL,
     configure: configure,
@@ -227,6 +308,13 @@
     importIso: importIso,
     extractIso: extractIso,
     startIsoEmulator: startIsoEmulator,
-    downloadIsoArchive: downloadIsoArchive
+    downloadIsoArchive: downloadIsoArchive,
+    openIsoWorkspace: openIsoWorkspace,
+    listIsoWorkspaceFiles: listIsoWorkspaceFiles,
+    readIsoWorkspaceFile: readIsoWorkspaceFile,
+    writeIsoWorkspaceFile: writeIsoWorkspaceFile,
+    deleteIsoWorkspaceFile: deleteIsoWorkspaceFile,
+    repackIsoWorkspace: repackIsoWorkspace,
+    downloadEditedIso: downloadEditedIso
   });
 })();
