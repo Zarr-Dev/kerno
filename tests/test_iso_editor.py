@@ -58,6 +58,31 @@ class ISOEditorUnitTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             iso_editor.write_file(self.root, "outside-link", b"overwrite")
 
+    def test_repack_rejects_output_larger_than_configured_iso_limit(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            source_iso = base / "source.iso"
+            source_iso.write_bytes(b"source")
+            workspace = base / "workspace"
+            workspace.mkdir()
+            (workspace / "note.txt").write_text("note", encoding="utf-8")
+            output_iso = base / "oversized.iso"
+
+            def fake_xorriso(command, **kwargs):
+                output_iso.write_bytes(b"x" * 40000)
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            with patch("iso_editor.shutil.which", return_value="/usr/bin/xorriso"), \
+                 patch("iso_editor.subprocess.run", side_effect=fake_xorriso), \
+                 patch.object(iso_editor, "MAX_ISO_BYTES", 32768):
+                with self.assertRaisesRegex(RuntimeError, "configured ISO size limit"):
+                    iso_editor.repack_workspace(source_iso, workspace, output_iso, {"hasElTorito": False})
+
+            self.assertFalse(output_iso.exists())
+
     def test_boot_image_paths_and_parent_directories_are_protected(self):
         protected = ["boot/eltorito.img", "boot/boot.cat"]
         self.assertTrue(iso_editor.is_boot_image_path("boot/eltorito.img", protected))
