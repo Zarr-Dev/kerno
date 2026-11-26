@@ -263,6 +263,39 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
           <p class="control-note" id="machineControlNote" data-i18n="machine.note">QEMU dikelola oleh Kerno Local Service. Browser tidak menjalankan proses emulator native.</p>
         </aside>
       </div>
+      <section class="iso-workbench-card" aria-labelledby="isoWorkbenchTitle">
+        <div class="iso-workbench-header">
+          <div>
+            <span class="section-kicker">ISO WORKBENCH · V0.1</span>
+            <h2 id="isoWorkbenchTitle">Impor, bongkar, dan jalankan ISO</h2>
+            <p id="isoWorkbenchDescription">Gunakan Local Service untuk memeriksa citra ISO, melihat isi berkasnya, lalu menjalankannya melalui QEMU.</p>
+          </div>
+          <span class="iso-stage-label">Experimental · BIOS</span>
+        </div>
+        <div class="iso-workbench-actions">
+          <input type="file" id="isoImportInput" hidden accept=".iso,application/x-iso9660-image,application/octet-stream">
+          <button class="primary-button" id="isoImportButton" type="button">Pilih file ISO</button>
+          <button class="quiet-button" id="isoExtractButton" type="button" disabled>Bongkar isi ISO</button>
+          <button class="quiet-button" id="isoBootButton" type="button" disabled>Boot ISO di QEMU</button>
+        </div>
+        <p class="iso-workbench-status" id="isoImportStatus" role="status" aria-live="polite">Belum ada ISO yang diimpor. Hubungkan Local Service untuk memulai.</p>
+        <div class="iso-import-details hidden" id="isoImportDetails">
+          <div class="iso-stat-grid">
+            <div><span>Nama berkas</span><strong id="isoImportedName">—</strong></div>
+            <div><span>Ukuran</span><strong id="isoImportedSize">—</strong></div>
+            <div><span>Volume ID</span><strong id="isoImportedVolume">—</strong></div>
+            <div><span>SHA-256</span><strong id="isoImportedSha">—</strong></div>
+          </div>
+          <div class="iso-boot-status" id="isoBootCompatibility">Status boot belum diperiksa.</div>
+          <div class="iso-extraction-result hidden" id="isoExtractionResult">
+            <div class="iso-extraction-heading">
+              <div><strong id="isoExtractedTitle">Isi ISO</strong><small id="isoExtractedSummary">Belum diekstrak.</small></div>
+              <button class="quiet-button" id="isoDownloadArchiveButton" type="button" disabled>Unduh hasil ekstraksi (.zip)</button>
+            </div>
+            <pre id="isoFilePreview" class="iso-file-preview"></pre>
+          </div>
+        </div>
+      </section>
     </section>
 
     <section class="workspace-view hidden" id="buildWorkspace">
@@ -270,6 +303,14 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
         <div class="build-overview"><span class="section-kicker" data-i18n="build.kicker">TOOLCHAIN NATIVE</span><h1 data-i18n="buildConfiguration">Build configuration</h1><p data-i18n="buildConfigurationDesc">Review the project target before invoking the connected native build service.</p><div class="build-config-grid"><div><span data-i18n="build.target">Target</span><strong id="buildTarget">x86_64</strong></div><div><span data-i18n="build.bootloader">Bootloader</span><strong id="buildBootloader">GRUB</strong></div><div><span data-i18n="build.language">Bahasa kernel</span><strong id="buildLanguage">C++</strong></div><div><span data-i18n="build.output">Format keluaran</span><strong>ISO / ELF</strong></div></div><div class="build-actions"><button class="primary-button" id="runBuildButton" data-i18n="build.run">Jalankan build native</button><button class="quiet-button" id="openSettingsFromBuild" data-i18n="build.configure">Konfigurasi toolchain</button></div><p class="build-disclaimer" data-i18n="build.disclaimer">Build hanya dinyatakan berhasil setelah layanan lokal mengembalikan artefak yang telah diverifikasi dan status proses yang sukses.</p></div>
         <div class="build-log-panel"><div class="log-heading"><strong data-i18n="build.events">AKTIVITAS BUILD</strong><span id="buildStateLabel" data-i18n="build.none">BELUM ADA BUILD</span></div><pre id="buildLog" data-i18n="build.empty">Belum ada build yang dijalankan.</pre><div id="buildHealthChecks" class="build-health-list" aria-live="polite"></div><div id="artifactDownloads" class="artifact-downloads"></div></div>
       </div>
+      <section class="tool-version-panel" aria-labelledby="toolVersionHeading">
+        <div class="tool-version-heading">
+          <div><span class="section-kicker">KERNO RELEASE CHANNELS</span><h2 id="toolVersionHeading">Versi toolchain & jalur pembaruan</h2><p>Bandingkan jalur pengembangan, perbaikan, dan rilis stabil. Versi terpasang tetap dibaca langsung dari komputer host.</p></div>
+          <span class="iso-stage-label">Kerno v0.1 · Development</span>
+        </div>
+        <div class="tool-version-cards" id="toolVersionCards"></div>
+        <p class="tool-version-footnote" id="toolVersionStatus">Belum ada pemindaian host. Buka Pengaturan → Toolchain untuk membaca versi yang benar-benar terpasang.</p>
+      </section>
     </section>
   </main>
 
