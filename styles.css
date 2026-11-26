@@ -1018,3 +1018,73 @@ body.monochrome-theme .editor-engine-fallback{background:#171717;border-color:#8
 body.monochrome-theme .editor-engine-fallback small{color:#ddd}
 @media(prefers-reduced-motion:reduce){.editor-loading-spinner{animation:none}}
 @media(max-width:600px){.editor-engine-fallback{align-items:flex-start;flex-direction:column;gap:7px}.editor-engine-fallback button{align-self:flex-start}}
+
+
+/* ISO Workbench and release-channel cards */
+.iso-workbench-card,.tool-version-panel{
+  margin:20px 0 26px;padding:20px;border:1px solid var(--line);border-radius:9px;
+  background:linear-gradient(145deg,var(--surface),var(--surface-2));
+}
+.iso-workbench-header,.tool-version-heading,.iso-extraction-heading{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:18px;
+}
+.iso-workbench-header h2,.tool-version-heading h2{
+  margin:7px 0 6px;font:700 20px/1.25 var(--heading);letter-spacing:-.45px;
+}
+.iso-workbench-header p,.tool-version-heading p{
+  max-width:700px;margin:0;color:var(--muted);font-size:11px;line-height:1.7;
+}
+.iso-stage-label{
+  flex:0 0 auto;padding:6px 9px;border:1px solid var(--line);border-radius:999px;
+  color:var(--amber);font-size:9px;font-weight:700;letter-spacing:.45px;
+}
+.iso-workbench-actions{display:flex;flex-wrap:wrap;gap:9px;margin:17px 0 11px}
+.iso-workbench-status{
+  margin:0;padding:11px 12px;border:1px solid var(--line);border-radius:6px;
+  color:var(--muted);background:var(--surface-2);font-size:10px;line-height:1.6;
+}
+.iso-workbench-status[data-state="success"]{border-color:#477564;color:#a9d8bf}
+.iso-workbench-status[data-state="error"]{border-color:#83504c;color:#e6aaaa}
+.iso-workbench-status[data-state="working"]{border-color:#766341;color:#e0c48f}
+.iso-import-details{margin-top:13px}
+.iso-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.iso-stat-grid>div{
+  min-width:0;padding:10px 11px;border:1px solid var(--line);border-radius:6px;background:var(--surface);
+}
+.iso-stat-grid span,.tool-version-item small{display:block;color:var(--subtle);font-size:9px}
+.iso-stat-grid strong{display:block;margin-top:5px;overflow-wrap:anywhere;color:var(--text);font:600 10px/1.5 var(--mono)}
+.iso-boot-status{margin-top:10px;padding:10px 11px;border-left:3px solid var(--amber);background:var(--surface-2);color:var(--muted);font-size:10px;line-height:1.6}
+.iso-boot-status[data-bootable="true"]{border-left-color:var(--accent);color:#b8dfcc}
+.iso-boot-status[data-bootable="false"]{border-left-color:var(--red);color:#e5b0ac}
+.iso-extraction-result{margin-top:13px;padding:13px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}
+.iso-extraction-heading{align-items:center}
+.iso-extraction-heading strong{display:block;color:var(--text);font-size:11px}
+.iso-extraction-heading small{display:block;margin-top:4px;color:var(--muted);font-size:9px}
+.iso-file-preview{
+  max-height:250px;overflow:auto;margin:12px 0 0;padding:12px;border-radius:5px;
+  background:#0c1218;color:#b5c6d3;font:10px/1.7 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;
+}
+.tool-version-panel{margin-top:20px}
+.tool-version-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:15px}
+.tool-version-item{min-width:0;padding:13px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}
+.tool-version-item h3{margin:0 0 10px;color:var(--text);font:700 12px var(--heading)}
+.tool-version-row{display:flex;align-items:flex-start;justify-content:space-between;gap:9px;padding:7px 0;border-top:1px solid #2b394755}
+.tool-version-row span{color:var(--muted);font-size:9px;line-height:1.5}
+.tool-version-row strong{flex:0 0 auto;color:var(--text);font:600 9px/1.5 var(--mono);text-align:right}
+.tool-version-badge{display:inline-flex;align-items:center;gap:5px;margin:2px 0 7px;padding:3px 6px;border-radius:4px;background:var(--surface-3);color:var(--muted);font-size:8px;font-weight:700;letter-spacing:.35px}
+.tool-version-badge.stable{color:#a8d9bd}
+.tool-version-badge.maintenance{color:#e2c38d}
+.tool-version-badge.development{color:#a8c9ef}
+.tool-version-footnote{margin:13px 0 0;color:var(--subtle);font-size:9px;line-height:1.6}
+@media(max-width:900px){
+  .tool-version-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .iso-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:620px){
+  .iso-workbench-card,.tool-version-panel{padding:14px;margin:14px 0}
+  .iso-workbench-header,.tool-version-heading,.iso-extraction-heading{flex-direction:column;align-items:flex-start}
+  .iso-workbench-header h2,.tool-version-heading h2{font-size:17px}
+  .tool-version-cards{grid-template-columns:1fr}
+  .iso-stat-grid{grid-template-columns:1fr 1fr}
+  .iso-workbench-actions>*{flex:1 1 100%}
+}
