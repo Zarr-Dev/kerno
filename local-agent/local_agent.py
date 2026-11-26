@@ -1168,19 +1168,24 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(404, {"message": "Imported ISO was not found in this Local Service session."})
                 return
             file_path = Path(metadata.get("path") or "")
-            if not file_path.is_file():
+            try:
+                handle = file_path.open("rb")
+            except OSError:
                 self.send_json(404, {"message": "ISO file is no longer available."})
                 return
-            self.send_response(200)
-            self.send_header("Content-Type", "application/octet-stream")
-            self.send_header("Content-Length", str(file_path.stat().st_size))
-            download_name = metadata.get("name") or "kerno-edited.iso"
-            self.send_header("Content-Disposition", 'attachment; filename="' + safe_name(download_name) + '"')
-            self.send_header("Cache-Control", "no-store")
-            self.send_cors()
-            self.end_headers()
-            with file_path.open("rb") as handle:
+            try:
+                size = os.fstat(handle.fileno()).st_size
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Length", str(size))
+                download_name = metadata.get("name") or "kerno-edited.iso"
+                self.send_header("Content-Disposition", 'attachment; filename="' + safe_name(download_name) + '"')
+                self.send_header("Cache-Control", "no-store")
+                self.send_cors()
+                self.end_headers()
                 shutil.copyfileobj(handle, self.wfile)
+            finally:
+                handle.close()
             return
         if path.startswith("/api/v1/iso/workspaces/"):
             parts = path.strip("/").split("/")
