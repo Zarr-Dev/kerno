@@ -538,7 +538,7 @@ const UI_COPY = {
   }
 };
 
-const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",newProjectReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null};
+const state={settings:Object.assign({},DEFAULTS),project:null,recent:[],screen:"welcome",settingsReturn:"welcome",newProjectReturn:"welcome",category:"general",models:{},editor:null,splitEditor:null,activeFile:null,tabs:[],splitFile:null,localConnected:false,qemuPollTimer:null,currentDisplayUrl:"",lastSerialOutput:"",kernelEntryConfirmed:false,qemuStartedAt:0,qemuBootTimeoutShown:false,tutorialCompleted:[],tutorialObserver:null,landingRevealObserver:null,importedIso:null,isoArchive:null,isoEditorWorkspace:null,isoEditorFiles:[],isoEditorSelectedPath:"",isoEditorDirty:false,isoEditorOpen:false};
 function activeLocale(){
   const requested=state.settings.locale||"id";
   if(requested==="id"||requested==="en")return requested;
