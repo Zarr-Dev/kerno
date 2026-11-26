@@ -765,13 +765,13 @@ function renderTutorialProgress(){
   if(pct)pct.textContent=percent+"%";
   const nextIndex=TUTORIAL_STAGES.findIndex((_,index)=>!completed.has(index));
   if(next)next.textContent=nextIndex<0?"All stages completed":("Next: "+TUTORIAL_STAGES[nextIndex]);
-  $("[data-tutorial-step]").forEach(card=>{
+  $$("[data-tutorial-step]").forEach(card=>{
     const index=Number(card.dataset.tutorialStep),isDone=completed.has(index);
     card.classList.toggle("completed",isDone);
     const button=$('[data-complete-step="'+index+'"]',card);
     if(button){button.textContent=isDone?"Completed ✓ · Undo":"Mark stage complete";button.setAttribute("aria-pressed",String(isDone));}
   });
-  $("#tutorialContents a").forEach((link,index)=>link.classList.toggle("completed",completed.has(index)));
+  $$("#tutorialContents a").forEach((link,index)=>link.classList.toggle("completed",completed.has(index)));
 }
 async function toggleTutorialStep(index){
   if(!Number.isInteger(index)||index<0||index>=TUTORIAL_STAGES.length)return;
@@ -800,7 +800,7 @@ function setupTutorialObserver(){
       }
     });
   },{root:screen,rootMargin:"-15% 0px -70% 0px",threshold:0});
-  $("[data-tutorial-step]").forEach(card=>observer.observe(card));
+  $$("[data-tutorial-step]").forEach(card=>observer.observe(card));
   state.tutorialObserver=observer;
 }
 function setupLandingReveal(){
@@ -2676,7 +2676,7 @@ async function downloadEditedIsoFile(){
  finally{button.disabled=false;}
 }
 
-function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build"){renderBuild();if(!$("#toolVersionCards").children.length)renderToolVersionChannels();}if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
+function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build"){renderBuild();if(!$("#toolVersionCards").children.length)renderToolVersionChannels();}if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
 function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=msg||tr("connectQemuPrompt");}
 function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
 async function testService(){try{KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);const h=await KernoLocalService.health();setServiceStatus(true,"Local service connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Connected · API "+(h.apiVersion||"unknown");notify("Local service connected");return true;}catch(e){setServiceStatus(false,"QEMU not connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Unavailable · "+e.message;notify("Local service unavailable",e.message);return false;}}
@@ -3097,7 +3097,7 @@ $("#landingTutorialButton").onclick=openTutorial;
 $("#heroStartButton").onclick=()=>{state.newProjectReturn="welcome";syncWizardDefaults();show("newProject");};
 $("#heroTutorialButton").onclick=openTutorial;
 $("#workflowTutorialButton").onclick=openTutorial;
-$("[data-kernel-stage]").forEach(button=>{
+$$("[data-kernel-stage]").forEach(button=>{
   button.dataset.kernoActionBound="1";
   button.addEventListener("click",()=>{
     button.dataset.kernoActionClicked="1";
