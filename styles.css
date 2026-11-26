@@ -1374,3 +1374,19 @@ body.monochrome-theme .kernel-topic-action:hover{background:#333;border-color:#a
 :root[data-motion-level="off"] .hero-flow-arrow,
 :root[data-motion-level="off"] .hero-status-dot,
 :root[data-motion-level="off"] .hero-qemu-icon{animation:none!important;opacity:1!important;transform:none!important}
+
+body.reduce-motion .hero-banner:after,
+body.reduce-motion .hero-code>div,
+body.reduce-motion .hero-boot-node,
+body.reduce-motion .hero-flow-arrow,
+body.reduce-motion .hero-status-dot,
+body.reduce-motion .hero-qemu-icon{animation:none!important;opacity:1!important;transform:none!important}
+body.reduce-motion .kernel-topic-card,
+body.reduce-motion .kernel-topic-action,
+body.reduce-motion .platform-card,
+body.reduce-motion .workflow-step,
+body.reduce-motion .welcome-card,
+body.reduce-motion .hero-primary-cta{transition:none!important}
+body.reduce-motion .reveal-ready .landing-section,
+body.reduce-motion .reveal-ready .recent-section,
+body.reduce-motion .reveal-ready .kernel-topic-card{opacity:1!important;transform:none!important;transition:none!important}
