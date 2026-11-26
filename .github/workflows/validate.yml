@@ -22,6 +22,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install ISO tooling for integration tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xorriso
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -34,11 +39,12 @@ jobs:
           node --input-type=module --check < novnc-client.js
 
       - name: Validate local service Python
-        run: python -m py_compile local-agent/local_agent.py local-agent/iso_manager.py
+        run: python -m py_compile local-agent/local_agent.py local-agent/iso_manager.py local-agent/iso_editor.py
 
-      - name: Run ISO manager unit tests
-        run: PYTHONPATH=local-agent python -m unittest discover -s tests -p 'test_iso_manager.py' -v
-
+      - name: Run ISO manager and editor tests
+        run: |
+          PYTHONPATH=local-agent python -m unittest discover -s tests -p 'test_iso_manager.py' -v
+          PYTHONPATH=local-agent python -m unittest discover -s tests -p 'test_iso_editor.py' -v
       - name: Audit HTML structure and tutorial stages
         run: |
           node <<'NODE'
