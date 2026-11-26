@@ -1271,3 +1271,105 @@ body.monochrome-theme .kernel-topic-symbol{background:#222;border-color:#666;col
   .kernel-topic-card,.hero-visual{transition:none!important;animation:none!important}
   .kernel-topic-card:hover{transform:none}
 }
+
+
+
+/* Focused motion and compact content for the OS Builder landing page */
+.hero-banner{isolation:isolate}
+.hero-banner:after{
+  content:"";position:absolute;z-index:0;top:-35%;bottom:-35%;left:-45%;width:25%;
+  pointer-events:none;opacity:.22;transform:skewX(-24deg);
+  background:linear-gradient(90deg,transparent,rgba(130,211,164,.22),transparent);
+  animation:heroLightSweep 11s ease-in-out infinite;
+}
+.hero-layout,.hero-footnote{z-index:1}
+.hero-code>div{opacity:0;animation:sourceLineReveal .38s ease-out forwards}
+.hero-code>div:nth-child(1){animation-delay:.08s}
+.hero-code>div:nth-child(2){animation-delay:.18s}
+.hero-code>div:nth-child(3){animation-delay:.28s}
+.hero-code>div:nth-child(4){animation-delay:.38s}
+.hero-code>div:nth-child(5){animation-delay:.48s}
+.hero-boot-node{animation:bootNodeGlow 5.6s ease-in-out infinite}
+.hero-boot-node:nth-of-type(1){animation-delay:0s}
+.hero-boot-node:nth-of-type(3){animation-delay:1.3s}
+.hero-boot-node:nth-of-type(5){animation-delay:2.6s}
+.hero-boot-node:nth-of-type(7){animation-delay:3.9s}
+.hero-flow-arrow{animation:flowNudge 1.7s ease-in-out infinite}
+.hero-flow-arrow:nth-of-type(4){animation-delay:.25s}
+.hero-flow-arrow:nth-of-type(6){animation-delay:.5s}
+.hero-status-dot{animation:statusPulse 2s ease-in-out infinite}
+.hero-qemu-icon{animation:qemuPulse 3.4s ease-in-out infinite}
+.kernel-topic-card{transform:translateZ(0)}
+.kernel-topic-card:after{transition:transform .55s ease,border-color .35s ease}
+.kernel-topic-card:hover:after{transform:scale(1.28);border-color:#82bda344}
+.kernel-topic-action{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;align-self:flex-start;
+  min-height:30px;margin-top:13px;padding:0 10px;border:1px solid #4d7964;border-radius:6px;
+  background:#20372a;color:#bce5c9;font:600 10px var(--body);
+  transition:transform .18s ease,background .18s ease,border-color .18s ease;
+}
+.kernel-topic-action:hover{transform:translateY(-2px);border-color:#83bd98;background:#294a36}
+.kernel-topic-action:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.platform-card,.workflow-step,.welcome-card{transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
+.landing-nav-link{position:relative}
+.landing-nav-link:after{
+  content:"";position:absolute;left:10px;right:10px;bottom:2px;height:1px;
+  background:var(--accent);transform:scaleX(0);transform-origin:left;transition:transform .2s ease
+}
+.landing-nav-link:hover:after,.landing-nav-link:focus-visible:after{transform:scaleX(1)}
+.hero-primary-cta{transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+.hero-primary-cta:hover{transform:translateY(-2px);box-shadow:0 12px 32px #3f876b54}
+.hero-secondary-cta:hover{color:var(--accent)}
+.reveal-ready .landing-section,.reveal-ready .recent-section{
+  opacity:0;transform:translateY(17px);
+  transition:opacity .48s ease,transform .48s cubic-bezier(.2,.7,.2,1)
+}
+.reveal-ready .landing-section.is-visible,.reveal-ready .recent-section.is-visible{opacity:1;transform:none}
+.reveal-ready .kernel-topic-card{opacity:0;transform:translateY(12px)}
+.reveal-ready .is-visible .kernel-topic-card{
+  opacity:1;transform:translateY(0);
+  transition:opacity .42s ease,transform .42s cubic-bezier(.2,.7,.2,1),border-color .22s ease,box-shadow .22s ease
+}
+.reveal-ready .is-visible .kernel-topic-card:nth-child(2){transition-delay:.06s}
+.reveal-ready .is-visible .kernel-topic-card:nth-child(3){transition-delay:.12s}
+.reveal-ready .is-visible .kernel-topic-card:nth-child(4){transition-delay:.18s}
+body.light-theme .kernel-topic-action{background:#e2efe5;border-color:#b5d0bc;color:#315c41}
+body.light-theme .kernel-topic-action:hover{background:#d5e9da;border-color:#73a886}
+body.monochrome-theme .kernel-topic-action{background:#242424;border-color:#666;color:#fff}
+body.monochrome-theme .kernel-topic-action:hover{background:#333;border-color:#aaa}
+@keyframes heroLightSweep{
+  0%,18%{left:-45%;opacity:0}
+  28%{opacity:.22}
+  55%{left:125%;opacity:0}
+  100%{left:125%;opacity:0}
+}
+@keyframes sourceLineReveal{from{opacity:0;transform:translateX(7px)}to{opacity:1;transform:translateX(0)}}
+@keyframes bootNodeGlow{
+  0%,68%,100%{border-color:#31483d;box-shadow:none}
+  18%,36%{border-color:#7db394;box-shadow:0 0 0 3px #78b99112,0 0 18px #70b98c20}
+}
+@keyframes flowNudge{0%,100%{opacity:.48;transform:translateX(-1px)}50%{opacity:1;transform:translateX(2px)}}
+@keyframes statusPulse{0%,100%{box-shadow:0 0 0 0 #82c5a200}50%{box-shadow:0 0 0 5px #82c5a222}}
+@keyframes qemuPulse{0%,100%{box-shadow:0 0 0 0 #4f936800}50%{box-shadow:0 0 0 5px #4f936822}}
+@media(max-width:620px){
+  .kernel-topic-action{min-height:34px;padding:0 12px}
+  .hero-code>div{gap:8px}
+  .hero-banner:after{opacity:.12}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-banner:after,.hero-code>div,.hero-boot-node,.hero-flow-arrow,.hero-status-dot,.hero-qemu-icon{animation:none!important;opacity:1!important;transform:none!important}
+  .kernel-topic-card,.kernel-topic-action,.platform-card,.workflow-step,.welcome-card,.hero-primary-cta{transition:none!important}
+  .reveal-ready .landing-section,.reveal-ready .recent-section,.reveal-ready .kernel-topic-card{opacity:1!important;transform:none!important;transition:none!important}
+}
+:root[data-motion-level="minimal"] .hero-banner:after,
+:root[data-motion-level="minimal"] .hero-code>div,
+:root[data-motion-level="minimal"] .hero-boot-node,
+:root[data-motion-level="minimal"] .hero-flow-arrow,
+:root[data-motion-level="minimal"] .hero-status-dot,
+:root[data-motion-level="minimal"] .hero-qemu-icon{animation:none!important;opacity:1!important;transform:none!important}
+:root[data-motion-level="off"] .hero-banner:after,
+:root[data-motion-level="off"] .hero-code>div,
+:root[data-motion-level="off"] .hero-boot-node,
+:root[data-motion-level="off"] .hero-flow-arrow,
+:root[data-motion-level="off"] .hero-status-dot,
+:root[data-motion-level="off"] .hero-qemu-icon{animation:none!important;opacity:1!important;transform:none!important}
