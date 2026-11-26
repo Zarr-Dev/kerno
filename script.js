@@ -791,7 +791,7 @@ function setupTutorialObserver(){
   if(state.tutorialObserver){state.tutorialObserver.disconnect();state.tutorialObserver=null;}
   if(!("IntersectionObserver" in window))return;
   const screen=$("#tutorialScreen");
-  const links=$("#tutorialContents a");
+  const links=$$("#tutorialContents a");
   const observer=new IntersectionObserver(entries=>{
     entries.forEach(entry=>{
       if(entry.isIntersecting){
@@ -806,7 +806,7 @@ function setupTutorialObserver(){
 function setupLandingReveal(){
   if(state.landingRevealObserver){state.landingRevealObserver.disconnect();state.landingRevealObserver=null;}
   const root=$("#welcomeScreen");
-  const targets=root?$(".landing-section,.recent-section",root):[];
+  const targets=root?$$(".landing-section,.recent-section",root):[];
   const prefersReduced=!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   document.body.classList.remove("reveal-ready");
   targets.forEach(el=>el.classList.remove("is-visible"));
