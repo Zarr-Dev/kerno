@@ -2166,6 +2166,7 @@ const ISO_UI_COPY={
   phase04Title:"ISO lanjutan",phase04Description:"Penyuntingan atau remaster ISO dan pengujian profil boot yang lebih luas",
   development:"Development / preview",maintenance:"Fix / maintenance",stable:"Latest stable",installed:"Terpasang di host",
   notScanned:"Belum dipindai",missing:"Tidak ditemukan / belum terpasang",notAvailable:"Tidak ada rilis maintenance terpisah",
+  editorHeading:"Edit isi ISO",editorDescription:"Ubah teks, tambah atau ganti file, lalu bangun ulang ISO.",editorAdd:"Tambah file",editorReplace:"Ganti file terpilih",editorDelete:"Hapus file terpilih",editorRefresh:"Muat ulang daftar",editorSearch:"Cari file",editorSave:"Simpan perubahan file",editorRepack:"Build ulang ISO",editorDownload:"Unduh ISO hasil edit",editorSelect:"Pilih file untuk mulai mengedit",editorMeta:"File teks UTF-8 dapat diedit langsung. File biner dapat diganti dengan file baru.",editorWarning:"File boot yang dipakai langsung oleh El Torito dilindungi agar konfigurasi boot tidak rusak.",
   releaseNote:"Data rilis upstream diperiksa pada 26 November 2026. Ini bukan perintah instalasi atau pembaruan otomatis. Cocokkan versi dengan platform dan arsitektur host."
  },
  en:{
@@ -2184,6 +2185,7 @@ const ISO_UI_COPY={
   phase04Title:"Advanced ISO tools",phase04Description:"ISO editing or remastering and broader boot-profile testing",
   development:"Development / preview",maintenance:"Fix / maintenance",stable:"Latest stable",installed:"Installed on host",
   notScanned:"Not scanned",missing:"Not detected / not installed",notAvailable:"No separate maintenance release",
+  editorHeading:"Edit ISO contents",editorDescription:"Edit text, add or replace files, then rebuild the ISO.",editorAdd:"Add file",editorReplace:"Replace selected file",editorDelete:"Delete selected file",editorRefresh:"Refresh file list",editorSearch:"Search files",editorSave:"Save file changes",editorRepack:"Rebuild ISO",editorDownload:"Download edited ISO",editorSelect:"Select a file to start editing",editorMeta:"UTF-8 text files can be edited directly. Binary files can be replaced with another file.",editorWarning:"Files used directly as El Torito boot images are protected to avoid breaking the boot configuration.",
   releaseNote:"Upstream release data checked on 26 November 2026. This panel does not install or update tools. Match each version to your host platform and architecture."
  }
 };
@@ -2192,11 +2194,12 @@ function isoText(key){
  return copy[key]||ISO_UI_COPY.en[key]||key;
 }
 function translateIsoWorkbench(){
- const values={isoWorkbenchTitle:"title",isoWorkbenchDescription:"description",isoImportButton:"import",isoExtractButton:"extract",isoBootButton:"boot",toolVersionHeading:"toolTitle",isoRoadmapTitle:"roadmapTitle",isoRoadmapNote:"roadmapNote",isoStageV01Title:"phase01Title",isoStageV01Description:"phase01Description",isoStageV02Title:"phase02Title",isoStageV02Description:"phase02Description",isoStageV03Title:"phase03Title",isoStageV03Description:"phase03Description",isoStageV04Title:"phase04Title",isoStageV04Description:"phase04Description"};
+ const values={isoWorkbenchTitle:"title",isoWorkbenchDescription:"description",isoImportButton:"import",isoExtractButton:"extract",isoOpenEditorButton:"open",isoBootButton:"boot",toolVersionHeading:"toolTitle",isoRoadmapTitle:"roadmapTitle",isoRoadmapNote:"roadmapNote",isoStageV01Title:"phase01Title",isoStageV01Description:"phase01Description",isoStageV02Title:"phase02Title",isoStageV02Description:"phase02Description",isoStageV03Title:"phase03Title",isoStageV03Description:"phase03Description",isoStageV04Title:"phase04Title",isoStageV04Description:"phase04Description",isoEditorHeading:"editorHeading",isoEditorDescription:"editorDescription",isoEditorAddButton:"editorAdd",isoEditorReplaceButton:"editorReplace",isoEditorDeleteButton:"editorDelete",isoEditorRefreshButton:"editorRefresh",isoEditorSearch:"editorSearch",isoEditorSaveButton:"editorSave",isoEditorRepackButton:"editorRepack",isoEditorDownloadButton:"editorDownload",isoEditorSelectedPath:"editorSelect",isoEditorSelectedMeta:"editorMeta"};
  Object.entries(values).forEach(([id,key])=>{const node=$("#"+id);if(node)node.textContent=isoText(key);});
  const lead=$("#toolVersionHeading")?.parentElement?.querySelector("p");
  if(lead)lead.textContent=isoText("toolLead");
  if(!state.importedIso)setIsoImportStatus(isoText("idle"),"");
+ const warning=$(".iso-editor-warning");if(warning)warning.textContent=isoText("editorWarning");
  const note=$("#toolVersionStatus");if(note)note.textContent=isoText("releaseNote");
 }
 const TOOL_RELEASE_TRACKS=[
