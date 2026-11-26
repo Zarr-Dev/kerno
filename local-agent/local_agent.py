@@ -36,7 +36,7 @@ from iso_editor import (
     write_file as write_iso_workspace_file,
 )
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("KERNO_LOCAL_PORT", "8765"))
 MAX_REQUEST = 24 * 1024 * 1024
