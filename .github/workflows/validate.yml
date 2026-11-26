@@ -68,3 +68,22 @@ jobs:
 
       - name: Audit editor loading and diagnostics
         run: node tests/audit-editor.cjs
+
+      - name: Audit button handlers and navigation targets
+        run: node tests/audit-interactions.cjs
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run landing-page browser interactions
+        run: |
+          python -m http.server 8000 --bind 127.0.0.1 > /tmp/kerno-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8000/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node tests/e2e-landing.cjs
