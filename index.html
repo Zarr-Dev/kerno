@@ -276,6 +276,7 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
           <input type="file" id="isoImportInput" hidden accept=".iso,application/x-iso9660-image,application/octet-stream">
           <button class="primary-button" id="isoImportButton" type="button">Pilih file ISO</button>
           <button class="quiet-button" id="isoExtractButton" type="button" disabled>Bongkar isi ISO</button>
+          <button class="quiet-button" id="isoOpenEditorButton" type="button" disabled>Buka Editor ISO</button>
           <button class="quiet-button" id="isoBootButton" type="button" disabled>Boot ISO di QEMU</button>
         </div>
         <p class="iso-workbench-status" id="isoImportStatus" role="status" aria-live="polite">Belum ada ISO yang diimpor. Hubungkan Local Service untuk memulai.</p>
@@ -294,6 +295,48 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
             </div>
             <pre id="isoFilePreview" class="iso-file-preview"></pre>
           </div>
+          <section class="iso-editor-panel hidden" id="isoEditorPanel" aria-labelledby="isoEditorHeading">
+            <div class="iso-editor-header">
+              <div>
+                <span class="section-kicker">ISO FILE EDITOR</span>
+                <h3 id="isoEditorHeading">Edit isi ISO</h3>
+                <p id="isoEditorDescription">Buka file, ubah teks, tambah atau ganti file, lalu bangun ulang ISO tanpa menghapus konfigurasi boot yang dikenali.</p>
+              </div>
+              <span class="iso-editor-dirty" id="isoEditorDirtyState">Belum dibuka</span>
+            </div>
+            <div class="iso-editor-toolbar">
+              <button class="quiet-button" id="isoEditorAddButton" type="button">Tambah file</button>
+              <button class="quiet-button" id="isoEditorReplaceButton" type="button" disabled>Ganti file terpilih</button>
+              <button class="quiet-button" id="isoEditorDeleteButton" type="button" disabled>Hapus file terpilih</button>
+              <button class="quiet-button" id="isoEditorRefreshButton" type="button">Muat ulang daftar</button>
+              <input id="isoEditorAddInput" type="file" hidden>
+              <input id="isoEditorReplaceInput" type="file" hidden>
+            </div>
+            <div class="iso-editor-layout">
+              <aside class="iso-editor-sidebar">
+                <label for="isoEditorSearch">Cari file</label>
+                <input id="isoEditorSearch" type="search" placeholder="contoh: grub.cfg">
+                <div class="iso-editor-file-count" id="isoEditorFileCount">Belum ada file</div>
+                <div class="iso-editor-file-list" id="isoEditorFileList" role="listbox" aria-label="Daftar file dalam ISO"></div>
+              </aside>
+              <div class="iso-editor-main">
+                <div class="iso-editor-selected">
+                  <strong id="isoEditorSelectedPath">Pilih file untuk mulai mengedit</strong>
+                  <small id="isoEditorSelectedMeta">File teks UTF-8 dapat diedit langsung. File biner dapat diganti dengan file baru.</small>
+                </div>
+                <textarea id="isoEditorText" rows="18" spellcheck="false" disabled placeholder="Pilih file teks dari daftar di sebelah kiri."></textarea>
+                <div class="iso-editor-footer">
+                  <span id="isoEditorFileStatus" role="status" aria-live="polite">Workspace belum dibuka.</span>
+                  <button class="primary-button" id="isoEditorSaveButton" type="button" disabled>Simpan perubahan file</button>
+                </div>
+              </div>
+            </div>
+            <div class="iso-editor-build-actions">
+              <button class="primary-button" id="isoEditorRepackButton" type="button" disabled>Build ulang ISO</button>
+              <button class="quiet-button" id="isoEditorDownloadButton" type="button" disabled>Unduh ISO hasil edit</button>
+            </div>
+            <p class="iso-editor-warning">File boot yang dipakai langsung oleh El Torito dilindungi. Edit konfigurasi boot dan file biasa, tetapi jangan mengganti citra boot secara langsung pada tahap ini.</p>
+          </section>
         </div>
         <div class="iso-roadmap">
           <div class="iso-roadmap-heading">
