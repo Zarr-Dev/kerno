@@ -3097,7 +3097,7 @@ $("#landingTutorialButton").onclick=openTutorial;
 $("#heroStartButton").onclick=()=>{state.newProjectReturn="welcome";syncWizardDefaults();show("newProject");};
 $("#heroTutorialButton").onclick=openTutorial;
 $("#workflowTutorialButton").onclick=openTutorial;
-$("[data-kernel-stage]").forEach(button=>{
+$$("[data-kernel-stage]").forEach(button=>{
   button.addEventListener("click",()=>openTutorialStage(button.dataset.kernelStage));
 });
 $("#isoTutorialButton").onclick=()=>openTutorialStage(7);$("#footerTutorialButton").onclick=openTutorial;
