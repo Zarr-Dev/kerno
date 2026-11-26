@@ -43,8 +43,22 @@ function assert(condition, message) {
     });
     assert(workflowVisible, "The Workflow navigation did not scroll to its section.");
 
-    await page.locator('[data-kernel-stage="3"]').click();
-    await page.locator("#tutorialScreen:not(.hidden)").waitFor();
+    const bootTopic = page.locator('[data-kernel-stage="3"]');
+    const bindingState = await bootTopic.evaluate(button => ({
+      bound: button.dataset.kernoActionBound || "",
+      stage: button.dataset.kernelStage || ""
+    }));
+    await bootTopic.click();
+    const clickState = await bootTopic.evaluate(button => ({
+      bound: button.dataset.kernoActionBound || "",
+      clicked: button.dataset.kernoActionClicked || "",
+      stage: button.dataset.kernelStage || ""
+    }));
+    await page.locator("#tutorialScreen:not(.hidden)").waitFor({ timeout: 8000 }).catch(async () => {
+      throw new Error("Kernel topic CTA did not open Academy: " + JSON.stringify({
+        bindingState, clickState, errors, screenClasses: await page.locator("#tutorialScreen").getAttribute("class")
+      }));
+    });
     await page.waitForTimeout(120);
     const tutorialMetrics = await page.locator("#tutorialScreen").evaluate(root => {
       const target = document.querySelector("#tutorial-stage-3");
