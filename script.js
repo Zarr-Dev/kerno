@@ -2279,7 +2279,11 @@ async function importIsoFile(file){
  if(!file)return;
  if(!/\.iso$/i.test(file.name||"")){notify("ISO import failed","Select a file with the .iso extension.","error");return;}
  if(file.size>4*1024*1024*1024){notify("ISO import failed","The default ISO limit is 4 GiB.","error");return;}
- const button=$("#isoImportButton");button.disabled=true;$("#isoExtractButton").disabled=true;$("#isoBootButton").disabled=true;
+ if(state.importedIso&&(state.isoEditorDirty||state.isoEditorTextDirty)){
+  const discard=await confirmInApp(isoEditorText("discardWorkspace"),"Unsaved ISO workspace");
+  if(!discard)return;
+ }
+ const button=$("#isoImportButton");button.disabled=true;$("#isoExtractButton").disabled=true;$("#isoOpenEditorButton").disabled=true;$("#isoBootButton").disabled=true;
  setIsoImportStatus(isoText("working")+" "+file.name,"working");
  try{
   if(!state.localConnected&&!await testService())throw new Error("Connect Kerno Local Service first.");
@@ -2290,7 +2294,7 @@ async function importIsoFile(file){
   renderImportedIso(imported);setIsoImportStatus(isoText("imported"),"success");
   notify("ISO imported",imported.name||file.name);
  }catch(error){setIsoImportStatus(error.message,"error");notify("ISO import failed",error.message,"error");}
- finally{button.disabled=false;}
+ finally{button.disabled=false;$("#isoOpenEditorButton").disabled=!state.importedIso;}
 }
 async function extractImportedIso(){
  if(!state.importedIso){notify("No ISO selected","Import an ISO before extraction.","error");return;}
@@ -2350,7 +2354,7 @@ const ISO_EDITOR_COPY={
   open:"Buka Editor ISO",openStatus:"Menyiapkan ruang kerja ISO…",opened:"Editor ISO siap. Pilih file di daftar untuk mulai.",empty:"Tidak ada file yang cocok.",files:"file",search:"Cari file",
   addPath:"Masukkan path relatif untuk file baru. Contoh: docs/catatan.txt",addTitle:"Tambah file ke ISO",replace:"File berhasil diganti.",saved:"Perubahan file berhasil disimpan.",deleted:"File berhasil dihapus dari ruang kerja.",dirty:"Ada perubahan yang belum dibangun ulang",clean:"Belum ada perubahan yang perlu dibangun ulang",binary:"File ini bukan teks UTF-8. Gunakan Ganti file terpilih untuk memasukkan file lain.",protected:"File boot El Torito dilindungi agar konfigurasi boot tidak rusak.",
   repacking:"Membangun ulang ISO dan memeriksa struktur boot…",repacked:"ISO hasil edit berhasil dibangun dan divalidasi.",download:"ISO hasil edit berhasil diunduh.",discard:"Ada perubahan teks yang belum disimpan. Buang perubahan tersebut?",
-  confirmDelete:"Hapus file ini dari ruang kerja ISO? Perubahan baru berlaku setelah ISO dibangun ulang.",
+  confirmDelete:"Hapus file ini dari ruang kerja ISO? Perubahan baru berlaku setelah ISO dibangun ulang.",discardWorkspace:"Workspace ISO ini memiliki perubahan yang belum dibangun ulang. Lanjutkan impor dan buang perubahan tersebut?",
   openFirst:"Buka Editor ISO terlebih dahulu.",selectFirst:"Pilih file dari daftar terlebih dahulu.",noChanges:"Belum ada perubahan untuk dibangun ulang.",
   loaded:"Daftar file diperbarui.",upload:"Pilih file yang akan ditambahkan atau mengganti file yang dipilih."
  },
@@ -2358,7 +2362,7 @@ const ISO_EDITOR_COPY={
   open:"Open ISO Editor",openStatus:"Preparing the ISO workspace…",opened:"ISO Editor is ready. Select a file from the list to begin.",empty:"No matching files.",files:"files",search:"Search files",
   addPath:"Enter a relative path for the new file. Example: docs/notes.txt",addTitle:"Add file to ISO",replace:"File replaced successfully.",saved:"File changes saved successfully.",deleted:"File removed from the ISO workspace.",dirty:"There are changes waiting to be rebuilt",clean:"There are no changes waiting to be rebuilt",binary:"This file is not UTF-8 text. Use Replace selected file to upload another file.",protected:"This El Torito boot image is protected to avoid breaking the boot configuration.",
   repacking:"Rebuilding the ISO and checking its boot structure…",repacked:"The edited ISO was rebuilt and validated.",download:"Edited ISO downloaded.",discard:"There are unsaved text changes. Discard them?",
-  confirmDelete:"Remove this file from the ISO workspace? The change takes effect after rebuilding the ISO.",
+  confirmDelete:"Remove this file from the ISO workspace? The change takes effect after rebuilding the ISO.",discardWorkspace:"This ISO workspace has changes that have not been rebuilt. Import another ISO and discard those changes?",
   openFirst:"Open the ISO Editor first.",selectFirst:"Select a file from the list first.",noChanges:"There are no changes to rebuild.",
   loaded:"File list refreshed.",upload:"Choose a file to add or replace the selected file."
  }
