@@ -8,16 +8,16 @@ const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== i
 if (duplicateIds.length) throw new Error("Duplicate IDs: " + duplicateIds.join(", "));
 const idSet = new Set(ids);
 
-const unsafeCollectionCalls = script.split("\\n")
+const unsafeCollectionCalls = script.split(/\r?\n/)
   .map((line, index) => ({ line: index + 1, text: line }))
-  .filter(entry => /(?<!\\$)\\$\\([^)]*\\)\\.forEach/.test(entry.text));
+  .filter(entry => /(?<!\$)\$\([^)]*\)\.forEach/.test(entry.text));
 if (unsafeCollectionCalls.length) {
   throw new Error("Single-element selectors used with forEach: " + JSON.stringify(unsafeCollectionCalls));
 }
 for (const required of [
-  'const links=$("#tutorialContents a");',
-  'const targets=root?$(".landing-section,.recent-section",root):[];',
-  '$("[data-kernel-stage]").forEach'
+  'const links=$$("#tutorialContents a");',
+  'const targets=root?$$(".landing-section,.recent-section",root):[];',
+  '$$("[data-kernel-stage]").forEach'
 ]) {
   if (!script.includes(required)) throw new Error("Missing collection selector: " + required);
 }
@@ -52,7 +52,7 @@ for (let index = 0; index < buttons.length; index++) {
       (attrMap["data-tutorial-action"] !== undefined && script.includes('closest("[data-tutorial-action]")')) ||
       (attrMap["data-category"] !== undefined && script.includes('$$(".settings-nav-item")')) ||
       (attrMap["data-workspace"] !== undefined && script.includes('$$(".workspace-nav-item")')) ||
-      (attrMap["data-kernel-stage"] !== undefined && script.includes('$("[data-kernel-stage]")'));
+      (attrMap["data-kernel-stage"] !== undefined && script.includes('$$("[data-kernel-stage]").forEach'));
     if (!delegated) failures.push("No delegated click handler found for button " + (JSON.stringify(attrMap) || (index + 1)) + ".");
   }
 }
@@ -69,7 +69,7 @@ for (const stage of [3, 5, 8]) {
   if (!html.includes('data-kernel-stage="' + stage + '"')) failures.push("Missing kernel topic action for tutorial stage " + stage + ".");
   if (!html.includes('id="tutorial-stage-' + stage + '"')) failures.push("Missing tutorial target " + stage + ".");
 }
-if (!script.includes('$("[data-kernel-stage]").forEach') || !script.includes("function openTutorialStage(index)")) {
+if (!script.includes('$$("[data-kernel-stage]").forEach') || !script.includes("function openTutorialStage(index)")) {
   failures.push("Kernel topic cards are not wired to tutorial navigation.");
 }
 if (!script.includes("function landingScrollBehavior()") || !script.includes("prefers-reduced-motion: reduce")) {
