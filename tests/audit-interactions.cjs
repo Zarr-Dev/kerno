@@ -38,7 +38,7 @@ for (let index = 0; index < buttons.length; index++) {
       (attrMap["data-tutorial-action"] !== undefined && script.includes('closest("[data-tutorial-action]")')) ||
       (attrMap["data-category"] !== undefined && script.includes('$$(".settings-nav-item")')) ||
       (attrMap["data-workspace"] !== undefined && script.includes('$$(".workspace-nav-item")')) ||
-      (attrMap["data-kernel-stage"] !== undefined && script.includes('closest("[data-kernel-stage]")'));
+      (attrMap["data-kernel-stage"] !== undefined && script.includes('$("[data-kernel-stage]")'));
     if (!delegated) failures.push("No delegated click handler found for button " + (JSON.stringify(attrMap) || (index + 1)) + ".");
   }
 }
