@@ -585,6 +585,7 @@ function translate(){
   document.title=copy["meta.title"]||"Kerno — Operating System Builder";
   const description=$('meta[name="description"]');if(description)description.content=copy["meta.description"]||"Kerno is an operating-system development environment.";
   refreshEditorLabels();
+  translateIsoWorkbench();
 }
 function notify(title,detail,type){
   const region=$("#toastRegion");
@@ -2147,6 +2148,174 @@ function renderMachine(){
 }
 function renderBuild(){if(!state.project)return;$("#buildTarget").textContent=state.project.config.architecture;$("#buildBootloader").textContent=state.project.config.bootloader;$("#buildLanguage").textContent=state.project.config.kernelLanguage.toUpperCase();}
 function updateProjectHeader(){if(!state.project)return;$("#activeProjectName").textContent=state.project.name;$("#activeTargetChip").textContent=state.project.config.architecture+" · "+state.project.config.bootloader.toUpperCase();}
+
+const ISO_UI_COPY={
+ id:{
+  title:"Impor, bongkar, dan jalankan ISO",description:"Gunakan Local Service untuk memeriksa citra ISO, melihat isi berkasnya, lalu menjalankannya melalui QEMU.",
+  import:"Pilih file ISO",extract:"Bongkar isi ISO",boot:"Boot ISO di QEMU",idle:"Belum ada ISO yang diimpor. Hubungkan Local Service untuk memulai.",
+  imported:"ISO berhasil diimpor dan diverifikasi.",working:"Sedang memproses ISO. Biarkan halaman dan Local Service tetap terbuka.",
+  noBios:"ISO ini tidak memiliki entri boot BIOS yang tervalidasi. Berkas tetap dapat diperiksa dan diekstrak, tetapi belum dapat dijalankan lewat profil BIOS Kerno v0.1.",
+  bios:"Terdeteksi entri boot BIOS. ISO dapat dicoba melalui QEMU dengan firmware BIOS.",
+  efi:"ISO mendukung EFI/UEFI, tetapi boot UEFI belum menjadi target Kerno v0.1.",
+  extractDone:"Ekstraksi selesai. Hasilnya dikemas dalam arsip ZIP.",
+  toolTitle:"Versi toolchain & jalur pembaruan",toolLead:"Bandingkan jalur pengembangan, perbaikan, dan rilis stabil. Versi terpasang dibaca langsung dari komputer host.",
+  development:"Development / preview",maintenance:"Fix / maintenance",stable:"Latest stable",installed:"Terpasang di host",
+  notScanned:"Belum dipindai",notAvailable:"Tidak ada rilis maintenance terpisah",
+  releaseNote:"Data rilis upstream diperiksa pada 26 November 2026. Ini bukan perintah instalasi atau pembaruan otomatis. Cocokkan versi dengan platform dan arsitektur host."
+ },
+ en:{
+  title:"Import, inspect and boot an ISO",description:"Use the Local Service to inspect an ISO image, browse its files, and launch it through QEMU.",
+  import:"Choose ISO file",extract:"Extract ISO contents",boot:"Boot ISO in QEMU",idle:"No ISO imported yet. Connect the Local Service to begin.",
+  imported:"ISO imported and verified.",working:"Processing ISO. Keep this page and the Local Service open.",
+  noBios:"This ISO has no validated BIOS boot entry. You can still inspect and extract it, but Kerno v0.1 cannot boot it using the BIOS profile.",
+  bios:"A BIOS boot entry was detected. The ISO can be attempted in QEMU using BIOS firmware.",
+  efi:"This ISO supports EFI/UEFI, but UEFI boot is not yet a Kerno v0.1 target.",
+  extractDone:"Extraction completed. The files are packaged as a ZIP archive.",
+  toolTitle:"Toolchain versions & update channels",toolLead:"Compare development, maintenance and stable release tracks. Installed versions are read from the host computer.",
+  development:"Development / preview",maintenance:"Fix / maintenance",stable:"Latest stable",installed:"Installed on host",
+  notScanned:"Not scanned",notAvailable:"No separate maintenance release",
+  releaseNote:"Upstream release data checked on 26 November 2026. This panel does not install or update tools. Match each version to your host platform and architecture."
+ }
+};
+function isoText(key){
+ const copy=ISO_UI_COPY[activeLocale()]||ISO_UI_COPY.en;
+ return copy[key]||ISO_UI_COPY.en[key]||key;
+}
+function translateIsoWorkbench(){
+ const values={isoWorkbenchTitle:"title",isoWorkbenchDescription:"description",isoImportButton:"import",isoExtractButton:"extract",isoBootButton:"boot",toolVersionHeading:"toolTitle"};
+ Object.entries(values).forEach(([id,key])=>{const node=$("#"+id);if(node)node.textContent=isoText(key);});
+ const lead=$("#toolVersionHeading")?.parentElement?.querySelector("p");
+ if(lead)lead.textContent=isoText("toolLead");
+ if(!state.importedIso)setIsoImportStatus(isoText("idle"),"");
+ const note=$("#toolVersionStatus");if(note)note.textContent=isoText("releaseNote");
+}
+const TOOL_RELEASE_TRACKS=[
+ {name:"QEMU",role:"System emulator",key:"qemu",development:"11.2.0-rc1",maintenance:"11.0.5",stable:"11.1.3",installedKeys:["qemu"]},
+ {name:"NASM",role:"Assembler",key:"assembler",development:"3.02-20260819",maintenance:"—",stable:"3.02",installedKeys:["assembler"]},
+ {name:"GNU GRUB",role:"Bootloader / ISO builder",key:"isoBuilder",development:"Upstream Git",maintenance:"—",stable:"2.14",installedKeys:["isoBuilder"]},
+ {name:"GCC cross-compiler",role:"C and C++ compiler",key:"crossCompiler",development:"trunk (rolling)",maintenance:"15.3 / 13.5",stable:"16.2",installedKeys:["crossCompiler","cCompiler"]},
+ {name:"GNU xorriso",role:"ISO inspection and extraction",key:"xorriso",development:"1.5.9 snapshot",maintenance:"—",stable:"1.5.8.pl02",installedKeys:["xorriso"]},
+ {name:"Python",role:"Kerno Local Service runtime",key:"python",development:"main (rolling)",maintenance:"3.14.10 / 3.12.16",stable:"3.15.2",installedKeys:[]}
+];
+function renderToolVersionChannels(hostTools,extra){
+ const host=hostTools||{},extras=extra||{},target=$("#toolVersionCards");
+ if(!target)return;
+ target.textContent="";
+ TOOL_RELEASE_TRACKS.forEach(item=>{
+  const card=document.createElement("article");card.className="tool-version-item";
+  const heading=document.createElement("h3");heading.textContent=item.name;card.append(heading);
+  const role=document.createElement("small");role.textContent=item.role;card.append(role);
+  [
+   [isoText("development"),item.development,"development"],
+   [isoText("maintenance"),item.maintenance==="—"?isoText("notAvailable"):item.maintenance,"maintenance"],
+   [isoText("stable"),item.stable,"stable"]
+  ].forEach(([label,value,kind])=>{
+   const row=document.createElement("div");row.className="tool-version-row";
+   const caption=document.createElement("span");caption.textContent=label;
+   const version=document.createElement("strong");version.textContent=value;version.className="tool-version-badge "+kind;
+   row.append(caption,version);card.append(row);
+  });
+  let installed=[];
+  if(item.key==="python"){if(extras.pythonVersion)installed.push("Python "+extras.pythonVersion);}
+  else installed=item.installedKeys.map(key=>{const entry=host[key];return entry&&entry.available?(entry.version||entry.command||"Available"):null;}).filter(Boolean);
+  const row=document.createElement("div");row.className="tool-version-row";
+  const caption=document.createElement("span");caption.textContent=isoText("installed");
+  const value=document.createElement("strong");value.textContent=installed.length?[...new Set(installed)].join(" · "):isoText("notScanned");
+  row.append(caption,value);card.append(row);target.append(card);
+ });
+ const note=$("#toolVersionStatus");if(note)note.textContent=isoText("releaseNote");
+}
+function setIsoImportStatus(message,stateName){
+ const status=$("#isoImportStatus");if(!status)return;
+ status.textContent=message;status.dataset.state=stateName||"";
+}
+function renderImportedIso(record){
+ const info=record.inspection||{};
+ $("#isoImportDetails").classList.remove("hidden");
+ $("#isoImportedName").textContent=record.name||"uploaded.iso";
+ $("#isoImportedSize").textContent=formatBytes(Number(record.sizeBytes||0));
+ $("#isoImportedVolume").textContent=info.volumeId||"(unknown)";
+ $("#isoImportedSha").textContent=record.sha256||"Not available";
+ const boot=$("#isoBootCompatibility"),flags=[];
+ if(info.iso9660Valid)flags.push("ISO9660 valid");
+ if(info.hasElTorito)flags.push("El Torito catalog found");
+ if(info.bootableBIOS)flags.push("BIOS bootable");
+ if(info.bootableEFI)flags.push("EFI bootable");
+ boot.textContent=(flags.join(" · ")||"ISO structure inspected; no boot platform identified.")+" "+
+  (info.bootableBIOS?isoText("bios"):info.bootableEFI?isoText("efi"):isoText("noBios"));
+ boot.dataset.bootable=info.bootableBIOS?"true":"false";
+ $("#isoExtractButton").disabled=false;
+ $("#isoBootButton").disabled=!info.bootableBIOS;
+ $("#isoExtractionResult").classList.add("hidden");
+}
+async function importIsoFile(file){
+ if(!file)return;
+ if(!/\.iso$/i.test(file.name||"")){notify("ISO import failed","Select a file with the .iso extension.","error");return;}
+ if(file.size>4*1024*1024*1024){notify("ISO import failed","The default ISO limit is 4 GiB.","error");return;}
+ const button=$("#isoImportButton");button.disabled=true;$("#isoExtractButton").disabled=true;$("#isoBootButton").disabled=true;
+ setIsoImportStatus(isoText("working")+" "+file.name,"working");
+ try{
+  if(!state.localConnected&&!await testService())throw new Error("Connect Kerno Local Service first.");
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const imported=await KernoLocalService.importIso(file);
+  state.importedIso=imported;state.isoArchive=null;
+  renderImportedIso(imported);setIsoImportStatus(isoText("imported"),"success");
+  notify("ISO imported",imported.name||file.name);
+ }catch(error){setIsoImportStatus(error.message,"error");notify("ISO import failed",error.message,"error");}
+ finally{button.disabled=false;}
+}
+async function extractImportedIso(){
+ if(!state.importedIso){notify("No ISO selected","Import an ISO before extraction.","error");return;}
+ const button=$("#isoExtractButton");button.disabled=true;setIsoImportStatus(isoText("working"),"working");
+ try{
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const result=await KernoLocalService.extractIso(state.importedIso.id);
+  if(result.status!=="extracted"||!result.archive)throw new Error("Local Service did not confirm ISO extraction.");
+  const archive=result.archive;state.isoArchive=archive;
+  const rows=(archive.files||[]).map(entry=>entry.path+"  ·  "+formatBytes(Number(entry.sizeBytes||0)));
+  if(archive.previewTruncated)rows.push("… preview limited to the first "+(archive.files||[]).length+" files.");
+  if(archive.skippedLinks)rows.push("Skipped symbolic links / unsafe entries: "+archive.skippedLinks);
+  $("#isoFilePreview").textContent=rows.join("\n")||"(The ISO contains no regular files.)";
+  $("#isoExtractedTitle").textContent="ISO file tree";
+  $("#isoExtractedSummary").textContent=Number(archive.fileCount||0)+" files · "+formatBytes(Number(archive.totalExtractedBytes||0))+" extracted";
+  $("#isoExtractionResult").classList.remove("hidden");$("#isoDownloadArchiveButton").disabled=false;
+  setIsoImportStatus(isoText("extractDone"),"success");
+  notify("ISO extraction completed",archive.fileCount+" files packaged into ZIP.");
+ }catch(error){setIsoImportStatus(error.message,"error");notify("ISO extraction failed",error.message,"error");}
+ finally{button.disabled=false;}
+}
+async function downloadExtractedIso(){
+ if(!state.isoArchive){notify("No extracted archive available");return;}
+ const button=$("#isoDownloadArchiveButton");button.disabled=true;
+ try{
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const blob=await KernoLocalService.downloadIsoArchive(state.isoArchive.id);
+  download(blob,"kerno-iso-extracted.zip");notify("Extraction archive downloaded",state.isoArchive.name||"ZIP archive");
+ }catch(error){notify("Archive download failed",error.message,"error");}
+ finally{button.disabled=false;}
+}
+async function startImportedIsoQemu(){
+ if(!state.importedIso){notify("No ISO selected","Import an ISO first.","error");return;}
+ if(!state.importedIso.inspection?.bootableBIOS){notify("ISO cannot boot in BIOS profile",isoText("noBios"),"error");return;}
+ const button=$("#isoBootButton");button.disabled=true;setIsoImportStatus(isoText("working"),"working");
+ try{
+  if(!state.localConnected&&!await testService())throw new Error("Connect Kerno Local Service first.");
+  KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
+  const result=await KernoLocalService.startIsoEmulator(state.importedIso.id,state.settings);
+  if(result.status!=="running"||!result.displayUrl)throw new Error("Local Service did not confirm a running QEMU session and display endpoint.");
+  state.qemuBootMode="external-iso";state.kernelEntryConfirmed=false;
+  state.qemuStartedAt=Date.now();state.qemuBootTimeoutShown=false;
+  state.lastSerialOutput=String(result.serialOutput||"");
+  setServiceStatus(true,"QEMU running · external ISO");showDisplay(result.displayUrl);
+  $("#serialOutput").textContent=state.lastSerialOutput||"External ISO started. Waiting for serial output…";
+  $("#stopQemuButton").disabled=false;$("#startQemuButton").disabled=true;
+  if(Array.isArray(result.healthChecks))renderBuildHealth(result.healthChecks,false);
+  startQemuPolling();
+  setIsoImportStatus("QEMU process is running. Check the guest display and logs to confirm its boot outcome.","success");
+  notify("External ISO launched in QEMU",state.importedIso.name||"Imported ISO");
+ }catch(error){setIsoImportStatus(error.message,"error");notify("External ISO could not boot",error.message,"error");button.disabled=false;}
+}
+
 function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
 function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=msg||tr("connectQemuPrompt");}
 function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
@@ -2446,6 +2615,7 @@ async function checkToolchain(){
   try{
     KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
     const result=await KernoLocalService.toolchain(state.settings);
+    renderToolVersionChannels(result.tools||{});
     const tools=Object.entries(result.tools||{});
     const available=tools.filter(([,value])=>value&&value.available);
     const missing=tools.filter(([,value])=>!value||!value.available);
@@ -2470,6 +2640,7 @@ async function scanHostPc(){
   try{
     KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);
     const data=await KernoLocalService.hostDiagnostics(state.settings),memory=data.memory||{};
+    renderToolVersionChannels(data.toolchain||{},{pythonVersion:data.pythonVersion||""});
     const items=[
       ["Operating system",data.platform||data.system||"Unknown"],
       ["CPU architecture",data.machine||"Unknown"],
