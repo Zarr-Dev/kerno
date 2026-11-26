@@ -65,8 +65,29 @@ All routes require the X-Kerno-Token header. Browser origins are restricted to t
 - POST /api/v1/emulator/start
 - POST /api/v1/emulator/stop
 - GET /api/v1/artifacts/{artifact_id}
+- POST /api/v1/iso/import (raw application/octet-stream body; returns ISO metadata and SHA-256)
+- GET /api/v1/iso/imports/{iso_id}
+- POST /api/v1/iso/extract (returns file preview and ZIP archive metadata)
+- GET /api/v1/iso/archives/{archive_id}
+- POST /api/v1/emulator/start-iso
 
-## Build health and ISO integrity (Local Agent 0.3.0)
+## ISO Workbench (Local Agent 0.4.0)
+
+Kerno's ISO Workbench adds an independent workflow for external disk images. It does not send an imported image through the kernel-build validator: a Linux installer, rescue image or other distribution ISO is not expected to contain Kerno's `/boot/kernel.elf` or `/boot/grub/grub.cfg`.
+
+The workflow is:
+
+1. **Import** — the browser streams the ISO to the loopback Local Service as `application/octet-stream`. The service writes to a temporary file, checks the upload length and 2048-byte sector alignment, computes SHA-256, validates ISO9660 descriptors and checks the El Torito boot catalog with xorriso. Only a validated upload is registered.
+2. **Inspect** — Kerno reports the volume label, size, checksum, ISO9660 structure and detected BIOS/EFI boot capability.
+3. **Extract** — xorriso extracts the ISO into an isolated temporary folder. Kerno packages regular files into a ZIP archive, skips symbolic links, and enforces a 50,000-file / 2 GiB extracted-content limit. The UI previews up to 500 file paths; the ZIP contains the complete permitted extraction.
+4. **Boot** — QEMU starts the imported image as a CD-ROM. Kerno v0.1 enables this direct external-ISO path only when a validated El Torito BIOS boot entry is present. UEFI-only boot is not yet supported by this path.
+5. **Observe** — the existing QEMU/noVNC display, process log and serial console are reused. A running emulator process is not proof that the guest OS completed boot. The Kerno kernel-entry marker is only checked for Kerno-built projects, never for arbitrary external images.
+
+Default limits are 4 GiB per uploaded ISO and 2 GiB of extracted regular-file content. They can be adjusted using `KERNO_MAX_ISO_BYTES` and `KERNO_MAX_EXTRACTED_ISO_BYTES`. Import records and archive metadata live in the Local Service process memory for the current session; restart the service and re-import an image if those records are lost. The actual uploaded files remain in the service artifact directory.
+
+The Local Service API uses the same loopback Host check, Origin allow-list and pairing-token authorization as the existing build endpoints. The ISO upload route accepts only `application/octet-stream`; the browser does not submit a filesystem path or a shell command. xorriso and QEMU are invoked through argument arrays, not a shell.
+
+## Build health and ISO integrity (Local Agent 0.4.0)
 
 Each native build returns phase-by-phase health checks. The builder verifies the ELF64 x86_64 executable and entry segment, Multiboot2 header structure, GRUB compatibility when `grub-file` is available, the staged boot files, ISO9660 descriptors, El Torito validation/catalog entries, and an SHA-256 digest. An ISO is registered for download only after the required validations pass.
 
