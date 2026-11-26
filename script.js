@@ -806,7 +806,7 @@ function setupTutorialObserver(){
 function setupLandingReveal(){
   if(state.landingRevealObserver){state.landingRevealObserver.disconnect();state.landingRevealObserver=null;}
   const root=$("#welcomeScreen");
-  const targets=$$(".landing-section,.recent-section",root);
+  const targets=root?$(".landing-section,.recent-section",root):[];
   const prefersReduced=!!(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   document.body.classList.remove("reveal-ready");
   targets.forEach(el=>el.classList.remove("is-visible"));
