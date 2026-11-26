@@ -1114,3 +1114,66 @@ body.monochrome-theme .editor-engine-fallback small{color:#ddd}
 .iso-roadmap-stage p{margin:6px 0 0;color:var(--muted);font-size:9px;line-height:1.55}
 @media(max-width:900px){.iso-roadmap-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.iso-roadmap-grid{grid-template-columns:1fr}.iso-roadmap-heading{align-items:flex-start;flex-direction:column}}
+
+
+/* ISO file editor */
+.iso-editor-panel{
+  margin-top:14px;padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--surface);
+}
+.iso-editor-header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.iso-editor-header h3{margin:5px 0;font:700 17px/1.25 var(--heading);color:var(--text)}
+.iso-editor-header p{margin:0;max-width:740px;color:var(--muted);font-size:10px;line-height:1.6}
+.iso-editor-dirty{flex:0 0 auto;padding:6px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:9px}
+.iso-editor-dirty[data-dirty="true"]{border-color:var(--amber);color:var(--amber)}
+.iso-editor-toolbar,.iso-editor-build-actions{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0}
+.iso-editor-layout{display:grid;grid-template-columns:minmax(190px,270px) minmax(0,1fr);gap:12px;min-height:360px}
+.iso-editor-sidebar,.iso-editor-main{min-width:0;border:1px solid var(--line);border-radius:7px;background:var(--surface-2)}
+.iso-editor-sidebar{display:flex;flex-direction:column;padding:10px}
+.iso-editor-sidebar label{margin-bottom:6px;color:var(--muted);font-size:9px}
+.iso-editor-sidebar input{
+  width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:5px;
+  background:var(--surface);color:var(--text);font:10px var(--mono);outline:none;
+}
+.iso-editor-sidebar input:focus{border-color:var(--accent)}
+.iso-editor-file-count{padding:8px 2px;color:var(--subtle);font-size:9px}
+.iso-editor-file-list{display:flex;flex-direction:column;gap:3px;max-height:380px;overflow:auto}
+.iso-editor-file{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;width:100%;min-width:0;
+  padding:8px;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--text);
+  text-align:left;cursor:pointer;font:10px/1.4 var(--mono);
+}
+.iso-editor-file:hover:not(:disabled){background:var(--surface);border-color:var(--line)}
+.iso-editor-file.active{background:color-mix(in srgb,var(--accent) 9%,var(--surface));border-color:var(--accent)}
+.iso-editor-file:disabled{opacity:.5;cursor:not-allowed}
+.iso-editor-file span{min-width:0;overflow-wrap:anywhere}
+.iso-editor-file small{flex:0 0 auto;color:var(--subtle);font:9px var(--mono)}
+.iso-editor-empty{margin:8px;color:var(--muted);font-size:10px}
+.iso-editor-main{display:flex;flex-direction:column;padding:10px}
+.iso-editor-selected{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.iso-editor-selected strong{color:var(--text);font:600 10px/1.45 var(--mono);overflow-wrap:anywhere}
+.iso-editor-selected small{color:var(--subtle);font-size:9px;line-height:1.5}
+.iso-editor-main textarea{
+  box-sizing:border-box;width:100%;min-height:260px;resize:vertical;padding:12px;
+  border:1px solid var(--line);border-radius:5px;background:#0c1218;color:#d7e0e9;
+  font:11px/1.65 var(--mono);tab-size:2;outline:none;
+}
+.iso-editor-main textarea:focus{border-color:var(--accent)}
+.iso-editor-main textarea:disabled{opacity:.55;cursor:not-allowed}
+.iso-editor-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:9px}
+.iso-editor-footer span{color:var(--muted);font-size:9px;line-height:1.5}
+.iso-editor-build-actions{padding-top:12px;border-top:1px solid var(--line)}
+.iso-editor-warning{margin:0;padding:10px;border-left:3px solid var(--amber);background:var(--surface-2);color:var(--muted);font-size:9px;line-height:1.6}
+@media(max-width:760px){
+  .iso-editor-layout{grid-template-columns:1fr}
+  .iso-editor-sidebar{max-height:270px}
+  .iso-editor-file-list{max-height:185px}
+  .iso-editor-main textarea{min-height:220px}
+}
+@media(max-width:520px){
+  .iso-editor-panel{padding:11px}
+  .iso-editor-header{flex-direction:column}
+  .iso-editor-toolbar>*{flex:1 1 calc(50% - 8px)}
+  .iso-editor-footer{align-items:stretch;flex-direction:column}
+  .iso-editor-footer button{width:100%}
+  .iso-editor-build-actions>*{flex:1 1 100%}
+}
