@@ -35,6 +35,14 @@ The Machine workspace has a separate ISO Workbench for importing external `.iso`
 
 The initial direct-boot path is limited to images with a validated **El Torito BIOS boot entry**. EFI/UEFI metadata is reported, but UEFI-only external boot is not yet enabled in this Kerno v0.1 stage. QEMU starting successfully means the emulator process and display endpoint are active; it does not prove that the guest OS completed its boot sequence. The existing Kerno kernel-entry marker is deliberately not applied to external images.
 
+The staged ISO Workbench roadmap is:
+- **v0.1 (current):** external ISO import, ISO9660/El Torito inspection, SHA-256 checks, safe ZIP extraction, and BIOS boot through QEMU.
+- **v0.2 (planned):** UEFI boot through OVMF firmware and EFI boot-path checks.
+- **v0.3 (planned):** a persistent local ISO library with import history and image metadata.
+- **v0.4 (planned):** ISO editing/remaster workflows and broader boot-profile validation.
+
+Only v0.1 is implemented in this branch. Later stages are roadmap targets, not available features.
+
 Default limits are 4 GiB per ISO upload, 2 GiB of extracted regular files, 50,000 extracted files, and a 500-entry UI preview. Imported images are streamed to the local machine, hashed with SHA-256, and inspected before being registered. The extraction archive skips symbolic links and is served from the loopback Local Service. See [local-agent/README.md](local-agent/README.md) for endpoints, limits and operating details.
 
 ## Kerno Academy
