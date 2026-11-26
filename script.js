@@ -833,14 +833,14 @@ function scrollWithinPanel(root,target,stickyHeader){
   const rootRect=root.getBoundingClientRect();
   const targetRect=target.getBoundingClientRect();
   const headerHeight=stickyHeader?stickyHeader.getBoundingClientRect().height:0;
-  const top=Math.max(0,root.scrollTop+targetRect.top-rootRect.top-headerHeight-14);
+  const offset=targetRect.top-rootRect.top+root.scrollTop;
+  const maxScroll=Math.max(0,root.scrollHeight-root.clientHeight);
+  const top=Math.min(maxScroll,Math.max(0,offset-headerHeight-14));
+  if(landingScrollBehavior()==="auto")root.scrollTop=top;
+  else root.scrollTo({top,behavior:"smooth"});
   root.dataset.kernoLastScrollTarget=target.id||"";
-  if(landingScrollBehavior()==="auto"){
-    root.scrollTop=top;
-    target.scrollIntoView({behavior:"auto",block:"start"});
-  }else{
-    root.scrollTo({top,behavior:"smooth"});
-  }
+  root.dataset.kernoScrollTop=String(Math.round(top));
+  root.dataset.kernoActualScrollTop=String(Math.round(root.scrollTop));
 }
 function scrollLandingTo(id){
   const root=$("#welcomeScreen");
@@ -3097,10 +3097,8 @@ $("#landingTutorialButton").onclick=openTutorial;
 $("#heroStartButton").onclick=()=>{state.newProjectReturn="welcome";syncWizardDefaults();show("newProject");};
 $("#heroTutorialButton").onclick=openTutorial;
 $("#workflowTutorialButton").onclick=openTutorial;
-$("#kernelMapGrid").addEventListener("click",event=>{
-  const button=event.target.closest("[data-kernel-stage]");
-  if(!button)return;
-  openTutorialStage(button.dataset.kernelStage);
+$("[data-kernel-stage]").forEach(button=>{
+  button.addEventListener("click",()=>openTutorialStage(button.dataset.kernelStage));
 });
 $("#isoTutorialButton").onclick=()=>openTutorialStage(7);$("#footerTutorialButton").onclick=openTutorial;
 $("#backFromTutorial").onclick=()=>show("welcome");
