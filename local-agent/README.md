@@ -70,8 +70,15 @@ All routes require the X-Kerno-Token header. Browser origins are restricted to t
 - POST /api/v1/iso/extract (returns file preview and ZIP archive metadata)
 - GET /api/v1/iso/archives/{archive_id}
 - POST /api/v1/emulator/start-iso
+- GET /api/v1/iso/download/{iso_id}
+- POST /api/v1/iso/workspace/open
+- GET /api/v1/iso/workspaces/{iso_id}/files
+- GET /api/v1/iso/workspaces/{iso_id}/file?path={relative_path}
+- POST /api/v1/iso/workspace/file?isoId={iso_id}&path={relative_path} (raw application/octet-stream body)
+- POST /api/v1/iso/workspace/delete
+- POST /api/v1/iso/workspace/repack
 
-## ISO Workbench (Local Agent 0.4.0)
+## ISO Workbench (Local Agent 0.5.0)
 
 Kerno's ISO Workbench adds an independent workflow for external disk images. It does not send an imported image through the kernel-build validator: a Linux installer, rescue image or other distribution ISO is not expected to contain Kerno's `/boot/kernel.elf` or `/boot/grub/grub.cfg`.
 
@@ -87,7 +94,24 @@ Default limits are 4 GiB per uploaded ISO and 2 GiB of extracted regular-file co
 
 The Local Service API uses the same loopback Host check, Origin allow-list and pairing-token authorization as the existing build endpoints. The ISO upload route accepts only `application/octet-stream`; the browser does not submit a filesystem path or a shell command. xorriso and QEMU are invoked through argument arrays, not a shell.
 
-## Build health and ISO integrity (Local Agent 0.4.0)
+## ISO Editor and boot-preserving repack (Local Agent 0.5.0)
+
+The ISO Editor opens a separate local workspace for an imported image. It does not modify the imported ISO while the user is editing:
+
+1. **Open** — xorriso extracts the ISO into a per-image workspace under the Local Service artifact directory. Extraction runs with symlink following disabled.
+2. **Inspect and select** — the API returns a bounded file listing (up to 2,000 visible entries), file sizes and symbolic-link entries. Paths remain relative to the extracted root.
+3. **Edit** — UTF-8 text files up to 2 MiB can be opened and saved. Other regular files can be added or replaced by uploading a new file. Individual file uploads are limited to 16 MiB. Regular files can be deleted; directories and symbolic links are not directly editable.
+4. **Protect boot metadata** — file paths reported by xorriso as El Torito BIOS/EFI boot images or catalog files are protected from direct replacement and deletion. Boot configuration files such as GRUB configuration remain editable.
+5. **Rebuild** — xorriso uses `-update_r` to synchronize additions, modifications and deletions from the workspace into a new output ISO. When an El Torito catalog exists, Kerno invokes `-boot_image any replay` after file synchronization so xorriso can reconstruct its recognized boot setup.
+6. **Verify** — the new ISO must pass ISO9660 inspection, and every BIOS/EFI boot entry detected in the source must still be detected in the output. SHA-256 is calculated for the rebuilt image. The source image is retained as the original; the current editor image advances only after all checks pass.
+
+The editor rejects absolute paths, parent-directory traversal, drive/stream separators and symbolic-link traversal. File writes use temporary files and atomic replacement. The Local Service serializes import, workspace edits, repacks and QEMU startup so that a rebuild cannot read a workspace while it is being changed or race with QEMU startup.
+
+Limits: 4 GiB per imported ISO, 2 GiB total regular-file content in the workspace, 50,000 regular files, 2 MiB per text-editor file, 16 MiB per file upload, and 2,000 entries in the editor list. These are default product limits, not hard xorriso limitations.
+
+Workspace paths and imported-image records are held by the running Local Service. The current ISO bytes remain under its artifact directory, but after restarting the service the user must import the image again and reopen the editor workspace. This release does not yet provide a persistent ISO catalogue or undo/version history.
+
+## Build health and ISO integrity (Local Agent 0.5.0)
 
 Each native build returns phase-by-phase health checks. The builder verifies the ELF64 x86_64 executable and entry segment, Multiboot2 header structure, GRUB compatibility when `grub-file` is available, the staged boot files, ISO9660 descriptors, El Torito validation/catalog entries, and an SHA-256 digest. An ISO is registered for download only after the required validations pass.
 
