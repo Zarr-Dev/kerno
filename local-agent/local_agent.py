@@ -26,6 +26,15 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import parse_qs, urlparse
 
 from iso_manager import extract_iso_archive, inspect_iso_image, receive_iso_upload
+from iso_editor import (
+    delete_file as delete_iso_file,
+    extract_workspace as extract_iso_workspace,
+    is_boot_image_path,
+    list_iso_workspace_files,
+    read_text_file as read_iso_text_file,
+    repack_workspace as repack_iso_workspace,
+    write_file as write_iso_workspace_file,
+)
 
 VERSION = "0.4.0"
 HOST = "127.0.0.1"
@@ -77,6 +86,7 @@ ARTIFACTS: dict[str, dict] = {}
 PROJECT_ARTIFACTS: dict[str, str] = {}
 IMPORTED_ISOS: dict[str, dict] = {}
 ISO_ARCHIVES: dict[str, dict] = {}
+ISO_WORKSPACES: dict[str, dict] = {}
 ISO_LOCK = threading.Lock()
 RUNTIME = {
     "process": None,
@@ -1151,6 +1161,51 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/v1/emulator/status":
             self.send_json(200, emulator_status())
             return
+        if path.startswith("/api/v1/iso/download/"):
+            iso_id = path.rsplit("/", 1)[-1]
+            metadata = IMPORTED_ISOS.get(iso_id)
+            if not metadata:
+                self.send_json(404, {"message": "Imported ISO was not found in this Local Service session."})
+                return
+            file_path = Path(metadata.get("path") or "")
+            if not file_path.is_file():
+                self.send_json(404, {"message": "ISO file is no longer available."})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(file_path.stat().st_size))
+            download_name = metadata.get("name") or "kerno-edited.iso"
+            self.send_header("Content-Disposition", 'attachment; filename="' + safe_name(download_name) + '"')
+            self.send_header("Cache-Control", "no-store")
+            self.send_cors()
+            self.end_headers()
+            with file_path.open("rb") as handle:
+                shutil.copyfileobj(handle, self.wfile)
+            return
+        if path.startswith("/api/v1/iso/workspaces/"):
+            parts = path.strip("/").split("/")
+            if len(parts) < 6:
+                self.send_json(404, {"message": "ISO workspace route was not found."})
+                return
+            iso_id = parts[5]
+            workspace = ISO_WORKSPACES.get(iso_id)
+            if not workspace:
+                self.send_json(404, {"message": "Open the ISO Editor workspace first."})
+                return
+            if len(parts) == 7 and parts[6] == "files":
+                summary = list_iso_workspace_files(Path(workspace["root"]))
+                query = parse_qs(urlparse(self.path).query)
+                prefix = (query.get("prefix") or [""])[0].strip().casefold()
+                if prefix:
+                    summary["files"] = [entry for entry in summary["files"] if entry["path"].casefold().startswith(prefix)]
+                self.send_json(200, {"workspaceId": workspace["id"], **summary})
+                return
+            if len(parts) == 7 and parts[6] == "file":
+                query = parse_qs(urlparse(self.path).query)
+                relative_path = (query.get("path") or [""])[0]
+                result = read_iso_text_file(Path(workspace["root"]), relative_path)
+                self.send_json(200, result)
+                return
         if path.startswith("/api/v1/iso/archives/"):
             archive_id = path.rsplit("/", 1)[-1]
             metadata = ISO_ARCHIVES.get(archive_id)
@@ -1229,7 +1284,130 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(201, {"status": "imported", "iso": response})
                 return
 
+            if path == "/api/v1/iso/workspace/file":
+                content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+                if content_type != "application/octet-stream":
+                    raise ValueError("ISO Editor uploads must use application/octet-stream.")
+                query = parse_qs(urlparse(self.path).query)
+                iso_id = (query.get("isoId") or [""])[0]
+                relative_path = (query.get("path") or [""])[0]
+                metadata = IMPORTED_ISOS.get(iso_id)
+                workspace = ISO_WORKSPACES.get(iso_id)
+                if not metadata or not workspace:
+                    raise RuntimeError("Open the ISO Editor workspace before editing files.")
+                if is_boot_image_path(relative_path, metadata.get("inspection", {}).get("bootImagePaths", [])):
+                    raise ValueError("This file is used directly as an El Torito boot image and is protected to preserve bootability.")
+                try:
+                    content_length = int(self.headers.get("Content-Length", "0"))
+                except ValueError as error:
+                    raise ValueError("ISO Editor upload Content-Length is invalid.") from error
+                if content_length < 0 or content_length > 16 * 1024 * 1024:
+                    raise ValueError("A single edited or uploaded ISO file cannot exceed 16 MiB.")
+                content = self.rfile.read(content_length)
+                if len(content) != content_length:
+                    raise ValueError("ISO Editor upload ended before the declared Content-Length was received.")
+                result = write_iso_workspace_file(Path(workspace["root"]), relative_path, content)
+                workspace["dirty"] = True
+                self.send_json(200, {"status": "saved", "file": result})
+                return
+
             data = self.read_json()
+            if path == "/api/v1/iso/workspace/open":
+                iso_id = str(data.get("isoId") or "")
+                metadata = IMPORTED_ISOS.get(iso_id)
+                if not metadata:
+                    raise RuntimeError("The selected imported ISO is unavailable. Import it again.")
+                workspace = ISO_WORKSPACES.get(iso_id)
+                if not workspace or not Path(workspace.get("root") or "").is_dir():
+                    if not ISO_LOCK.acquire(blocking=False):
+                        raise RuntimeError("Another ISO operation is running. Wait for it to finish.")
+                    try:
+                        created = extract_iso_workspace(
+                            Path(metadata.get("path") or ""),
+                            ARTIFACTS_DIR,
+                            executable("xorriso", "xorriso")
+                        )
+                    finally:
+                        ISO_LOCK.release()
+                    workspace = {
+                        "id": created["id"],
+                        "directory": created["directory"],
+                        "root": created["root"],
+                        "dirty": False,
+                    }
+                    ISO_WORKSPACES[iso_id] = workspace
+                summary = list_iso_workspace_files(Path(workspace["root"]))
+                self.send_json(200, {
+                    "status": "opened",
+                    "workspaceId": workspace["id"],
+                    "dirty": bool(workspace.get("dirty")),
+                    "bootImagePaths": metadata.get("inspection", {}).get("bootImagePaths", []),
+                    **summary,
+                })
+                return
+            if path == "/api/v1/iso/workspace/delete":
+                iso_id = str(data.get("isoId") or "")
+                relative_path = str(data.get("path") or "")
+                metadata = IMPORTED_ISOS.get(iso_id)
+                workspace = ISO_WORKSPACES.get(iso_id)
+                if not metadata or not workspace:
+                    raise RuntimeError("Open the ISO Editor workspace before editing files.")
+                if is_boot_image_path(relative_path, metadata.get("inspection", {}).get("bootImagePaths", [])):
+                    raise ValueError("This file is used directly as an El Torito boot image and is protected to preserve bootability.")
+                result = delete_iso_file(Path(workspace["root"]), relative_path)
+                workspace["dirty"] = True
+                self.send_json(200, {"status": "deleted", "file": result})
+                return
+            if path == "/api/v1/iso/workspace/repack":
+                iso_id = str(data.get("isoId") or "")
+                metadata = IMPORTED_ISOS.get(iso_id)
+                workspace = ISO_WORKSPACES.get(iso_id)
+                if not metadata or not workspace:
+                    raise RuntimeError("Open the ISO Editor workspace before rebuilding the ISO.")
+                with STATE_LOCK:
+                    current = RUNTIME.get("process")
+                    if current and current.poll() is None:
+                        raise RuntimeError("Stop the running QEMU machine before rebuilding an ISO.")
+                source_path = Path(metadata.get("path") or "")
+                expected_sha = str(metadata.get("sha256") or "")
+                if not source_path.is_file() or not re.fullmatch(r"[a-fA-F0-9]{64}", expected_sha):
+                    raise RuntimeError("The source ISO or its integrity record is unavailable.")
+                if not hmac.compare_digest(sha256_file(source_path).lower(), expected_sha.lower()):
+                    raise RuntimeError("The source ISO SHA-256 changed. Re-import the image before rebuilding.")
+                if not workspace.get("dirty"):
+                    raise RuntimeError("There are no unsaved file changes to rebuild.")
+                if not ISO_LOCK.acquire(blocking=False):
+                    raise RuntimeError("Another ISO operation is running. Wait for it to finish.")
+                output_path = ARTIFACTS_DIR / ("iso-edited-" + uuid.uuid4().hex + ".iso")
+                try:
+                    result = repack_iso_workspace(
+                        source_path,
+                        Path(workspace["root"]),
+                        output_path,
+                        metadata.get("inspection") or {},
+                        executable("xorriso", "xorriso")
+                    )
+                finally:
+                    ISO_LOCK.release()
+                previous_path = source_path
+                if "originalPath" not in metadata:
+                    metadata["originalPath"] = str(source_path)
+                metadata["path"] = result["path"]
+                metadata["sha256"] = result["sha256"]
+                metadata["sizeBytes"] = result["sizeBytes"]
+                metadata["inspection"] = result["inspection"]
+                metadata["name"] = Path(metadata.get("name") or "uploaded.iso").stem + "-edited.iso"
+                metadata["edited"] = True
+                metadata["parentSha256"] = expected_sha
+                workspace["dirty"] = False
+                if previous_path != Path(metadata["originalPath"]):
+                    previous_path.unlink(missing_ok=True)
+                self.send_json(200, {
+                    "status": "repacked",
+                    "iso": {key: value for key, value in metadata.items() if key not in ("path", "originalPath")},
+                    "xorrisoLog": result.get("xorrisoLog", ""),
+                })
+                return
             if path == "/api/v1/iso/extract":
                 iso_id = str(data.get("isoId") or "")
                 metadata = IMPORTED_ISOS.get(iso_id)
