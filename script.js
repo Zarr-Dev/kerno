@@ -2159,6 +2159,11 @@ const ISO_UI_COPY={
   efi:"ISO mendukung EFI/UEFI, tetapi boot UEFI belum menjadi target Kerno v0.1.",
   extractDone:"Ekstraksi selesai. Hasilnya dikemas dalam arsip ZIP.",
   toolTitle:"Versi toolchain & jalur pembaruan",toolLead:"Bandingkan jalur pengembangan, perbaikan, dan rilis stabil. Versi terpasang dibaca langsung dari komputer host.",
+  roadmapTitle:"Tahapan pengembangan ISO Workbench",roadmapNote:"Status yang sedang dikerjakan dipisahkan dari fitur yang masih direncanakan.",
+  phase01Title:"Impor ISO BIOS",phase01Description:"Impor, inspeksi, SHA-256, ekstraksi ZIP, dan uji boot BIOS melalui QEMU",
+  phase02Title:"Dukungan UEFI",phase02Description:"Boot UEFI dengan firmware OVMF dan pemeriksaan jalur EFI",
+  phase03Title:"Pustaka ISO lokal",phase03Description:"Riwayat citra, metadata, dan pengelolaan ISO yang lebih persisten",
+  phase04Title:"ISO lanjutan",phase04Description:"Penyuntingan atau remaster ISO dan pengujian profil boot yang lebih luas",
   development:"Development / preview",maintenance:"Fix / maintenance",stable:"Latest stable",installed:"Terpasang di host",
   notScanned:"Belum dipindai",missing:"Tidak ditemukan / belum terpasang",notAvailable:"Tidak ada rilis maintenance terpisah",
   releaseNote:"Data rilis upstream diperiksa pada 26 November 2026. Ini bukan perintah instalasi atau pembaruan otomatis. Cocokkan versi dengan platform dan arsitektur host."
@@ -2172,6 +2177,11 @@ const ISO_UI_COPY={
   efi:"This ISO supports EFI/UEFI, but UEFI boot is not yet a Kerno v0.1 target.",
   extractDone:"Extraction completed. The files are packaged as a ZIP archive.",
   toolTitle:"Toolchain versions & update channels",toolLead:"Compare development, maintenance and stable release tracks. Installed versions are read from the host computer.",
+  roadmapTitle:"ISO Workbench development stages",roadmapNote:"The active development stage is shown separately from features that are still planned.",
+  phase01Title:"BIOS ISO import",phase01Description:"Import, inspect, SHA-256 verification, ZIP extraction and BIOS boot testing through QEMU",
+  phase02Title:"UEFI support",phase02Description:"UEFI boot through OVMF firmware and EFI boot-path validation",
+  phase03Title:"Local ISO library",phase03Description:"Image history, metadata and more persistent ISO management",
+  phase04Title:"Advanced ISO tools",phase04Description:"ISO editing or remastering and broader boot-profile testing",
   development:"Development / preview",maintenance:"Fix / maintenance",stable:"Latest stable",installed:"Installed on host",
   notScanned:"Not scanned",missing:"Not detected / not installed",notAvailable:"No separate maintenance release",
   releaseNote:"Upstream release data checked on 26 November 2026. This panel does not install or update tools. Match each version to your host platform and architecture."
@@ -2182,7 +2192,7 @@ function isoText(key){
  return copy[key]||ISO_UI_COPY.en[key]||key;
 }
 function translateIsoWorkbench(){
- const values={isoWorkbenchTitle:"title",isoWorkbenchDescription:"description",isoImportButton:"import",isoExtractButton:"extract",isoBootButton:"boot",toolVersionHeading:"toolTitle"};
+ const values={isoWorkbenchTitle:"title",isoWorkbenchDescription:"description",isoImportButton:"import",isoExtractButton:"extract",isoBootButton:"boot",toolVersionHeading:"toolTitle",isoRoadmapTitle:"roadmapTitle",isoRoadmapNote:"roadmapNote",isoStageV01Title:"phase01Title",isoStageV01Description:"phase01Description",isoStageV02Title:"phase02Title",isoStageV02Description:"phase02Description",isoStageV03Title:"phase03Title",isoStageV03Description:"phase03Description",isoStageV04Title:"phase04Title",isoStageV04Description:"phase04Description"};
  Object.entries(values).forEach(([id,key])=>{const node=$("#"+id);if(node)node.textContent=isoText(key);});
  const lead=$("#toolVersionHeading")?.parentElement?.querySelector("p");
  if(lead)lead.textContent=isoText("toolLead");
