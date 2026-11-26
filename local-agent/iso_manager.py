@@ -126,7 +126,7 @@ def inspect_iso_image(image_path: Path, xorriso_binary: str = "xorriso") -> dict
 
     try:
         proc = subprocess.run(
-            [tool, "-indev", str(Path(image_path)), "-report_el_torito", "plain"],
+            [tool, "-no_rc", "-indev", str(Path(image_path)), "-report_el_torito", "plain", "-report_el_torito", "cmd"],
             cwd=str(Path(image_path).parent), capture_output=True, text=True,
             timeout=60, check=False, encoding="utf-8", errors="replace"
         )
@@ -152,6 +152,22 @@ def inspect_iso_image(image_path: Path, xorriso_binary: str = "xorriso") -> dict
             result["bootableBIOS"] = True
         elif platform_name in ("UEFI", "EFI", "0XEF"):
             result["bootableEFI"] = True
+    # Keep paths of file-backed boot images protected in the editor.
+    boot_paths = set()
+    for line in report.splitlines():
+        if "bin_path=" not in line and "efi_path=" not in line:
+            continue
+        match = re.search(r"""(?:bin_path|efi_path)=(?:'([^']*)'|"([^"]*)"|(\S+))""", line)
+        if not match:
+            continue
+        value = next((part for part in match.groups() if part is not None), "").strip()
+        if value.startswith("/") and not value.startswith("--interval:"):
+            try:
+                boot_paths.add(_safe_iso_relative_path(value[1:]))
+            except ValueError:
+                pass
+    result["bootImagePaths"] = sorted(boot_paths)
+
     platforms = []
     if result["bootableBIOS"]:
         platforms.append("BIOS")
