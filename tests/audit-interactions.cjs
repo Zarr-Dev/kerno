@@ -8,6 +8,20 @@ const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== i
 if (duplicateIds.length) throw new Error("Duplicate IDs: " + duplicateIds.join(", "));
 const idSet = new Set(ids);
 
+const unsafeCollectionCalls = script.split("\\n")
+  .map((line, index) => ({ line: index + 1, text: line }))
+  .filter(entry => /(?<!\\$)\\$\\([^)]*\\)\\.forEach/.test(entry.text));
+if (unsafeCollectionCalls.length) {
+  throw new Error("Single-element selectors used with forEach: " + JSON.stringify(unsafeCollectionCalls));
+}
+for (const required of [
+  'const links=$("#tutorialContents a");',
+  'const targets=root?$(".landing-section,.recent-section",root):[];',
+  '$("[data-kernel-stage]").forEach'
+]) {
+  if (!script.includes(required)) throw new Error("Missing collection selector: " + required);
+}
+
 const buttons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
 if (!buttons.length) throw new Error("No buttons found in index.html.");
 const failures = [];
