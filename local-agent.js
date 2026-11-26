@@ -136,6 +136,81 @@
     }
   }
 
+
+
+  async function importIso(file) {
+    if (!file || !file.size) throw new Error("Choose a non-empty ISO file first.");
+    if (!/\.iso$/i.test(file.name || "")) throw new Error("The selected file must use the .iso extension.");
+    if (file.size > 4 * 1024 * 1024 * 1024) throw new Error("ISO exceeds Kerno's default 4 GiB upload limit.");
+    if (!pairingToken) throw new Error("Pairing token is missing. Configure it in Settings → Advanced.");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15 * 60 * 1000);
+    try {
+      const response = await fetch(baseUrl + "/api/v1/iso/import?name=" + encodeURIComponent(file.name), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "X-Kerno-Token": pairingToken
+        },
+        body: file,
+        cache: "no-store",
+        signal: controller.signal
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || ("ISO import failed with HTTP " + response.status));
+      if (!body.iso || !body.iso.id) throw new Error("Local Service did not return a valid ISO import record.");
+      return body.iso;
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("ISO upload timed out. Check the local service and try again.");
+      if (error instanceof TypeError) throw new Error("Could not reach Kerno Local Service during ISO upload.");
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  async function extractIso(isoId) {
+    return request("/api/v1/iso/extract", {
+      method: "POST",
+      timeout: 360000,
+      body: { isoId: isoId }
+    });
+  }
+
+  async function startIsoEmulator(isoId, settings) {
+    return request("/api/v1/emulator/start-iso", {
+      method: "POST",
+      timeout: 15000,
+      body: { isoId: isoId, settings: settings || {} }
+    });
+  }
+
+  async function downloadIsoArchive(archiveId) {
+    if (!pairingToken) throw new Error("Pairing token is missing. Configure it in Settings → Advanced.");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15 * 60 * 1000);
+    try {
+      const response = await fetch(baseUrl + "/api/v1/iso/archives/" + encodeURIComponent(archiveId), {
+        method: "GET",
+        headers: { "X-Kerno-Token": pairingToken },
+        cache: "no-store",
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        let message = "ISO extraction download failed with HTTP " + response.status;
+        try { const body = await response.json(); message = body.message || message; } catch (_) {}
+        throw new Error(message);
+      }
+      return await response.blob();
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("Extracted archive download timed out.");
+      if (error instanceof TypeError) throw new Error("Could not reach Kerno Local Service to download the extracted archive.");
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
   window.KernoLocalService = Object.freeze({
     defaultUrl: DEFAULT_URL,
     configure: configure,
@@ -148,6 +223,10 @@
     toolchain: toolchain,
     hostDiagnostics: hostDiagnostics,
     resourceEstimate: resourceEstimate,
-    downloadArtifact: downloadArtifact
+    downloadArtifact: downloadArtifact,
+    importIso: importIso,
+    extractIso: extractIso,
+    startIsoEmulator: startIsoEmulator,
+    downloadIsoArchive: downloadIsoArchive
   });
 })();
