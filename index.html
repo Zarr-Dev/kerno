@@ -36,7 +36,7 @@
       </nav>
       <div class="welcome-top-actions">
         <button class="quiet-button header-open-button" id="welcomeLoadFolder" type="button" data-i18n="landing.nav.openFolder">Buka folder</button>
-        <button class="quiet-button" id="themeToggleWelcome" title="Ganti tema warna" aria-label="Ganti tema warna" data-i18n-title="landing.nav.themeTitle" data-i18n-aria="landing.nav.themeTitle">◐ <span data-i18n="landing.nav.theme">Tema</span></button>
+        <button type="button" class="quiet-button" id="themeToggleWelcome" title="Ganti tema warna" aria-label="Ganti tema warna" data-i18n-title="landing.nav.themeTitle" data-i18n-aria="landing.nav.themeTitle">◐ <span data-i18n="landing.nav.theme">Tema</span></button>
         <button class="quiet-button header-settings-button" id="welcomeSettingsButton" data-i18n="settings" type="button">Pengaturan</button>
       </div>
     </header>
@@ -45,12 +45,12 @@
         <div class="hero-layout">
           <div class="welcome-intro">
             <span class="section-kicker" data-i18n="landing.hero.kicker">REKAYASA KERNEL · IDE BERBASIS BROWSER</span>
-            <h1 id="heroTitle" data-i18n="landing.hero.title">Bangun sistem operasi, mulai dari kernel.</h1>
-            <p data-i18n="landing.hero.subtitle">Kerno menyatukan penyuntingan source, struktur proyek, konfigurasi mesin, dan pengujian melalui QEMU. Target kernel native saat ini menggunakan C/C++ dan Assembly; Python tersedia untuk skrip dan tooling.</p>
+            <h1 id="heroTitle" data-i18n="landing.hero.title">Buat OS, mulai dari kernel.</h1>
+            <p data-i18n="landing.hero.subtitle">Tulis kode kernel. Bangun ISO. Jalankan dan uji di QEMU.</p>
             <div class="hero-proof" aria-label="Kapabilitas utama">
-              <span><b>C</b> <span data-i18n="landing.hero.proof.kernel">Source kernel C/C++</span></span>
-              <span><b>ASM</b> <span data-i18n="landing.hero.proof.boot">Kode boot Assembly</span></span>
-              <span><b>ISO</b> <span data-i18n="landing.hero.proof.iso">Verifikasi ISO + QEMU</span></span>
+              <span><b>C</b> <span data-i18n="landing.hero.proof.kernel">C / C++</span></span>
+              <span><b>ASM</b> <span data-i18n="landing.hero.proof.boot">Assembly</span></span>
+              <span><b>ISO</b> <span data-i18n="landing.hero.proof.iso">ISO + QEMU</span></span>
             </div>
             <div class="hero-cta-row">
               <button class="primary-button hero-primary-cta" id="heroStartButton" type="button"><span data-i18n="landing.hero.cta.primary">Buat proyek OS</span> <span aria-hidden="true">↗</span></button>
@@ -82,13 +82,13 @@
               </div>
               <div class="hero-qemu-line"><span class="hero-qemu-icon">Q</span><span><strong>QEMU</strong><small data-i18n="landing.hero.boot.qemu">Mesin virtual untuk menguji hasil boot</small></span><span class="hero-qemu-badge" data-i18n="landing.hero.boot.environment">LINGKUNGAN UJI</span></div>
             </div>
-            <div class="hero-visual-bottom"><span><i class="hero-status-dot"></i><span data-i18n="landing.hero.preview.caption">Cuplikan source contoh · bukan sesi build aktif</span></span><span data-i18n="landing.hero.preview.pipeline">SOURCE → KERNEL.ELF → ISO</span></div>
+            <div class="hero-visual-bottom"><span><i class="hero-status-dot"></i><span data-i18n="landing.hero.preview.caption">Contoh visual · bukan build aktif</span></span><span data-i18n="landing.hero.preview.pipeline">SOURCE → KERNEL.ELF → ISO</span></div>
           </aside>
         </div>
         <div class="hero-footnote">
-          <span><strong>Browser IDE</strong> <span data-i18n="landing.hero.role.web">IDE browser untuk penyuntingan dan pengaturan proyek</span></span>
-          <span><strong>Kerno Local Service</strong> <span data-i18n="landing.hero.role.local">untuk tool native dan QEMU</span></span>
-          <span class="hero-target-note" data-i18n="landing.hero.target">Target build native yang saat ini didukung: x86_64 · BIOS · GRUB · Multiboot2</span>
+          <span><strong>WEB IDE</strong> <span data-i18n="landing.hero.role.web">Edit kode</span></span>
+          <span><strong>LOCAL</strong> <span data-i18n="landing.hero.role.local">Build + QEMU</span></span>
+          <span class="hero-target-note" data-i18n="landing.hero.target">BUILD TARGET · x86_64 / BIOS / GRUB</span>
         </div>
       </section>
       <div class="welcome-actions">
@@ -98,66 +98,66 @@
       </div>
       <section class="landing-section kernel-map-section" id="kernelMapSection" aria-labelledby="kernelMapTitle">
         <div class="kernel-map-heading">
-          <span class="section-kicker" data-i18n="landing.map.kicker">MENGENAL BAGIAN DI DALAM SISTEM OPERASI</span>
-          <h2 id="kernelMapTitle"><span data-i18n="landing.map.title">Satu kernel, banyak hal yang perlu dipahami.</span> <em data-i18n="landing.map.title.accent">Mulai dari pondasinya.</em></h2>
-          <p data-i18n="landing.map.body">Lihat beberapa konsep yang bisa kamu eksplorasi lewat template proyek, konfigurasi mesin, dan materi Kerno Academy.</p>
+          <span class="section-kicker" data-i18n="landing.map.kicker">DI DALAM KERNEL</span>
+          <h2 id="kernelMapTitle"><span data-i18n="landing.map.title">Kenali bagian-bagian kernel.</span> <em data-i18n="landing.map.title.accent">Bangun satu per satu.</em></h2>
+          <p data-i18n="landing.map.body">Boot, memori, interupsi, dan mesin virtual.</p>
         </div>
-        <div class="kernel-map-grid">
+        <div class="kernel-map-grid" id="kernelMapGrid">
           <article class="kernel-topic-card">
             <div class="kernel-topic-top"><span class="kernel-topic-symbol">01</span><span class="kernel-topic-code">BOOT / ENTRY</span></div>
             <h3 data-i18n="landing.map.boot.title">Boot dan kernel entry</h3>
-            <p data-i18n="landing.map.boot.body">Pelajari perpindahan kontrol dari GRUB melalui Multiboot2 hingga fungsi kernel_main.</p>
+            <p data-i18n="landing.map.boot.body">Dari GRUB ke entry point kernel.</p>
             <div class="kernel-topic-tags"><span>Assembly</span><span>Multiboot2</span><span>kernel_main</span></div>
-            <div class="kernel-topic-status"><i></i><span data-i18n="landing.map.boot.status">Template awal tersedia</span></div>
+            <div class="kernel-topic-status"><i></i><span data-i18n="landing.map.boot.status">Starter tersedia</span></div><button class="kernel-topic-action" type="button" data-kernel-stage="3" data-i18n="landing.map.action">Pelajari ↗</button>
           </article>
           <article class="kernel-topic-card">
             <div class="kernel-topic-top"><span class="kernel-topic-symbol">02</span><span class="kernel-topic-code">MEMORY</span></div>
             <h3 data-i18n="landing.map.memory.title">Pondasi manajemen memori</h3>
-            <p data-i18n="landing.map.memory.body">Kenali heap, stack, ukuran halaman, dan allocator. Template menyediakan helper memori serta starter physical-frame allocator.</p>
+            <p data-i18n="landing.map.memory.body">Heap, stack, page size, dan allocator dasar.</p>
             <div class="kernel-topic-tags"><span>Heap / Stack</span><span>Paging</span><span>Frame allocator</span></div>
-            <div class="kernel-topic-status"><i></i><span data-i18n="landing.map.memory.status">Helper dan starter tersedia</span></div>
+            <div class="kernel-topic-status"><i></i><span data-i18n="landing.map.memory.status">Starter tersedia</span></div><button class="kernel-topic-action" type="button" data-kernel-stage="5" data-i18n="landing.map.action">Pelajari ↗</button>
           </article>
           <article class="kernel-topic-card">
             <div class="kernel-topic-top"><span class="kernel-topic-symbol">03</span><span class="kernel-topic-code">INTERRUPTS</span></div>
             <h3 data-i18n="landing.map.interrupt.title">Interupsi dan IDT</h3>
-            <p data-i18n="landing.map.interrupt.body">Pahami struktur Interrupt Descriptor Table sebagai dasar penanganan exception dan interrupt. Implementasinya masih berupa kerangka awal.</p>
+            <p data-i18n="landing.map.interrupt.body">Mengenal IDT, exception, dan interrupt.</p>
             <div class="kernel-topic-tags"><span>IDT</span><span>Exceptions</span><span>CPU events</span></div>
-            <div class="kernel-topic-status"><i></i><span data-i18n="landing.map.interrupt.status">Kerangka awal tersedia</span></div>
+            <div class="kernel-topic-status"><i></i><span data-i18n="landing.map.interrupt.status">Starter tersedia</span></div><button class="kernel-topic-action" type="button" data-kernel-stage="5" data-i18n="landing.map.action">Pelajari ↗</button>
           </article>
           <article class="kernel-topic-card kernel-topic-card-emphasis">
             <div class="kernel-topic-top"><span class="kernel-topic-symbol">04</span><span class="kernel-topic-code">VIRTUAL MACHINE</span></div>
             <h3 data-i18n="landing.map.machine.title">Uji kernel lewat QEMU</h3>
-            <p data-i18n="landing.map.machine.body">Atur RAM guest, vCPU, jenis mesin, dan serial output. Amati hasil boot tanpa harus memakai komputer fisik sebagai mesin uji.</p>
+            <p data-i18n="landing.map.machine.body">Atur RAM, vCPU, dan lihat output serial.</p>
             <div class="kernel-topic-tags"><span>QEMU</span><span>vCPU / RAM</span><span>Serial</span></div>
-            <div class="kernel-topic-status"><i></i><span data-i18n="landing.map.machine.status">Konfigurasi dan pengujian tersedia</span></div>
+            <div class="kernel-topic-status"><i></i><span data-i18n="landing.map.machine.status">Siap diuji</span></div><button class="kernel-topic-action" type="button" data-kernel-stage="8" data-i18n="landing.map.action">Pelajari ↗</button>
           </article>
         </div>
-        <p class="kernel-map-note"><span class="kernel-map-note-mark">i</span><span data-i18n="landing.map.note">Catatan: label starter berarti kode awal untuk dipelajari dan dikembangkan, bukan subsistem OS yang sudah lengkap.</span></p>
+        <p class="kernel-map-note"><span class="kernel-map-note-mark">i</span><span data-i18n="landing.map.note">Starter = kode awal untuk dikembangkan, bukan subsistem lengkap.</span></p>
       </section>
       <section class="landing-section platform-section" id="platformSection">
         <div class="landing-section-heading">
-          <span class="section-kicker" data-i18n="landing.platform.kicker">SATU WORKSPACE UNTUK PENGEMBANGAN KERNEL</span>
-          <h2><span data-i18n="landing.platform.title">Perangkat kerja untuk kernel,</span> <em data-i18n="landing.platform.title.accent">dalam satu workspace.</em></h2>
-          <p data-i18n="landing.platform.body">Mulai dari source code hingga citra boot yang tervalidasi melalui alur kerja khusus pengembangan tingkat rendah.</p>
+          <span class="section-kicker" data-i18n="landing.platform.kicker">TOOLS KERNO</span>
+          <h2><span data-i18n="landing.platform.title">Semua alat,</span> <em data-i18n="landing.platform.title.accent">satu workspace.</em></h2>
+          <p data-i18n="landing.platform.body">Tulis, bangun, dan uji kernel.</p>
         </div>
         <div class="platform-grid">
-          <article class="platform-card platform-card-featured"><div class="platform-card-top"><span class="platform-icon">⌘</span><span class="platform-index" data-i18n="landing.platform.source.index">01 / SOURCE</span></div><h3 data-i18n="landing.platform.source.title">Studio source kernel</h3><p data-i18n="landing.platform.source.body">Sunting C, C++, Assembly, linker script, dan konfigurasi GRUB dalam workspace multi-berkas.</p><div class="platform-tags"><span data-i18n="landing.platform.source.tag.editor">Monaco Editor</span><span data-i18n="landing.platform.source.tag.tree">Penjelajah proyek</span><span data-i18n="landing.platform.source.tag.split">Editor terpisah</span></div></article>
-          <article class="platform-card"><div class="platform-card-top"><span class="platform-icon">⚙</span><span class="platform-index" data-i18n="landing.platform.machine.index">02 / MESIN</span></div><h3 data-i18n="landing.platform.machine.title">Konfigurasi mesin</h3><p data-i18n="landing.platform.machine.body">Tinjau memori guest, jumlah vCPU, jenis mesin, dan tampilan sebelum menjalankan QEMU.</p><div class="platform-tags"><span data-i18n="landing.platform.machine.tag.memory">Memori guest</span><span>QEMU</span></div></article>
-          <article class="platform-card"><div class="platform-card-top"><span class="platform-icon">▤</span><span class="platform-index" data-i18n="landing.platform.build.index">03 / BUILD</span></div><h3 data-i18n="landing.platform.build.title">Pipeline build native</h3><p data-i18n="landing.platform.build.body">Jalankan assembler, compiler, dan linker secara lokal; lalu verifikasi ELF64, Multiboot2, ISO9660, dan El Torito sebelum menerima ISO.</p><div class="platform-tags"><span>ELF64</span><span>ISO9660</span><span data-i18n="landing.platform.build.tag.health">Pemeriksaan build</span></div></article>
+          <article class="platform-card platform-card-featured"><div class="platform-card-top"><span class="platform-icon">⌘</span><span class="platform-index" data-i18n="landing.platform.source.index">01 / SOURCE</span></div><h3 data-i18n="landing.platform.source.title">Studio source kernel</h3><p data-i18n="landing.platform.source.body">Edit source kernel dan file boot.</p><div class="platform-tags"><span data-i18n="landing.platform.source.tag.editor">Monaco Editor</span><span data-i18n="landing.platform.source.tag.tree">Penjelajah proyek</span><span data-i18n="landing.platform.source.tag.split">Editor terpisah</span></div></article>
+          <article class="platform-card"><div class="platform-card-top"><span class="platform-icon">⚙</span><span class="platform-index" data-i18n="landing.platform.machine.index">02 / MESIN</span></div><h3 data-i18n="landing.platform.machine.title">Konfigurasi mesin</h3><p data-i18n="landing.platform.machine.body">Atur mesin virtual sebelum boot.</p><div class="platform-tags"><span data-i18n="landing.platform.machine.tag.memory">Memori guest</span><span>QEMU</span></div></article>
+          <article class="platform-card"><div class="platform-card-top"><span class="platform-icon">▤</span><span class="platform-index" data-i18n="landing.platform.build.index">03 / BUILD</span></div><h3 data-i18n="landing.platform.build.title">Pipeline build native</h3><p data-i18n="landing.platform.build.body">Compile, link, dan periksa hasil ISO.</p><div class="platform-tags"><span>ELF64</span><span>ISO9660</span><span data-i18n="landing.platform.build.tag.health">Pemeriksaan build</span></div></article>
         </div>
       </section>
       <section class="landing-section workflow-section" id="workflowSection">
-        <div class="workflow-copy"><span class="section-kicker" data-i18n="landing.workflow.kicker">DARI BERKAS PERTAMA HINGGA BOOT PERTAMA</span><h2 data-i18n="landing.workflow.title">Alur yang jelas untuk rekayasa kernel.</h2><p data-i18n="landing.workflow.body">Siapkan komputer host, buat proyek kernel, validasi citra boot, lalu periksa proses eksekusinya di QEMU.</p><button class="workflow-link-button" id="workflowTutorialButton" type="button"><span data-i18n="landing.workflow.cta">Buka panduan langkah demi langkah</span> <span aria-hidden="true">→</span></button></div>
+        <div class="workflow-copy"><span class="section-kicker" data-i18n="landing.workflow.kicker">ALUR KERJA</span><h2 data-i18n="landing.workflow.title">Dari source ke boot.</h2><p data-i18n="landing.workflow.body">Source → Build → ISO → QEMU.</p><button class="workflow-link-button" id="workflowTutorialButton" type="button"><span data-i18n="landing.workflow.cta">Lihat panduan</span> <span aria-hidden="true">→</span></button></div>
         <div class="workflow-steps" aria-label="Alur pengembangan Kerno">
-          <div class="workflow-step"><span>01</span><div><strong data-i18n="landing.workflow.step1.title">Persiapkan</strong><small data-i18n="landing.workflow.step1.body">Hubungkan layanan lokal dan periksa toolchain native.</small></div></div>
-          <div class="workflow-step"><span>02</span><div><strong data-i18n="landing.workflow.step2.title">Buat proyek</strong><small data-i18n="landing.workflow.step2.body">Siapkan boot entry, modul kernel, dan tata letak linker.</small></div></div>
-          <div class="workflow-step"><span>03</span><div><strong data-i18n="landing.workflow.step3.title">Build dan verifikasi</strong><small data-i18n="landing.workflow.step3.body">Periksa ELF, header Multiboot2, dan struktur boot ISO.</small></div></div>
-          <div class="workflow-step"><span>04</span><div><strong data-i18n="landing.workflow.step4.title">Boot dan amati</strong><small data-i18n="landing.workflow.step4.body">Jalankan citra di QEMU dan periksa keluaran serial.</small></div></div>
+          <div class="workflow-step"><span>01</span><div><strong data-i18n="landing.workflow.step1.title">Persiapan</strong><small data-i18n="landing.workflow.step1.body">Hubungkan Local Service.</small></div></div>
+          <div class="workflow-step"><span>02</span><div><strong data-i18n="landing.workflow.step2.title">Buat proyek</strong><small data-i18n="landing.workflow.step2.body">Tulis kode kernel.</small></div></div>
+          <div class="workflow-step"><span>03</span><div><strong data-i18n="landing.workflow.step3.title">Build dan verifikasi</strong><small data-i18n="landing.workflow.step3.body">Build dan validasi ISO.</small></div></div>
+          <div class="workflow-step"><span>04</span><div><strong data-i18n="landing.workflow.step4.title">Boot dan amati</strong><small data-i18n="landing.workflow.step4.body">Jalankan dan amati di QEMU.</small></div></div>
         </div>
       </section>
-      <section class="landing-section iso-callout"><div class="iso-callout-mark" aria-hidden="true">K</div><div><span class="section-kicker" data-i18n="landing.iso.kicker">PAHAMI CITRA BOOT</span><h2 data-i18n="landing.iso.title">Jadikan boot pertama sebagai hasil yang dapat dijelaskan.</h2><p data-i18n="landing.iso.body">Ikuti rantai boot, tinjau setiap hasil validasi, dan pahami bagian kernel yang sudah maupun belum diimplementasikan.</p></div><button class="primary-button" id="isoTutorialButton" type="button"><span data-i18n="landing.iso.cta">Pelajari alur ISO</span> <span aria-hidden="true">→</span></button></section>
-      <section class="recent-section"><div class="section-heading"><div><span class="section-kicker" data-i18n="landing.recent.kicker">RIWAYAT WORKSPACE</span><h2 data-i18n="landing.recent.title">Proyek terbaru</h2></div><button class="text-button" id="clearRecentButton" data-i18n="landing.recent.clear">Hapus riwayat</button></div><div class="recent-list" id="recentProjects"><div class="recent-empty"><span>⌁</span><strong data-i18n="landing.recent.empty.title">Belum ada proyek</strong><p data-i18n="landing.recent.empty.body">Buat atau muat proyek OS untuk memulai.</p></div></div></section>
-      <footer class="welcome-footer"><div class="welcome-footer-brand"><span>KERNO <b>0.5.0</b></span><small data-i18n="landing.footer.brand">LINGKUNGAN PENGEMBANGAN SISTEM OPERASI</small></div><div class="welcome-footer-note" data-i18n="landing.footer.note">Tanpa akun · Data proyek tersimpan di browser ini sampai diekspor</div><nav class="welcome-footer-links" aria-label="Tautan footer"><button type="button" id="footerTutorialButton" data-i18n="landing.footer.academy">Akademi</button><a href="https://github.com/Zarr-Dev/kerno" target="_blank" rel="noopener" data-i18n="landing.footer.repo">GitHub</a><a href="https://github.com/Zarr-Dev/kerno/blob/main/local-agent/README.md" target="_blank" rel="noopener" data-i18n="landing.footer.docs">Panduan Local Service</a></nav></footer>
+      <section class="landing-section iso-callout"><div class="iso-callout-mark" aria-hidden="true">K</div><div><span class="section-kicker" data-i18n="landing.iso.kicker">ISO WORKBENCH</span><h2 data-i18n="landing.iso.title">Punya file ISO?</h2><p data-i18n="landing.iso.body">Impor, edit isi, build ulang, lalu uji di QEMU.</p></div><button class="primary-button" id="isoTutorialButton" type="button"><span data-i18n="landing.iso.cta">Panduan ISO</span> <span aria-hidden="true">→</span></button></section>
+      <section class="recent-section"><div class="section-heading"><div><span class="section-kicker" data-i18n="landing.recent.kicker">RIWAYAT WORKSPACE</span><h2 data-i18n="landing.recent.title">Proyek terbaru</h2></div><button type="button" class="text-button" id="clearRecentButton" data-i18n="landing.recent.clear">Hapus riwayat</button></div><div class="recent-list" id="recentProjects"><div class="recent-empty"><span>⌁</span><strong data-i18n="landing.recent.empty.title">Belum ada proyek</strong><p data-i18n="landing.recent.empty.body">Buat atau muat proyek OS untuk memulai.</p></div></div></section>
+      <footer class="welcome-footer"><div class="welcome-footer-brand"><span>KERNO <b>0.5.0</b></span><small data-i18n="landing.footer.brand">LINGKUNGAN PENGEMBANGAN SISTEM OPERASI</small></div><div class="welcome-footer-note" data-i18n="landing.footer.note">Tanpa akun · Proyek tersimpan di browser</div><nav class="welcome-footer-links" aria-label="Tautan footer"><button type="button" id="footerTutorialButton" data-i18n="landing.footer.academy">Akademi</button><a href="https://github.com/Zarr-Dev/kerno" target="_blank" rel="noopener" data-i18n="landing.footer.repo">GitHub</a><a href="https://github.com/Zarr-Dev/kerno/blob/main/local-agent/README.md" target="_blank" rel="noopener" data-i18n="landing.footer.docs">Panduan Local Service</a></nav></footer>
     </section>
   </main>
 
@@ -199,7 +199,7 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
   </main>
 
   <main class="screen setup-screen hidden" id="newProjectScreen">
-    <header class="setup-header"><button class="back-button" id="backFromNewProject">← <span data-i18n="back">Back</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><span class="setup-step" data-i18n="wizard.step">WORKSPACE BARU / 01</span></header>
+    <header class="setup-header"><button type="button" class="back-button" id="backFromNewProject">← <span data-i18n="back">Back</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><span class="setup-step" data-i18n="wizard.step">WORKSPACE BARU / 01</span></header>
     <section class="setup-content">
       <span class="section-kicker" data-i18n="wizard.kicker">PENYUSUNAN PROYEK</span>
       <h1 data-i18n="newOsWorkspace">New operating system workspace</h1>
@@ -226,7 +226,7 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
             <div><label class="field-label" for="guestMemoryInput" data-i18n="guestMemory">Guest RAM (MiB)</label><input class="text-field" type="number" id="guestMemoryInput" min="64" max="32768" step="64" value="512"></div>
             <div><label class="field-label" for="cpuCountInput" data-i18n="virtualCpus">Virtual CPUs</label><input class="text-field" type="number" id="cpuCountInput" min="1" max="32" value="2"></div>
           </div>
-          <div class="setup-actions"><button class="quiet-button" id="cancelNewProject" data-i18n="cancel">Cancel</button><button class="primary-button" id="createProjectButton" data-i18n="createWorkspace">Create workspace</button></div>
+          <div class="setup-actions"><button type="button" class="quiet-button" id="cancelNewProject" data-i18n="cancel">Cancel</button><button type="button" class="primary-button" id="createProjectButton" data-i18n="createWorkspace">Create workspace</button></div>
         </section>
         <aside class="setup-aside">
           <div class="aside-title" data-i18n="wizard.aside">STRUKTUR PROYEK</div>
@@ -249,23 +249,23 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
   </main>
 
   <main class="screen settings-screen hidden" id="settingsScreen">
-    <header class="settings-header"><button class="back-button" id="backFromSettings">← <span data-i18n="back">Kembali</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><div class="settings-heading"><span class="section-kicker" data-i18n="settings.kicker">KONTROL LINGKUNGAN</span><strong data-i18n="settings">Pengaturan</strong></div><button class="primary-button" id="saveSettingsButton" data-i18n="applySettings">Terapkan pengaturan</button></header>
+    <header class="settings-header"><button type="button" class="back-button" id="backFromSettings">← <span data-i18n="back">Kembali</span></button><div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div><div class="settings-heading"><span class="section-kicker" data-i18n="settings.kicker">KONTROL LINGKUNGAN</span><strong data-i18n="settings">Pengaturan</strong></div><button type="button" class="primary-button" id="saveSettingsButton" data-i18n="applySettings">Terapkan pengaturan</button></header>
     <div class="settings-layout">
       <nav class="settings-nav" id="settingsNav">
-        <button class="settings-nav-item active" data-category="general"><span>◈</span><b data-i18n="general">General</b></button>
-        <button class="settings-nav-item" data-category="appearance"><span>◐</span><b data-i18n="appearance">Appearance</b></button>
-        <button class="settings-nav-item" data-category="language"><span>文</span><b data-i18n="language">Language</b></button>
-        <button class="settings-nav-item" data-category="editor"><span>⌘</span><b data-i18n="editor">Editor</b></button>
-        <button class="settings-nav-item" data-category="architecture"><span>⌬</span><b data-i18n="osArchitecture">OS & Architecture</b></button>
-        <button class="settings-nav-item" data-category="memory"><span>▤</span><b data-i18n="memory">Memory</b></button>
-        <button class="settings-nav-item" data-category="emulator"><span>▣</span><b data-i18n="emulator">QEMU & Emulator</b></button>
-        <button class="settings-nav-item" data-category="toolchain"><span>⚒</span><b data-i18n="toolchain">Toolchain</b></button>
-        <button class="settings-nav-item" data-category="storage"><span>▱</span><b data-i18n="storage">Storage & Data</b></button>
-        <button class="settings-nav-item" data-category="advanced"><span>⚙</span><b data-i18n="advanced">Advanced</b></button>
-        <button class="settings-nav-item" data-category="boot"><span>⇥</span><b data-i18n="bootSettings">Boot & Firmware</b></button>
-        <button class="settings-nav-item" data-category="diagnostics"><span>⌁</span><b data-i18n="diagnostics">Diagnostics</b></button>
-        <button class="settings-nav-item" data-category="accessibility"><span>◉</span><b data-i18n="accessibility">Accessibility</b></button>
-        <button class="settings-nav-item" data-category="shortcuts"><span>⌨</span><b data-i18n="shortcuts">Keyboard & Shortcuts</b></button>
+        <button type="button" class="settings-nav-item active" data-category="general"><span>◈</span><b data-i18n="general">General</b></button>
+        <button type="button" class="settings-nav-item" data-category="appearance"><span>◐</span><b data-i18n="appearance">Appearance</b></button>
+        <button type="button" class="settings-nav-item" data-category="language"><span>文</span><b data-i18n="language">Language</b></button>
+        <button type="button" class="settings-nav-item" data-category="editor"><span>⌘</span><b data-i18n="editor">Editor</b></button>
+        <button type="button" class="settings-nav-item" data-category="architecture"><span>⌬</span><b data-i18n="osArchitecture">OS & Architecture</b></button>
+        <button type="button" class="settings-nav-item" data-category="memory"><span>▤</span><b data-i18n="memory">Memory</b></button>
+        <button type="button" class="settings-nav-item" data-category="emulator"><span>▣</span><b data-i18n="emulator">QEMU & Emulator</b></button>
+        <button type="button" class="settings-nav-item" data-category="toolchain"><span>⚒</span><b data-i18n="toolchain">Toolchain</b></button>
+        <button type="button" class="settings-nav-item" data-category="storage"><span>▱</span><b data-i18n="storage">Storage & Data</b></button>
+        <button type="button" class="settings-nav-item" data-category="advanced"><span>⚙</span><b data-i18n="advanced">Advanced</b></button>
+        <button type="button" class="settings-nav-item" data-category="boot"><span>⇥</span><b data-i18n="bootSettings">Boot & Firmware</b></button>
+        <button type="button" class="settings-nav-item" data-category="diagnostics"><span>⌁</span><b data-i18n="diagnostics">Diagnostics</b></button>
+        <button type="button" class="settings-nav-item" data-category="accessibility"><span>◉</span><b data-i18n="accessibility">Accessibility</b></button>
+        <button type="button" class="settings-nav-item" data-category="shortcuts"><span>⌨</span><b data-i18n="shortcuts">Keyboard & Shortcuts</b></button>
       </nav>
       <section class="settings-content"><div class="settings-category-heading"><span class="section-kicker" id="settingsEyebrow" data-i18n="settings.eyebrow">LINGKUNGAN</span><h1 id="settingsTitle">Umum</h1><p id="settingsDescription" data-i18n="settings.description">Atur perilaku Kerno untuk seluruh proyek.</p></div><div id="settingsFields"></div></section>
     </div>
@@ -275,20 +275,20 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
     <header class="app-topbar">
       <div class="brand-lockup compact"><span class="brand-symbol">K</span><span class="brand-word">KERNO</span></div>
       <div class="app-project"><span class="project-dot"></span><strong id="activeProjectName">My OS</strong><span class="chip" id="activeTargetChip">x86_64 · GRUB</span></div>
-      <nav class="workspace-nav"><button class="workspace-nav-item active" data-workspace="source" data-i18n="source">Source</button><button class="workspace-nav-item" data-workspace="machine" data-i18n="machine">Machine</button><button class="workspace-nav-item" data-workspace="build" data-i18n="build">Build</button></nav>
-      <div class="app-actions"><button class="icon-button" id="themeToggleApp" title="Cycle color theme" aria-label="Cycle color theme">◐</button><button class="icon-button" id="appSettingsButton" title="Settings">⚙</button><button class="tool-button" id="saveProjectButton" data-i18n="workspace.save">Simpan</button><button class="tool-button" id="importProjectFilesButton" data-i18n="importFiles">Import files</button><button class="tool-button" id="exportProjectButton" data-i18n="exportProject">Export project</button><button class="primary-button small-button" id="buildProjectButton" data-i18n="buildBoot">Build & Boot</button><button class="icon-button" id="backToWelcomeButton" title="Home">⌂</button></div>
+      <nav class="workspace-nav"><button type="button" class="workspace-nav-item active" data-workspace="source" data-i18n="source">Source</button><button type="button" class="workspace-nav-item" data-workspace="machine" data-i18n="machine">Machine</button><button type="button" class="workspace-nav-item" data-workspace="build" data-i18n="build">Build</button></nav>
+      <div class="app-actions"><button type="button" class="icon-button" id="themeToggleApp" title="Cycle color theme" aria-label="Cycle color theme">◐</button><button type="button" class="icon-button" id="appSettingsButton" title="Settings">⚙</button><button type="button" class="tool-button" id="saveProjectButton" data-i18n="workspace.save">Simpan</button><button type="button" class="tool-button" id="importProjectFilesButton" data-i18n="importFiles">Import files</button><button type="button" class="tool-button" id="exportProjectButton" data-i18n="exportProject">Export project</button><button type="button" class="primary-button small-button" id="buildProjectButton" data-i18n="buildBoot">Build & Boot</button><button type="button" class="icon-button" id="backToWelcomeButton" title="Home">⌂</button></div>
     </header>
 
     <section class="workspace-view" id="sourceWorkspace">
       <aside class="source-sidebar">
-        <div class="sidebar-top"><div><span class="section-kicker">PROJECT</span><strong data-i18n="projectFiles">Project files</strong></div><div><button class="mini-button" id="addSourceFileButton" title="Berkas baru" aria-label="Berkas baru">＋</button><button class="mini-button" id="importSourceFolderButton" title="Impor folder" aria-label="Impor folder">↥</button></div></div>
+        <div class="sidebar-top"><div><span class="section-kicker">PROJECT</span><strong data-i18n="projectFiles">Project files</strong></div><div><button type="button" class="mini-button" id="addSourceFileButton" title="Berkas baru" aria-label="Berkas baru">＋</button><button type="button" class="mini-button" id="importSourceFolderButton" title="Impor folder" aria-label="Impor folder">↥</button></div></div>
         <div class="source-tree" id="sourceTree"></div>
         <div class="sidebar-bottom"><span id="sourceCount">0 files</span><span id="projectStorageSize">0 KB</span></div>
       </aside>
       <section class="source-editor-area">
-        <div class="editor-toolbar"><div class="editor-breadcrumb" id="editorBreadcrumb" data-i18n="workspace.selectFile">Pilih berkas source</div><div class="editor-toolbar-actions"><button class="editor-tool" id="splitEditorButton" data-i18n="workspace.split">Editor terpisah</button><button class="editor-tool" id="saveFileButton" data-i18n="workspace.saveFile">Simpan berkas</button><button class="editor-tool" id="exportFileButton" data-i18n="workspace.exportFile">Ekspor berkas</button></div></div>
+        <div class="editor-toolbar"><div class="editor-breadcrumb" id="editorBreadcrumb" data-i18n="workspace.selectFile">Pilih berkas source</div><div class="editor-toolbar-actions"><button type="button" class="editor-tool" id="splitEditorButton" data-i18n="workspace.split">Editor terpisah</button><button type="button" class="editor-tool" id="saveFileButton" data-i18n="workspace.saveFile">Simpan berkas</button><button type="button" class="editor-tool" id="exportFileButton" data-i18n="workspace.exportFile">Ekspor berkas</button></div></div>
         <div class="source-tabs" id="sourceTabs"></div>
-        <div class="editor-container" id="editorContainer"><div class="monaco-pane" id="monacoPane"></div><div class="editor-loading hidden" id="editorLoading" role="status" aria-live="polite"><span class="editor-loading-spinner" aria-hidden="true"></span><span class="editor-loading-copy"><strong id="editorLoadingTitle">Loading Monaco Editor</strong><small id="editorLoadingDetail">Preparing syntax highlighting and language tools…</small></span></div><div class="editor-engine-fallback hidden" id="editorEngineFallback" role="alert"><span><strong id="editorFallbackTitle">Advanced editor unavailable</strong><small id="editorFallbackMessage">Basic text editing is active. Syntax highlighting and live diagnostics are unavailable until Monaco loads.</small></span><button class="quiet-button" id="retryEditorButton" type="button">Retry editor</button></div><textarea id="plainEditor" spellcheck="false" aria-label="Kernel source code editor"></textarea><div class="editor-empty hidden" id="editorEmpty"><span>⌘</span><strong data-i18n="workspace.empty.title">Belum ada berkas source dipilih</strong><p data-i18n="workspace.empty.body">Pilih berkas dari penjelajah proyek atau buat modul source baru.</p><button class="quiet-button" id="emptyNewFileButton" data-i18n="workspace.empty.action">Buat berkas source</button></div><div class="split-editor-pane hidden" id="splitPane"><div class="split-pane-heading"><span data-i18n="workspace.secondSource">SOURCE KEDUA</span><select id="splitFileSelect"></select><button class="mini-button" id="closeSplitButton">×</button></div><div id="splitMonacoPane"></div></div></div>
+        <div class="editor-container" id="editorContainer"><div class="monaco-pane" id="monacoPane"></div><div class="editor-loading hidden" id="editorLoading" role="status" aria-live="polite"><span class="editor-loading-spinner" aria-hidden="true"></span><span class="editor-loading-copy"><strong id="editorLoadingTitle">Loading Monaco Editor</strong><small id="editorLoadingDetail">Preparing syntax highlighting and language tools…</small></span></div><div class="editor-engine-fallback hidden" id="editorEngineFallback" role="alert"><span><strong id="editorFallbackTitle">Advanced editor unavailable</strong><small id="editorFallbackMessage">Basic text editing is active. Syntax highlighting and live diagnostics are unavailable until Monaco loads.</small></span><button class="quiet-button" id="retryEditorButton" type="button">Retry editor</button></div><textarea id="plainEditor" spellcheck="false" aria-label="Kernel source code editor"></textarea><div class="editor-empty hidden" id="editorEmpty"><span>⌘</span><strong data-i18n="workspace.empty.title">Belum ada berkas source dipilih</strong><p data-i18n="workspace.empty.body">Pilih berkas dari penjelajah proyek atau buat modul source baru.</p><button type="button" class="quiet-button" id="emptyNewFileButton" data-i18n="workspace.empty.action">Buat berkas source</button></div><div class="split-editor-pane hidden" id="splitPane"><div class="split-pane-heading"><span data-i18n="workspace.secondSource">SOURCE KEDUA</span><select id="splitFileSelect"></select><button type="button" class="mini-button" id="closeSplitButton">×</button></div><div id="splitMonacoPane"></div></div></div>
         <footer class="editor-status"><span id="editorStatus" data-i18n="workspace.ready">Workspace siap</span><span id="diagnosticSummary" class="diagnostic-summary" data-i18n="workspace.quickCheck">Pemeriksaan cepat siap</span><span id="cursorPosition">Ln 1, Col 1</span><span id="languageMode">Plain Text</span><span id="encodingStatus">UTF-8 · LF</span></footer>
       </section>
     </section>
@@ -298,7 +298,7 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
         <section class="machine-main">
           <div class="machine-heading"><div><span class="section-kicker" data-i18n="machine.kicker">KELUARAN MESIN VIRTUAL</span><h1 data-i18n="machineDisplay">Machine display</h1><p data-i18n="machineDesc">Live guest output is streamed from the connected local QEMU service.</p></div><div class="machine-status"><i id="qemuStatusDot"></i><span id="qemuStatusText" data-i18n="machine.notConnected">QEMU belum terhubung</span></div></div>
           <div class="machine-viewport" id="machineViewport"><div class="viewport-empty"><div class="monitor-glyph">▣</div><strong data-i18n="noMachineSession">No machine session</strong><p data-i18n="connectQemuPrompt">Connect Kerno Local Service to launch and display a QEMU guest.</p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div></div>
-          <div class="machine-console"><div class="console-head"><span data-i18n="machine.serial">SERIAL / COM1</span><button class="mini-button" id="clearSerialButton" data-i18n="machine.clear">Bersihkan</button></div><pre id="serialOutput">Serial output is unavailable until a real QEMU session is connected.</pre></div>
+          <div class="machine-console"><div class="console-head"><span data-i18n="machine.serial">SERIAL / COM1</span><button type="button" class="mini-button" id="clearSerialButton" data-i18n="machine.clear">Bersihkan</button></div><pre id="serialOutput">Serial output is unavailable until a real QEMU session is connected.</pre></div>
         </section>
         <aside class="machine-controls">
           <span class="section-kicker" data-i18n="machine.profile">PROFIL MESIN</span><h2 data-i18n="machine.hardware">Perangkat keras virtual</h2>
@@ -312,9 +312,9 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
           <div class="machine-spec"><span data-i18n="machine.network">Jaringan</span><strong id="machineNetwork">Disabled</strong></div>
           <div class="machine-spec"><span data-i18n="machine.backend">Backend serial</span><strong id="machineSerialBackend">File capture</strong></div>
           <div class="control-divider"></div>
-          <button class="primary-button full-button" id="connectLocalServiceButton" data-i18n="machine.connect">Hubungkan layanan lokal</button>
-          <button class="primary-button full-button" id="startQemuButton" data-i18n="machine.start">Jalankan QEMU</button>
-          <button class="quiet-button full-button" id="stopQemuButton" disabled data-i18n="machine.stop">Hentikan mesin</button>
+          <button type="button" class="primary-button full-button" id="connectLocalServiceButton" data-i18n="machine.connect">Hubungkan layanan lokal</button>
+          <button type="button" class="primary-button full-button" id="startQemuButton" data-i18n="machine.start">Jalankan QEMU</button>
+          <button type="button" class="quiet-button full-button" id="stopQemuButton" disabled data-i18n="machine.stop">Hentikan mesin</button>
           <p class="control-note" id="machineControlNote" data-i18n="machine.note">QEMU dikelola oleh Kerno Local Service. Browser tidak menjalankan proses emulator native.</p>
         </aside>
       </div>
@@ -426,7 +426,7 @@ kerno.project.json</div><div class="tutorial-tip"><strong data-i18n="academy.sta
 
     <section class="workspace-view hidden" id="buildWorkspace">
       <div class="build-layout">
-        <div class="build-overview"><span class="section-kicker" data-i18n="build.kicker">TOOLCHAIN NATIVE</span><h1 data-i18n="buildConfiguration">Build configuration</h1><p data-i18n="buildConfigurationDesc">Review the project target before invoking the connected native build service.</p><div class="build-config-grid"><div><span data-i18n="build.target">Target</span><strong id="buildTarget">x86_64</strong></div><div><span data-i18n="build.bootloader">Bootloader</span><strong id="buildBootloader">GRUB</strong></div><div><span data-i18n="build.language">Bahasa kernel</span><strong id="buildLanguage">C++</strong></div><div><span data-i18n="build.output">Format keluaran</span><strong>ISO / ELF</strong></div></div><div class="build-actions"><button class="primary-button" id="runBuildButton" data-i18n="build.run">Jalankan build native</button><button class="quiet-button" id="openSettingsFromBuild" data-i18n="build.configure">Konfigurasi toolchain</button></div><p class="build-disclaimer" data-i18n="build.disclaimer">Build hanya dinyatakan berhasil setelah layanan lokal mengembalikan artefak yang telah diverifikasi dan status proses yang sukses.</p></div>
+        <div class="build-overview"><span class="section-kicker" data-i18n="build.kicker">TOOLCHAIN NATIVE</span><h1 data-i18n="buildConfiguration">Build configuration</h1><p data-i18n="buildConfigurationDesc">Review the project target before invoking the connected native build service.</p><div class="build-config-grid"><div><span data-i18n="build.target">Target</span><strong id="buildTarget">x86_64</strong></div><div><span data-i18n="build.bootloader">Bootloader</span><strong id="buildBootloader">GRUB</strong></div><div><span data-i18n="build.language">Bahasa kernel</span><strong id="buildLanguage">C++</strong></div><div><span data-i18n="build.output">Format keluaran</span><strong>ISO / ELF</strong></div></div><div class="build-actions"><button type="button" class="primary-button" id="runBuildButton" data-i18n="build.run">Jalankan build native</button><button type="button" class="quiet-button" id="openSettingsFromBuild" data-i18n="build.configure">Konfigurasi toolchain</button></div><p class="build-disclaimer" data-i18n="build.disclaimer">Build hanya dinyatakan berhasil setelah layanan lokal mengembalikan artefak yang telah diverifikasi dan status proses yang sukses.</p></div>
         <div class="build-log-panel"><div class="log-heading"><strong data-i18n="build.events">AKTIVITAS BUILD</strong><span id="buildStateLabel" data-i18n="build.none">BELUM ADA BUILD</span></div><pre id="buildLog" data-i18n="build.empty">Belum ada build yang dijalankan.</pre><div id="buildHealthChecks" class="build-health-list" aria-live="polite"></div><div id="artifactDownloads" class="artifact-downloads"></div></div>
       </div>
       <section class="tool-version-panel" aria-labelledby="toolVersionHeading">
