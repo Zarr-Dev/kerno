@@ -1306,8 +1306,13 @@ class Handler(BaseHTTPRequestHandler):
                 content = self.rfile.read(content_length)
                 if len(content) != content_length:
                     raise ValueError("ISO Editor upload ended before the declared Content-Length was received.")
-                result = write_iso_workspace_file(Path(workspace["root"]), relative_path, content)
-                workspace["dirty"] = True
+                if not ISO_LOCK.acquire(blocking=False):
+                    raise RuntimeError("Another ISO operation is running. Wait for it to finish.")
+                try:
+                    result = write_iso_workspace_file(Path(workspace["root"]), relative_path, content)
+                    workspace["dirty"] = True
+                finally:
+                    ISO_LOCK.release()
                 self.send_json(200, {"status": "saved", "file": result})
                 return
 
@@ -1354,8 +1359,13 @@ class Handler(BaseHTTPRequestHandler):
                     raise RuntimeError("Open the ISO Editor workspace before editing files.")
                 if is_boot_image_path(relative_path, metadata.get("inspection", {}).get("bootImagePaths", [])):
                     raise ValueError("This file is used directly as an El Torito boot image and is protected to preserve bootability.")
-                result = delete_iso_file(Path(workspace["root"]), relative_path)
-                workspace["dirty"] = True
+                if not ISO_LOCK.acquire(blocking=False):
+                    raise RuntimeError("Another ISO operation is running. Wait for it to finish.")
+                try:
+                    result = delete_iso_file(Path(workspace["root"]), relative_path)
+                    workspace["dirty"] = True
+                finally:
+                    ISO_LOCK.release()
                 self.send_json(200, {"status": "deleted", "file": result})
                 return
             if path == "/api/v1/iso/workspace/repack":
@@ -1364,22 +1374,22 @@ class Handler(BaseHTTPRequestHandler):
                 workspace = ISO_WORKSPACES.get(iso_id)
                 if not metadata or not workspace:
                     raise RuntimeError("Open the ISO Editor workspace before rebuilding the ISO.")
-                with STATE_LOCK:
-                    current = RUNTIME.get("process")
-                    if current and current.poll() is None:
-                        raise RuntimeError("Stop the running QEMU machine before rebuilding an ISO.")
-                source_path = Path(metadata.get("path") or "")
-                expected_sha = str(metadata.get("sha256") or "")
-                if not source_path.is_file() or not re.fullmatch(r"[a-fA-F0-9]{64}", expected_sha):
-                    raise RuntimeError("The source ISO or its integrity record is unavailable.")
-                if not hmac.compare_digest(sha256_file(source_path).lower(), expected_sha.lower()):
-                    raise RuntimeError("The source ISO SHA-256 changed. Re-import the image before rebuilding.")
                 if not workspace.get("dirty"):
                     raise RuntimeError("There are no unsaved file changes to rebuild.")
                 if not ISO_LOCK.acquire(blocking=False):
                     raise RuntimeError("Another ISO operation is running. Wait for it to finish.")
-                output_path = ARTIFACTS_DIR / ("iso-edited-" + uuid.uuid4().hex + ".iso")
                 try:
+                    with STATE_LOCK:
+                        current = RUNTIME.get("process")
+                        if current and current.poll() is None:
+                            raise RuntimeError("Stop the running QEMU machine before rebuilding an ISO.")
+                    source_path = Path(metadata.get("path") or "")
+                    expected_sha = str(metadata.get("sha256") or "")
+                    if not source_path.is_file() or not re.fullmatch(r"[a-fA-F0-9]{64}", expected_sha):
+                        raise RuntimeError("The source ISO or its integrity record is unavailable.")
+                    if not hmac.compare_digest(sha256_file(source_path).lower(), expected_sha.lower()):
+                        raise RuntimeError("The source ISO SHA-256 changed. Re-import the image before rebuilding.")
+                    output_path = ARTIFACTS_DIR / ("iso-edited-" + uuid.uuid4().hex + ".iso")
                     result = repack_iso_workspace(
                         source_path,
                         Path(workspace["root"]),
@@ -1387,23 +1397,23 @@ class Handler(BaseHTTPRequestHandler):
                         metadata.get("inspection") or {},
                         executable("xorriso", "xorriso")
                     )
+                    previous_path = source_path
+                    if "originalPath" not in metadata:
+                        metadata["originalPath"] = str(source_path)
+                    metadata["path"] = result["path"]
+                    metadata["sha256"] = result["sha256"]
+                    metadata["sizeBytes"] = result["sizeBytes"]
+                    metadata["inspection"] = result["inspection"]
+                    if "originalName" not in metadata:
+                        metadata["originalName"] = metadata.get("name") or "uploaded.iso"
+                    metadata["name"] = Path(metadata["originalName"]).stem + "-edited.iso"
+                    metadata["edited"] = True
+                    metadata["parentSha256"] = expected_sha
+                    workspace["dirty"] = False
+                    if previous_path != Path(metadata["originalPath"]):
+                        previous_path.unlink(missing_ok=True)
                 finally:
                     ISO_LOCK.release()
-                previous_path = source_path
-                if "originalPath" not in metadata:
-                    metadata["originalPath"] = str(source_path)
-                metadata["path"] = result["path"]
-                metadata["sha256"] = result["sha256"]
-                metadata["sizeBytes"] = result["sizeBytes"]
-                metadata["inspection"] = result["inspection"]
-                if "originalName" not in metadata:
-                    metadata["originalName"] = metadata.get("name") or "uploaded.iso"
-                metadata["name"] = Path(metadata["originalName"]).stem + "-edited.iso"
-                metadata["edited"] = True
-                metadata["parentSha256"] = expected_sha
-                workspace["dirty"] = False
-                if previous_path != Path(metadata["originalPath"]):
-                    previous_path.unlink(missing_ok=True)
                 self.send_json(200, {
                     "status": "repacked",
                     "iso": {key: value for key, value in metadata.items() if key not in ("path", "originalPath")},
@@ -1431,7 +1441,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, {"status": "extracted", "archive": response})
                 return
             if path == "/api/v1/emulator/start-iso":
-                result = start_imported_iso_qemu(data)
+                if not ISO_LOCK.acquire(blocking=False):
+                    raise RuntimeError("Another ISO operation is running. Wait for it to finish.")
+                try:
+                    result = start_imported_iso_qemu(data)
+                finally:
+                    ISO_LOCK.release()
                 self.send_json(200, result)
                 return
             if path == "/api/v1/toolchain":
@@ -1447,7 +1462,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(200, result)
                 return
             if path == "/api/v1/emulator/start":
-                result = start_qemu(data)
+                if not ISO_LOCK.acquire(blocking=False):
+                    raise RuntimeError("Another ISO operation is running. Wait for it to finish.")
+                try:
+                    result = start_qemu(data)
+                finally:
+                    ISO_LOCK.release()
                 self.send_json(200, result)
                 return
             if path == "/api/v1/emulator/stop":
