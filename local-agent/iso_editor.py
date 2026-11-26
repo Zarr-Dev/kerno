@@ -2,19 +2,14 @@
 from __future__ import annotations
 
 import os
-import re
 import shutil
-import stat
 import subprocess
-import tempfile
 import uuid
 from pathlib import Path, PurePosixPath
 
 from iso_manager import (
     MAX_EXTRACTED_BYTES,
     MAX_ISO_BYTES,
-    MAX_ISO_BYTES as _MAX_IMAGE_BYTES,
-    MAX_EXTRACTED_FILES,
     _inside,
     inspect_iso_image,
     sha256_file,
@@ -260,6 +255,9 @@ def repack_workspace(
     if process.returncode != 0 or not destination.is_file() or destination.stat().st_size < 19 * 2048:
         destination.unlink(missing_ok=True)
         raise RuntimeError("xorriso failed to rebuild the ISO: " + output_log[-1600:])
+    if destination.stat().st_size > MAX_ISO_BYTES:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError("The rebuilt ISO exceeds the configured ISO size limit.")
     try:
         inspection = inspect_iso_image(destination, xorriso_binary)
         if not inspection.get("iso9660Valid"):
