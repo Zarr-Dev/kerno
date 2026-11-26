@@ -3097,8 +3097,12 @@ $("#landingTutorialButton").onclick=openTutorial;
 $("#heroStartButton").onclick=()=>{state.newProjectReturn="welcome";syncWizardDefaults();show("newProject");};
 $("#heroTutorialButton").onclick=openTutorial;
 $("#workflowTutorialButton").onclick=openTutorial;
-$$("[data-kernel-stage]").forEach(button=>{
-  button.addEventListener("click",()=>openTutorialStage(button.dataset.kernelStage));
+$("[data-kernel-stage]").forEach(button=>{
+  button.dataset.kernoActionBound="1";
+  button.addEventListener("click",()=>{
+    button.dataset.kernoActionClicked="1";
+    openTutorialStage(button.dataset.kernelStage);
+  });
 });
 $("#isoTutorialButton").onclick=()=>openTutorialStage(7);$("#footerTutorialButton").onclick=openTutorial;
 $("#backFromTutorial").onclick=()=>show("welcome");
