@@ -12,7 +12,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 SECTOR_SIZE = 2048
-MIN_ISO_BYTES = 64 * 1024
+MIN_ISO_BYTES = 19 * SECTOR_SIZE
 MAX_ISO_BYTES = int(os.environ.get("KERNO_MAX_ISO_BYTES", str(4 * 1024**3)))
 MAX_EXTRACTED_BYTES = int(os.environ.get("KERNO_MAX_EXTRACTED_ISO_BYTES", str(2 * 1024**3)))
 MAX_EXTRACTED_FILES = 50_000
@@ -138,11 +138,20 @@ def inspect_iso_image(image_path: Path, xorriso_binary: str = "xorriso") -> dict
     report = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
     if proc.returncode != 0:
         raise RuntimeError("xorriso could not inspect this ISO image: " + report[-900:])
-    image_types = [value.strip().upper() for value in re.findall(r"El Torito img type\s*:\s*([^\r\n]+)", report, re.I)]
-    if any("BIOS" in value or "NO EMULATION" in value for value in image_types):
-        result["bootableBIOS"] = True
-    if any("EFI" in value or "UEFI" in value for value in image_types):
-        result["bootableEFI"] = True
+    # xorriso reports each entry as: "El Torito boot img : N Pltf B Emul ...".
+    # The platform column is BIOS/PPC/Mac/UEFI and B is y/n (bootable).
+    boot_images = re.findall(
+        r"(?im)^\s*El Torito boot img\s*:\s*\d+\s+([A-Za-z0-9x]+)\s+([yn])\s+",
+        report,
+    )
+    for platform_name, bootable_flag in boot_images:
+        if bootable_flag.lower() != "y":
+            continue
+        platform_name = platform_name.upper()
+        if platform_name in ("BIOS", "0X00"):
+            result["bootableBIOS"] = True
+        elif platform_name in ("UEFI", "EFI", "0XEF"):
+            result["bootableEFI"] = True
     platforms = []
     if result["bootableBIOS"]:
         platforms.append("BIOS")
@@ -157,7 +166,7 @@ def inspect_iso_image(image_path: Path, xorriso_binary: str = "xorriso") -> dict
 def receive_iso_upload(stream, content_length: int, filename: str, destination: Path, xorriso_binary: str = "xorriso") -> dict:
     """Stream an ISO to disk, hash it, inspect it, and publish only a valid image."""
     if content_length < MIN_ISO_BYTES or content_length > MAX_ISO_BYTES:
-        raise ValueError("ISO upload must be between 64 KiB and the configured maximum of 4 GiB.")
+        raise ValueError("ISO upload must be at least 38 KiB and must not exceed the configured maximum of 4 GiB.")
     if content_length % SECTOR_SIZE != 0:
         raise ValueError("ISO upload size must be aligned to 2048-byte sectors.")
 
