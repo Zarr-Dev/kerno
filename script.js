@@ -2194,12 +2194,16 @@ function isoText(key){
  return copy[key]||ISO_UI_COPY.en[key]||key;
 }
 function translateIsoWorkbench(){
- const values={isoWorkbenchTitle:"title",isoWorkbenchDescription:"description",isoImportButton:"import",isoExtractButton:"extract",isoOpenEditorButton:"open",isoBootButton:"boot",toolVersionHeading:"toolTitle",isoRoadmapTitle:"roadmapTitle",isoRoadmapNote:"roadmapNote",isoStageV01Title:"phase01Title",isoStageV01Description:"phase01Description",isoStageV02Title:"phase02Title",isoStageV02Description:"phase02Description",isoStageV03Title:"phase03Title",isoStageV03Description:"phase03Description",isoStageV04Title:"phase04Title",isoStageV04Description:"phase04Description",isoEditorHeading:"editorHeading",isoEditorDescription:"editorDescription",isoEditorAddButton:"editorAdd",isoEditorReplaceButton:"editorReplace",isoEditorDeleteButton:"editorDelete",isoEditorRefreshButton:"editorRefresh",isoEditorSearch:"editorSearch",isoEditorSaveButton:"editorSave",isoEditorRepackButton:"editorRepack",isoEditorDownloadButton:"editorDownload",isoEditorSelectedPath:"editorSelect",isoEditorSelectedMeta:"editorMeta"};
+ const values={isoWorkbenchTitle:"title",isoWorkbenchDescription:"description",isoImportButton:"import",isoExtractButton:"extract",isoBootButton:"boot",toolVersionHeading:"toolTitle",isoRoadmapTitle:"roadmapTitle",isoRoadmapNote:"roadmapNote",isoStageV01Title:"phase01Title",isoStageV01Description:"phase01Description",isoStageV02Title:"phase02Title",isoStageV02Description:"phase02Description",isoStageV03Title:"phase03Title",isoStageV03Description:"phase03Description"};
  Object.entries(values).forEach(([id,key])=>{const node=$("#"+id);if(node)node.textContent=isoText(key);});
+ const editorValues={isoOpenEditorButton:"open",isoEditorHeading:"editorHeading",isoEditorDescription:"editorDescription",isoEditorAddButton:"editorAdd",isoEditorReplaceButton:"editorReplace",isoEditorDeleteButton:"editorDelete",isoEditorRefreshButton:"editorRefresh",isoEditorSaveButton:"editorSave",isoEditorRepackButton:"editorRepack",isoEditorDownloadButton:"editorDownload",isoEditorWarning:"editorWarning"};
+ Object.entries(editorValues).forEach(([id,key])=>{const node=$("#"+id);if(node)node.textContent=isoEditorText(key);});
+ const search=$("#isoEditorSearch");if(search)search.placeholder=isoEditorText("search");
+ const selected=$("#isoEditorSelectedPath");if(selected&&!state.isoEditorSelectedPath)selected.textContent=isoEditorText("editorSelect");
+ const meta=$("#isoEditorSelectedMeta");if(meta&&!state.isoEditorSelectedPath)meta.textContent=isoEditorText("editorMeta");
  const lead=$("#toolVersionHeading")?.parentElement?.querySelector("p");
  if(lead)lead.textContent=isoText("toolLead");
  if(!state.importedIso)setIsoImportStatus(isoText("idle"),"");
- const warning=$(".iso-editor-warning");if(warning)warning.textContent=isoText("editorWarning");
  const note=$("#toolVersionStatus");if(note)note.textContent=isoText("releaseNote");
 }
 const TOOL_RELEASE_TRACKS=[
