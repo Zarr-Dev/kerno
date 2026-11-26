@@ -2316,7 +2316,7 @@ async function startImportedIsoQemu(){
  }catch(error){setIsoImportStatus(error.message,"error");notify("External ISO could not boot",error.message,"error");button.disabled=false;}
 }
 
-function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build")renderBuild();if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
+function switchWorkspace(name){["source","machine","build"].forEach(x=>$("#"+x+"Workspace").classList.toggle("hidden",x!==name));$(".workspace-nav-item").forEach(b=>b.classList.toggle("active",b.dataset.workspace===name));if(name==="machine"&&!state.localConnected)renderMachineEmpty(tr("connectQemuPrompt"));if(name==="build"){renderBuild();if(!$("#toolVersionCards").children.length)renderToolVersionChannels();}if(name==="source"){state.editor&&state.editor.layout();state.splitEditor&&state.splitEditor.layout();}}
 function renderMachineEmpty(msg){const v=$("#machineViewport");v.innerHTML='<div class="viewport-empty"><div class="monitor-glyph">▣</div><strong></strong><p></p><span class="viewport-hint">QEMU / VNC OUTPUT</span></div>';$("strong",v).textContent=tr("noMachineSession");$("p",v).textContent=msg||tr("connectQemuPrompt");}
 function setServiceStatus(on,msg){state.localConnected=on;$("#qemuStatusText").textContent=msg;$(".machine-status").classList.toggle("connected",on);$("#qemuStatusDot").style.background=on?"#77c99c":"#c58f62";$("#machineControlNote").textContent=on?"Local service reachable. QEMU process control is delegated to the local runtime.":"QEMU is unavailable until Kerno Local Service is installed and connected.";}
 async function testService(){try{KernoLocalService.configure(state.settings.localServiceUrl,state.settings.localServiceToken);const h=await KernoLocalService.health();setServiceStatus(true,"Local service connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Connected · API "+(h.apiVersion||"unknown");notify("Local service connected");return true;}catch(e){setServiceStatus(false,"QEMU not connected");if($("#localServiceResult"))$("#localServiceResult").textContent="Unavailable · "+e.message;notify("Local service unavailable",e.message);return false;}}
@@ -2328,16 +2328,18 @@ async function pollQemuStatus(){
   try{
     const result=await KernoLocalService.emulatorStatus();
     if(result.status==="running"){
-      setServiceStatus(true,state.kernelEntryConfirmed?"QEMU running · kernel entry confirmed":"QEMU running · checking kernel entry");
+      const externalIso=result.bootMode==="external-iso"||state.qemuBootMode==="external-iso";
+      state.qemuBootMode=externalIso?"external-iso":"project";
+      setServiceStatus(true,externalIso?"QEMU running · external ISO":(state.kernelEntryConfirmed?"QEMU running · kernel entry confirmed":"QEMU running · checking kernel entry"));
       if(result.displayUrl&&state.currentDisplayUrl!==result.displayUrl)showDisplay(result.displayUrl);
       const serial=String(result.serialOutput||"");
       if(serial!==state.lastSerialOutput){
         state.lastSerialOutput=serial;
         $("#serialOutput").textContent=serial||"Waiting for serial output…";
         const consolePanel=$("#serialOutput");if(consolePanel)consolePanel.scrollTop=consolePanel.scrollHeight;
-        verifyBootMarker(serial);
+        if(!externalIso)verifyBootMarker(serial);
       }
-      if(!state.kernelEntryConfirmed){
+      if(!externalIso&&!state.kernelEntryConfirmed){
         const serialEnabled=((state.project&&state.project.config&&state.project.config.diagnostics)||{}).serialBackend!=="null";
         if(serialEnabled&&state.qemuStartedAt&&Date.now()-state.qemuStartedAt>30000&&!state.qemuBootTimeoutShown){
           state.qemuBootTimeoutShown=true;
@@ -2348,13 +2350,16 @@ async function pollQemuStatus(){
       $("#stopQemuButton").disabled=false;
       $("#startQemuButton").disabled=true;
     }else{
+      const endedMode=state.qemuBootMode||"project";
       stopQemuPolling();
       if(window.KernoNoVNC)window.KernoNoVNC.disconnect();
       state.currentDisplayUrl="";
       state.lastSerialOutput="";
       state.qemuStartedAt=0;
       state.qemuBootTimeoutShown=false;
-      if(!state.kernelEntryConfirmed)$("#buildStateLabel").textContent="QEMU STOPPED · KERNEL ENTRY NOT CONFIRMED";
+      state.qemuBootMode="";
+      if(endedMode==="external-iso")$("#buildStateLabel").textContent="EXTERNAL ISO STOPPED";
+      else if(!state.kernelEntryConfirmed)$("#buildStateLabel").textContent="QEMU STOPPED · KERNEL ENTRY NOT CONFIRMED";
       $("#serialOutput").textContent="QEMU is stopped. No serial output is available.";
       renderMachineEmpty("Local service connected; no QEMU guest is running.");
       setServiceStatus(true,"Service connected · machine stopped");
@@ -2420,6 +2425,7 @@ async function startQemu(){
   $("#startQemuButton").disabled=true;
   try{
     const result=await KernoLocalService.startEmulator(payload(),state.settings);
+    state.qemuBootMode="project";
     if(result.status!=="running"&&!result.displayUrl)throw Error(result.message||"The service did not confirm a running QEMU guest.");
     state.kernelEntryConfirmed=false;
     state.qemuStartedAt=Date.now();
@@ -2451,6 +2457,7 @@ async function stopQemu(){
     state.kernelEntryConfirmed=false;
     state.qemuStartedAt=0;
     state.qemuBootTimeoutShown=false;
+    state.qemuBootMode="";
     $("#serialOutput").textContent="QEMU stopped. Serial output is closed.";
     renderMachineEmpty("QEMU was stopped by Kerno Local Service.");
     setServiceStatus(true,"Service connected · machine stopped");
@@ -2583,6 +2590,7 @@ async function nativeBuild(bootAfter){
       $("#buildLog").textContent+="Starting the configured QEMU machine…\\n";
       const boot=await KernoLocalService.startEmulator(Object.assign(payload(),{buildArtifact:result.artifact}),state.settings);
       if(boot.status!=="running"&&!boot.displayUrl)throw Error(boot.message||"Build succeeded, but QEMU did not confirm a running guest.");
+      state.qemuBootMode="project";
       state.qemuStartedAt=Date.now();
       state.qemuBootTimeoutShown=false;
       setServiceStatus(true,"QEMU process running · awaiting kernel entry");
@@ -2762,6 +2770,11 @@ $("#plainEditor").oninput=()=>{if(state.activeFile){state.project.files[state.ac
 $("#plainEditor").onkeyup=plainCursor;$("#plainEditor").onclick=plainCursor;
 $$(".workspace-nav-item").forEach(b=>b.onclick=()=>switchWorkspace(b.dataset.workspace));
 $("#connectLocalServiceButton").onclick=connectService;$("#startQemuButton").onclick=startQemu;$("#stopQemuButton").onclick=stopQemu;$("#clearSerialButton").onclick=()=>$("#serialOutput").textContent="";
+$("#isoImportButton").onclick=()=>$("#isoImportInput").click();
+$("#isoImportInput").onchange=async event=>{const file=event.target.files&&event.target.files[0];event.target.value="";if(file)await importIsoFile(file);};
+$("#isoExtractButton").onclick=extractImportedIso;
+$("#isoBootButton").onclick=startImportedIsoQemu;
+$("#isoDownloadArchiveButton").onclick=downloadExtractedIso;
 $("#buildProjectButton").onclick=()=>{switchWorkspace("build");nativeBuild(true);};$("#runBuildButton").onclick=()=>nativeBuild(false);$("#openSettingsFromBuild").onclick=()=>{state.category="toolchain";openSettings("app");};
 $$(".settings-nav-item").forEach(b=>b.onclick=()=>renderSettings(b.dataset.category));
 $("#architectureSelect").onchange=()=>{const arch=$("#architectureSelect").value;if(arch==="aarch64"||arch==="riscv64"){$("#firmwareSelect").value="uefi";$("#bootloaderSelect").value="uefi-app";}$("#scaffoldPreview").textContent=arch+" target\n├── boot/\n│   └── entry.asm\n├── include/kernel/\n├── src/\n│   ├── kernel.cpp\n│   ├── console.cpp\n│   └── memory.cpp\n├── linker.ld\n└── kerno.project.json";};
