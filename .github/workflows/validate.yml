@@ -2,7 +2,7 @@ name: Validate Kerno source
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
   pull_request:
   workflow_dispatch:
 
@@ -34,7 +34,10 @@ jobs:
           node --input-type=module --check < novnc-client.js
 
       - name: Validate local service Python
-        run: python -m py_compile local-agent/local_agent.py
+        run: python -m py_compile local-agent/local_agent.py local-agent/iso_manager.py
+
+      - name: Run ISO manager unit tests
+        run: PYTHONPATH=local-agent python -m unittest discover -s tests -p 'test_iso_manager.py' -v
 
       - name: Audit HTML structure and tutorial stages
         run: |
