@@ -70,8 +70,7 @@ class ISOManagerTests(unittest.TestCase):
             path = Path(temp) / "multi-boot.iso"
             make_test_iso(path, True, 0)
             completed = SimpleNamespace(returncode=0, stdout=report, stderr="")
-            with patch("iso_manager.shutil.which", return_value="/usr/bin/xorriso"), \\
-                 patch("iso_manager.subprocess.run", return_value=completed):
+            with patch("iso_manager.shutil.which", return_value="/usr/bin/xorriso"), patch("iso_manager.subprocess.run", return_value=completed):
                 result = iso_manager.inspect_iso_image(path)
 
         self.assertTrue(result["bootableBIOS"])
@@ -88,8 +87,7 @@ class ISOManagerTests(unittest.TestCase):
             path = Path(temp) / "nonboot.iso"
             make_test_iso(path, False, 0)
             completed = SimpleNamespace(returncode=0, stdout=report, stderr="")
-            with patch("iso_manager.shutil.which", return_value="/usr/bin/xorriso"), \\
-                 patch("iso_manager.subprocess.run", return_value=completed):
+            with patch("iso_manager.shutil.which", return_value="/usr/bin/xorriso"), patch("iso_manager.subprocess.run", return_value=completed):
                 result = iso_manager.inspect_iso_image(path)
 
         self.assertFalse(result["bootableBIOS"])
